@@ -52,7 +52,7 @@ export class Grass {
         #include <fog_pars_vertex>
         uniform sampler2D uMap; uniform vec3 uCenter; uniform float uTime, uTile, uHalf, uCell, uW;
         attribute vec4 aData;
-        varying float vY; varying float vShade;
+        varying float vY; varying float vShade; varying float vPatch;
         void main() {
           vec2 p = mod(aData.xy - uCenter.xz + uTile * 0.5, uTile) - uTile * 0.5 + uCenter.xz;
           vec2 uv = ((p + uHalf) / uCell + 0.5) / uW;
@@ -74,15 +74,19 @@ export class Grass {
           gl_Position = projectionMatrix * mvPosition;
           vY = position.y;
           vShade = 0.8 + fract(r * 11.3) * 0.35;
+          // manchas grandes de cor (amareladas / mais escuras), como pinceladas no campo
+          vPatch = sin(p.x * 0.045 + sin(p.y * 0.031) * 2.0) * 0.5 + sin(p.y * 0.052 - p.x * 0.02) * 0.5;
           #include <fog_vertex>
         }`,
       fragmentShader: `
         #include <common>
         #include <fog_pars_fragment>
         uniform vec3 uBase, uTip; uniform float uLight;
-        varying float vY; varying float vShade;
+        varying float vY; varying float vShade; varying float vPatch;
         void main() {
-          vec3 col = mix(uBase, uTip, smoothstep(0.0, 1.0, vY)) * vShade * uLight;
+          vec3 tip = mix(uTip, uTip * vec3(1.08, 1.02, 0.7), smoothstep(0.2, 0.9, vPatch));
+          tip = mix(tip, uBase * 1.25, smoothstep(-0.3, -0.9, vPatch) * 0.6);
+          vec3 col = mix(uBase * 0.75, tip, smoothstep(0.0, 1.0, vY)) * vShade * uLight;
           gl_FragColor = vec4(col, 1.0);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>

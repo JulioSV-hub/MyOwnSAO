@@ -9,9 +9,9 @@ export const expNeed = (lv) => Math.floor(60 * Math.pow(lv, 1.6));
 export const BIOMES = {
   meadow: {
     label: 'Planícies verdejantes',
-    ground: ['#4c8a36', '#69a844', '#8dbf56'], cliff: '#7b7a62', path: '#b09a72', plaza: '#948e82',
-    sky: { top: '#3b7bd8', bottom: '#cfe8ff' }, fog: [80, 520],
-    trees: { style: 'round', count: 380, trunk: '#6b4a2b', leaf: ['#3f7d32', '#4f9a3c', '#5ea845'] },
+    ground: ['#58a03a', '#74bb48', '#9fd25c'], cliff: '#8a8466', path: '#c8ae80', plaza: '#c2ae8c',
+    sky: { top: '#2a78e4', bottom: '#cdeeff' }, fog: [90, 560],
+    trees: { style: 'round', count: 420, trunk: '#6e4c34', leaf: ['#3f8f38', '#56a843', '#72bd4c', '#4a9a52'] },
     rocks: 110, rockColor: '#8b8a82', amp: 9, freq: 0.0075,
     pool: ['boar', 'wolf', 'kobold', 'wasp'],
   },
@@ -33,11 +33,11 @@ export const BIOMES = {
   },
   lake: {
     label: 'Lagos cristalinos',
-    ground: ['#5c9a52', '#78b064', '#cfc48c'], cliff: '#7a7a6a', path: '#c4ad84', plaza: '#a8a294',
+    ground: ['#5aa448', '#7cbf58', '#d8cc90'], cliff: '#8a8670', path: '#c4ad84', plaza: '#a8a294',
     sky: { top: '#2f86e0', bottom: '#d8f0ff' }, fog: [70, 470],
     trees: { style: 'round', count: 260, trunk: '#6b4a2b', leaf: ['#3a8a3a', '#4aa04a', '#5ab05a'] },
     rocks: 80, rockColor: '#9a9a92', amp: 12, freq: 0.008, base: -3.5,
-    water: { level: -1.4, color: '#3d8fc4', opacity: 0.8 },
+    water: { level: -1.4, color: '#3fb0d8', opacity: 0.82 },
     pool: ['toad', 'drake', 'lizard', 'wasp'],
   },
   ruins: {
@@ -93,10 +93,10 @@ export const BIOMES = {
 
 // Vegetação de cada bioma: densidade/cores da grama, arbustos e canteiros de flores.
 const LOOK = {
-  meadow: { grass: 1, grassColors: ['#3f7a2e', '#9ccf5a'], bushes: 180, flowers: 420 },
+  meadow: { grass: 1, grassColors: ['#468f30', '#c6e86a'], bushes: 200, flowers: 900, flowerColors: ['#ffffff', '#ffffff', '#fff4b0', '#ffe066', '#ffb8d0', '#c8b4ff'] },
   plateau: { grass: 0.8, grassColors: ['#7a6e30', '#d8c66a'], bushes: 60, flowers: 80, flowerColors: ['#ffe066', '#ffffff'] },
-  forest: { grass: 0.75, grassColors: ['#24461f', '#5f8f3a'], bushes: 340, flowers: 120, flowerColors: ['#ffffff', '#b08aff'] },
-  lake: { grass: 1, grassColors: ['#3f7f36', '#a6d468'], bushes: 160, flowers: 380 },
+  forest: { grass: 0.8, grassColors: ['#2c5a26', '#7fb04a'], bushes: 340, flowers: 120, flowerColors: ['#ffffff', '#b08aff'] },
+  lake: { grass: 1, grassColors: ['#438e38', '#bfe676'], bushes: 180, flowers: 700, flowerColors: ['#ffffff', '#ffffff', '#fff4b0', '#a8d8ff', '#ffb8d0'] },
   ruins: { grass: 0.7, grassColors: ['#5a6a48', '#a6aa7a'], bushes: 120, bushColor: '#5f7a48', flowers: 60, flowerColors: ['#ffffff', '#ffe066'] },
   crystal: { grass: 0.4, grassColors: ['#4a4a8a', '#b8a8ff'], bushes: 0, flowers: 200, flowerColors: ['#7fd0ff', '#ff9ae0', '#ffffff'] },
   snow: { grass: 0.12, grassColors: ['#a8b8c0', '#ffffff'], bushes: 80, bushColor: '#e8f0f4', flowers: 0 },

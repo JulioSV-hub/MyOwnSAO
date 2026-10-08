@@ -5,6 +5,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { makeNoise2D, mulberry32, fbm, smoothstep, lerp } from './rng.js';
 import { MAX_FLOOR } from './data.js';
 import { Grass } from './grass.js';
+import { toonMat } from './toon.js';
 
 export const FLOOR_R = 230;
 export const TOWN_R = 34;
@@ -41,7 +42,7 @@ class Grid {
   }
 }
 
-const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, ...o });
+const std = (color, o = {}) => toonMat(color, o);
 const hdr = (hex, k) => { const c = new THREE.Color(hex); return c.multiplyScalar(k); };
 const rbox = (w, h, d, r = 0.12) => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2) * 0.99);
 
@@ -353,7 +354,7 @@ export class World {
     const trunkMat = std(t.trunk);
     const crownMat = t.style === 'crystal'
       ? new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.15, metalness: 0.2, flatShading: true, emissive: '#2a2a44', transparent: true, opacity: 0.88 })
-      : std('#ffffff', { roughness: 0.95, side: t.style === 'pine' ? THREE.DoubleSide : THREE.FrontSide });
+      : std('#ffffff', { side: t.style === 'pine' ? THREE.DoubleSide : THREE.FrontSide, wind: { strength: t.style === 'pine' ? 0.025 : 0.05, minY: 2.2 } });
     const trunks = trunkGeo ? new THREE.InstancedMesh(trunkGeo, trunkMat, n) : null;
     const crowns = crownGeo ? new THREE.InstancedMesh(crownGeo, crownMat, n) : null;
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
@@ -405,7 +406,7 @@ export class World {
     const nb = b.bushes ?? 160, nf = b.flowers ?? 0;
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color();
     if (nb) {
-      const im = new THREE.InstancedMesh(blob(2, 0.22, this.floor.seed + 3), std('#ffffff', { roughness: 1 }), nb);
+      const im = new THREE.InstancedMesh(blob(2, 0.22, this.floor.seed + 3), std('#ffffff', { wind: { strength: 0.05, minY: -0.3 } }), nb);
       let k = 0;
       for (let tries = 0; tries < nb * 4 && k < nb; tries++) {
         const rad = (FLOOR_R - 6) * Math.sqrt(r()), ang = r() * Math.PI * 2;
@@ -428,7 +429,7 @@ export class World {
     }
     if (nf) {
       const palette = b.flowerColors || ['#ffffff', '#ffe066', '#ff8ab0', '#b08aff', '#7ad0ff'];
-      const im = new THREE.InstancedMesh(new THREE.SphereGeometry(0.075, 8, 6), std('#ffffff', { roughness: 0.6, emissive: '#111111' }), nf);
+      const im = new THREE.InstancedMesh(new THREE.SphereGeometry(0.1, 10, 8), std('#ffffff', { emissive: '#222222' }), nf);
       let k = 0;
       for (let tries = 0; tries < nf * 3 && k < nf; tries++) {
         // flores em pequenos canteiros
@@ -439,7 +440,7 @@ export class World {
           if (!this.freeSpot(x, z, 2.5)) continue;
           const h = this.groundAt(x, z);
           if (this.water && h < this.water.level + 0.3) continue;
-          m.compose(new THREE.Vector3(x, h + 0.3 + r() * 0.25, z), q.identity(), new THREE.Vector3(1, 0.7, 1));
+          m.compose(new THREE.Vector3(x, h + 0.55 + r() * 0.3, z), q.identity(), new THREE.Vector3(1, 0.65, 1));
           im.setMatrixAt(k, m);
           c.set(col);
           im.setColorAt(k, c);
@@ -490,11 +491,16 @@ export class World {
   // ─────────── Cidade ───────────
   buildTown() {
     const r = this.rand;
-    const wallCols = ['#e8dcc0', '#d8c8a8', '#cbbba0', '#e0d4bc', '#d4c4b0'];
-    const roofCols = ['#8a3a2a', '#6a4a3a', '#3a5a7a', '#7a2a2a', '#4a6a3a'];
+    const wallCols = ['#f3e6cf', '#efe0c4', '#f6efe0', '#ead6b4', '#f0dcc8'];
+    const roofCols = ['#c4572e', '#d36b3a', '#3f7f8f', '#9a3f2e', '#5d8a4a', '#b8482e'];
+    const doorCols = ['#4a7a4a', '#3a6a8a', '#8a3a2a', '#6a4a2a'];
+    const flowerCols = ['#ff6a7a', '#ffb0c8', '#fff0a0', '#ffffff', '#c8a0ff'];
     const mats = {};
     const M = (c) => mats[c] || (mats[c] = std(c));
+    const beamMat = M('#6b4a32');
     const winGeo = new THREE.PlaneGeometry(0.8, 0.9);
+    const flowerGeo = new THREE.SphereGeometry(0.14, 10, 8);
+    const leafMat = M('#4f9a3a');
     this.windowMat = new THREE.MeshStandardMaterial({ color: '#3a3020', emissive: '#ffc864', emissiveIntensity: 0.1 });
     const doorMat = std('#5a3a22');
     const spokeAngles = this.spokes.map((s) => Math.atan2(s.dz, s.dx));
@@ -530,7 +536,7 @@ export class World {
       ridge.position.y = hgt + rh + 0.12;
       const chimney = new THREE.Mesh(rbox(0.6, 1.4, 0.6, 0.08), M('#8a7a6a'));
       chimney.position.set(w * 0.22, hgt + rh * 0.75, -d * 0.2);
-      const door = new THREE.Mesh(rbox(1.1, 2.1, 0.16, 0.06), doorMat);
+      const door = new THREE.Mesh(rbox(1.1, 2.1, 0.16, 0.06), M(doorCols[Math.floor(r() * doorCols.length)]));
       door.position.set(0, 1.05, d / 2 + 0.06);
       const step = new THREE.Mesh(rbox(1.6, 0.18, 0.7, 0.06), M('#9a948a'));
       step.position.set(0, 0.09, d / 2 + 0.4);
@@ -541,6 +547,27 @@ export class World {
         const win = new THREE.Mesh(winGeo, this.windowMat);
         win.position.set(sx * w * 0.3, hgt * 0.58, d / 2 + 0.12);
         house.add(frame, win);
+        // floreira sob a janela
+        const box = new THREE.Mesh(rbox(1.15, 0.28, 0.35, 0.05), beamMat);
+        box.position.set(sx * w * 0.3, hgt * 0.58 - 0.72, d / 2 + 0.2);
+        house.add(box);
+        const fc = M(flowerCols[Math.floor(r() * flowerCols.length)]);
+        for (let f = 0; f < 5; f++) {
+          const bl = new THREE.Mesh(flowerGeo, f % 2 ? leafMat : fc);
+          bl.position.set(sx * w * 0.3 - 0.45 + f * 0.22, hgt * 0.58 - 0.5, d / 2 + 0.2);
+          house.add(bl);
+        }
+      }
+      // vigas de madeira (enxaimel) nos cantos e no meio da parede
+      for (const cx of [-1, 1]) for (const cz of [-1, 1]) {
+        const post = new THREE.Mesh(rbox(0.22, hgt, 0.22, 0.05), beamMat);
+        post.position.set(cx * (w / 2 + 0.04), hgt / 2, cz * (d / 2 + 0.04));
+        house.add(post);
+      }
+      for (const cz of [-1, 1]) {
+        const beam = new THREE.Mesh(rbox(w + 0.2, 0.2, 0.14, 0.05), beamMat);
+        beam.position.set(0, hgt * 0.92, cz * (d / 2 + 0.07));
+        house.add(beam);
       }
       house.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       this.group.add(house);
@@ -568,10 +595,10 @@ export class World {
   buildGate() {
     const g = new THREE.Group();
     g.position.copy(this.gatePos);
-    const stone = std('#bcb8b0'), gold = std('#c8a050', { metalness: 0.6, roughness: 0.4 });
+    const stone = std('#e2d6c2'), gold = std('#d8a850');
     const base = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.8, 0.3, 32), stone);
     base.position.y = 0.05;
-    const step = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.4, 0.2, 32), std('#d8d4cc'));
+    const step = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.4, 0.2, 32), std('#cdbfa6'));
     step.position.y = 0.3;
     g.add(base, step);
     for (const sx of [-1, 1]) {
@@ -598,9 +625,9 @@ export class World {
           vec2 p = vUv - 0.5; float r = length(p) * 2.0; float a = atan(p.y, p.x);
           float s = sin(a * 5.0 + uTime * 2.2 - r * 12.0) * 0.5 + 0.5;
           float edge = smoothstep(1.0, 0.85, r);
-          float alpha = edge * (0.35 + 0.35 * s) * (0.6 + 0.4 * r);
+          float alpha = edge * (0.25 + 0.3 * s) * (0.6 + 0.4 * r);
           vec3 c = mix(vec3(0.25, 0.6, 1.0), vec3(0.85, 1.0, 1.0), s * (1.0 - r));
-          gl_FragColor = vec4(c * alpha * 1.6, alpha);
+          gl_FragColor = vec4(c * alpha * 1.1, alpha);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }`,

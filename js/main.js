@@ -4,6 +4,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Input } from './input.js';
 import { World } from './world.js';
@@ -13,6 +15,7 @@ import { EnemyManager } from './enemies.js';
 import { Effects } from './effects.js';
 import { UI } from './ui.js';
 import { Sfx } from './audio.js';
+import { windTime } from './toon.js';
 import { smoothstep } from './rng.js';
 import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward } from './data.js';
 import { loadSave, writeSave, deleteSave, newSave } from './save.js';
@@ -24,6 +27,28 @@ const MOON = new THREE.Color('#9fb4ff');
 const SUN = new THREE.Color('#fff2dc');
 const WHITE = new THREE.Color('#ffffff');
 const DEFAULT_SETTINGS = newSave('x').settings;
+const CLOUD_SHADE = new THREE.Color('#a9bfe0');
+const CLOUD_SUNSET = new THREE.Color('#ffd2a8');
+const CLOUD_DUSK = new THREE.Color('#9a86b8');
+
+// Tratamento de cor final "pintura": saturação, calor, contraste suave, vinheta e grão de papel.
+const GRADE = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main(){
+      vec3 col = texture2D(tDiffuse, vUv).rgb;
+      float l = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(vec3(l), col, 1.14);
+      col *= vec3(1.035, 1.0, 0.955);
+      col = mix(col, col * col * (3.0 - 2.0 * col), 0.18);
+      vec2 q = vUv - 0.5;
+      col *= 1.0 - dot(q, q) * 0.6;
+      float g = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
+      col += (g - 0.5) * 0.02;
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    }`,
+};
 
 // Faces achatadas vistas de lado geram normal = normalize(0) = NaN; o bloom espalharia esse pixel pela tela toda.
 THREE.ShaderChunk.normal_fragment_begin = THREE.ShaderChunk.normal_fragment_begin.replace(
@@ -38,7 +63,7 @@ class Game {
     r.setSize(innerWidth, innerHeight);
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
-    r.toneMapping = THREE.ACESFilmicToneMapping;
+    r.toneMapping = THREE.NeutralToneMapping;
     r.toneMappingExposure = 1;
     document.getElementById('game').appendChild(r.domElement);
 
@@ -56,6 +81,8 @@ class Game {
     this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.45, 1.0);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
+    this.grade = new ShaderPass(GRADE);
+    this.composer.addPass(this.grade);
 
     this.input = new Input(r.domElement);
     this.ui = new UI(this);
@@ -148,7 +175,8 @@ class Game {
     this.stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: '#ffffff', size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
     this.scene.add(this.stars);
 
-    this.hemi = new THREE.HemisphereLight('#cfe8ff', '#4a5a3a', 0.9);
+    this.buildCumulus();
+    this.hemi = new THREE.HemisphereLight('#cfe9ff', '#8cb069', 0.9);
     this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight('#fff2dc', 2.6);
     this.sun.castShadow = true;
@@ -159,6 +187,57 @@ class Game {
     this.sun.shadow.normalBias = 0.5;
     this.scene.add(this.sun, this.sun.target);
     this.sunDir = new THREE.Vector3();
+  }
+
+  // Grandes cumulus pintados no horizonte, iluminados pelo sol (lado sombreado azulado).
+  buildCumulus() {
+    this.cloudMat = new THREE.ShaderMaterial({
+      fog: false,
+      uniforms: { uSun: { value: new THREE.Vector3(0, 1, 0) }, uLit: { value: new THREE.Color('#ffffff') }, uShade: { value: new THREE.Color('#a9bfe0') }, uRim: { value: new THREE.Color('#ffffff') } },
+      vertexShader: `varying vec3 vN; varying vec3 vP;
+        void main(){ vN = normalize(mat3(modelMatrix) * normal); vec4 wp = modelMatrix * vec4(position, 1.0); vP = wp.xyz; gl_Position = projectionMatrix * viewMatrix * wp; }`,
+      fragmentShader: `uniform vec3 uSun, uLit, uShade, uRim; varying vec3 vN; varying vec3 vP;
+        void main(){
+          vec3 n = normalize(vN);
+          float l = dot(n, normalize(uSun)) * 0.5 + 0.5;
+          vec3 c = mix(uShade, uLit, smoothstep(0.32, 0.62, l));
+          c = mix(c, uShade * 0.92, smoothstep(0.1, -0.7, n.y) * 0.55);
+          float rim = pow(1.0 - abs(dot(n, normalize(cameraPosition - vP))), 3.0);
+          c += uRim * rim * 0.3;
+          gl_FragColor = vec4(c, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+    });
+    this.cumulus = new THREE.Group();
+    for (let i = 0; i < 18; i++) {
+      const puffs = [];
+      const w = 40 + Math.random() * 70, np = 7 + Math.floor(Math.random() * 6);
+      for (let j = 0; j < np; j++) {
+        const t = j / (np - 1) - 0.5, r = (1 - Math.abs(t) * 1.2) * (18 + Math.random() * 16) + 8;
+        const g = new THREE.SphereGeometry(r, 18, 12);
+        g.translate(t * w * 1.6 + (Math.random() - 0.5) * 10, r * 0.35 + Math.random() * 8, (Math.random() - 0.5) * 24);
+        puffs.push(g);
+      }
+      for (let j = 0; j < 4; j++) {
+        const r = 14 + Math.random() * 14, g = new THREE.SphereGeometry(r, 18, 12);
+        g.translate((Math.random() - 0.5) * w, r + 10 + Math.random() * 14, (Math.random() - 0.5) * 16);
+        puffs.push(g);
+      }
+      const geo = mergeGeometries(puffs);
+      const p = geo.attributes.position;
+      for (let k = 0; k < p.count; k++) if (p.getY(k) < 2) p.setY(k, 2 + (p.getY(k) - 2) * 0.22);
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, this.cloudMat);
+      const a = (i / 18) * Math.PI * 2 + Math.random() * 0.3, d = 700 + Math.random() * 350;
+      m.position.set(Math.cos(a) * d, 40 + Math.random() * 170, Math.sin(a) * d);
+      m.lookAt(0, m.position.y, 0);
+      m.scale.setScalar(0.9 + Math.random() * 0.9);
+      m.userData.a = a;
+      m.userData.d = d;
+      this.cumulus.add(m);
+    }
+    this.scene.add(this.cumulus);
   }
 
   updateSky(dt, advance) {
@@ -176,10 +255,10 @@ class Game {
     u.sunDir.value.copy(sun);
     u.sunVis.value = smoothstep(-0.06, 0.04, elev);
     this.scene.fog.color.copy(u.bottom.value);
-    this.hemi.color.copy(u.top.value).lerp(new THREE.Color('#ffffff'), 0.5);
-    this.hemi.intensity = 0.3 + 0.7 * day;
-    this.scene.environmentIntensity = 0.05 + 0.15 * day;
-    this.sun.intensity = 0.35 + 2.3 * day;
+    this.hemi.color.copy(u.top.value).lerp(WHITE, 0.55);
+    this.hemi.intensity = 0.45 + 0.75 * day;
+    this.scene.environmentIntensity = 0.05 + 0.12 * day;
+    this.sun.intensity = 0.3 + 2.1 * day;
     this.sun.color.copy(MOON).lerp(SUN, day).lerp(SUNSET, sunset * 0.4);
     const ld = elev > -0.05 ? sun : v3a.copy(sun).negate().setY(Math.max(0.35, -sun.y));
     const c = this.mode === 'title' ? v3b.set(0, 0, 0) : this.player.pos;
@@ -190,6 +269,14 @@ class Game {
     this.stars.position.copy(this.camera.position);
     this.night = 1 - day;
     u.uTime.value = this.time;
+    windTime.value = this.time;
+    const cu = this.cloudMat.uniforms;
+    cu.uSun.value.copy(elev > -0.05 ? sun : v3a.set(0, 1, 0));
+    cu.uLit.value.set('#59647e').lerp(WHITE, day).lerp(CLOUD_SUNSET, sunset * 0.55);
+    cu.uShade.value.set('#262c44').lerp(CLOUD_SHADE, day).lerp(CLOUD_DUSK, sunset * 0.5);
+    cu.uRim.value.copy(cu.uLit.value).multiplyScalar(0.6);
+    this.cumulus.position.set(this.camera.position.x * 0.9, 0, this.camera.position.z * 0.9);
+    this.cumulus.rotation.y = this.time * 0.002;
     u.cloudCol.value.set('#2a3348').lerp(WHITE, day).lerp(SUNSET, sunset * 0.35);
     this.world?.grass?.update(this.camera.position, this.time, 0.25 + 0.85 * day);
     if (this.world?.cloudMat) this.world.cloudMat.color.copy(u.bottom.value).lerp(new THREE.Color('#ffffff'), 0.4 * day);
