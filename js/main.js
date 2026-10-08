@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Input } from './input.js';
 import { World } from './world.js';
 import { Player } from './player.js';
@@ -21,6 +22,7 @@ const NIGHT_BOTTOM = new THREE.Color('#121c34');
 const SUNSET = new THREE.Color('#ff8a4a');
 const MOON = new THREE.Color('#9fb4ff');
 const SUN = new THREE.Color('#fff2dc');
+const WHITE = new THREE.Color('#ffffff');
 const DEFAULT_SETTINGS = newSave('x').settings;
 
 // Faces achatadas vistas de lado geram normal = normalize(0) = NaN; o bloom espalharia esse pixel pela tela toda.
@@ -41,6 +43,9 @@ class Game {
     document.getElementById('game').appendChild(r.domElement);
 
     this.scene = new THREE.Scene();
+    const pmrem = new THREE.PMREMGenerator(r);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environmentIntensity = 0.3;
     this.scene.fog = new THREE.Fog('#cfe8ff', 70, 470);
     this.camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 2600);
     this.scene.add(this.camera);
@@ -48,7 +53,7 @@ class Game {
 
     this.composer = new EffectComposer(r);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.45, 0.9);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.45, 1.0);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -100,15 +105,28 @@ class Game {
       uniforms: {
         top: { value: new THREE.Color() }, bottom: { value: new THREE.Color() },
         sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunCol: { value: new THREE.Color(1, 0.9, 0.7) }, sunVis: { value: 1 },
+        uTime: { value: 0 }, cloudCol: { value: new THREE.Color(1, 1, 1) },
       },
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
-      fragmentShader: `uniform vec3 top; uniform vec3 bottom; uniform vec3 sunDir; uniform vec3 sunCol; uniform float sunVis; varying vec3 vDir;
+      fragmentShader: `uniform vec3 top; uniform vec3 bottom; uniform vec3 sunDir; uniform vec3 sunCol; uniform float sunVis; uniform float uTime; uniform vec3 cloudCol; varying vec3 vDir;
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }
+        float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * vnoise(p); p = p * 2.03 + 1.7; a *= 0.5; } return s; }
         void main(){
           vec3 d = normalize(vDir); float h = d.y;
           vec3 col = mix(bottom, top, smoothstep(-0.02, 0.55, h));
           if (h < 0.0) col = mix(bottom, bottom * 0.7, smoothstep(0.0, -0.4, h));
           float s = max(dot(d, normalize(sunDir)), 0.0);
-          col += sunCol * (pow(s, 900.0) * 30.0 + pow(s, 14.0) * 0.35) * sunVis;
+          col += sunCol * pow(s, 14.0) * 0.35 * sunVis;
+          if (h > 0.0) {
+            vec2 cp = d.xz / (h + 0.12) * 1.4 + vec2(uTime * 0.012, uTime * 0.005);
+            float n = fbm(cp);
+            float c = smoothstep(0.48, 0.75, n) * smoothstep(0.0, 0.18, h);
+            vec3 cc = cloudCol * (0.82 + 0.25 * smoothstep(0.5, 0.9, n)) + sunCol * pow(s, 6.0) * 0.4 * sunVis;
+            col = mix(col, cc, c * 0.9);
+          }
+          col += sunCol * pow(s, 900.0) * 30.0 * sunVis;
           gl_FragColor = vec4(col, 1.0);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
@@ -160,6 +178,7 @@ class Game {
     this.scene.fog.color.copy(u.bottom.value);
     this.hemi.color.copy(u.top.value).lerp(new THREE.Color('#ffffff'), 0.5);
     this.hemi.intensity = 0.3 + 0.7 * day;
+    this.scene.environmentIntensity = 0.05 + 0.15 * day;
     this.sun.intensity = 0.35 + 2.3 * day;
     this.sun.color.copy(MOON).lerp(SUN, day).lerp(SUNSET, sunset * 0.4);
     const ld = elev > -0.05 ? sun : v3a.copy(sun).negate().setY(Math.max(0.35, -sun.y));
@@ -170,6 +189,9 @@ class Game {
     this.sky.position.copy(this.camera.position);
     this.stars.position.copy(this.camera.position);
     this.night = 1 - day;
+    u.uTime.value = this.time;
+    u.cloudCol.value.set('#2a3348').lerp(WHITE, day).lerp(SUNSET, sunset * 0.35);
+    this.world?.grass?.update(this.camera.position, this.time, 0.25 + 0.85 * day);
     if (this.world?.cloudMat) this.world.cloudMat.color.copy(u.bottom.value).lerp(new THREE.Color('#ffffff'), 0.4 * day);
   }
 
@@ -198,6 +220,7 @@ class Game {
     pr.floor = n;
     pr.highest = Math.max(pr.highest, n);
     this.world.setDoorOpen(!!pr.cleared[n]);
+    this.applySettings();
     this.player.place(0, 9, 0);
     this.player.dead = false;
     this.enemies.populate();
@@ -289,6 +312,7 @@ class Game {
     this.camera.updateProjectionMatrix();
     Sfx.setVolume(s.volume);
     this.sun.castShadow = s.shadows;
+    if (this.world?.grass) this.world.grass.mesh.visible = s.grass !== false;
   }
 
   resize() {

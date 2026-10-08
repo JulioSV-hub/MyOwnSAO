@@ -1,8 +1,10 @@
 // Geração procedural de um andar de Aincrad: ilha flutuante, cidade com Portal, campos, arena do chefe e Labirinto.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { makeNoise2D, mulberry32, fbm, smoothstep, lerp } from './rng.js';
 import { MAX_FLOOR } from './data.js';
+import { Grass } from './grass.js';
 
 export const FLOOR_R = 230;
 export const TOWN_R = 34;
@@ -39,8 +41,26 @@ class Grid {
   }
 }
 
-const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0, flatShading: true, ...o });
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, ...o });
 const hdr = (hex, k) => { const c = new THREE.Color(hex); return c.multiplyScalar(k); };
+const rbox = (w, h, d, r = 0.12) => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2) * 0.99);
+
+// Esfera "orgânica": vértices unidos e deslocados por ruído, com normais suaves.
+function blob(detail, amount, seed) {
+  let g = new THREE.IcosahedronGeometry(1, detail);
+  g.deleteAttribute('normal');
+  g.deleteAttribute('uv');
+  g = mergeVertices(g);
+  const n = makeNoise2D(seed), p = g.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const k = 1 + (n(v.x * 1.3 + v.y * 0.7, v.z * 1.3 - v.y * 0.5) * 0.7 + n(v.x * 3.1, v.z * 3.1 + v.y * 2) * 0.3) * amount;
+    v.multiplyScalar(k);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
 
 function cloudTexture() {
   const S = 256, cv = document.createElement('canvas');
@@ -97,6 +117,7 @@ export class World {
     this.buildEnvironment();
     this.buildTrees();
     this.buildRocks();
+    this.buildBushes();
     if (this.b.ruins) this.buildRuins();
     this.buildTown();
     this.buildGate();
@@ -149,7 +170,7 @@ export class World {
 
   buildTerrain() {
     const b = this.b;
-    const N = 224, half = FLOOR_R + 50, cell = (half * 2) / N, W = N + 1;
+    const N = 300, half = FLOOR_R + 50, cell = (half * 2) / N, W = N + 1;
     this.N = N; this.half = half; this.cell = cell;
     const H = new Float32Array(W * W);
     for (let iz = 0; iz <= N; iz++) for (let ix = 0; ix <= N; ix++) H[iz * W + ix] = this.heightAt(ix * cell - half, iz * cell - half);
@@ -161,6 +182,8 @@ export class World {
     const edge = new THREE.Color(b.cliff).multiplyScalar(0.55);
     const shore = this.water?.lava ? new THREE.Color('#1a1210') : new THREE.Color(b.ground[2]).lerp(new THREE.Color('#e0d4a0'), 0.5);
     const c = new THREE.Color(), tmp = new THREE.Color();
+    const D = new Float32Array(W * W);
+    const grassy = b.grass ?? 1;
     for (let iz = 0; iz <= N; iz++) for (let ix = 0; ix <= N; ix++) {
       const i = iz * W + ix, x = ix * cell - half, z = iz * cell - half, h = H[i];
       pos[i * 3] = x; pos[i * 3 + 1] = h; pos[i * 3 + 2] = z;
@@ -172,16 +195,31 @@ export class World {
       c.lerp(g2, smoothstep(b.amp * 0.4, b.amp * 1.3, h - (b.base || 0)) * 0.7);
       c.lerp(cliff, smoothstep(0.45, 0.95, slope));
       if (this.water) c.lerp(shore, smoothstep(this.water.level + 0.8, this.water.level - 0.1, h) * 0.8);
-      c.lerp(path, (1 - smoothstep(2.2, 3.8, this.pathDist(x, z))) * 0.85);
+      const onPath = 1 - smoothstep(2.2, 3.8, this.pathDist(x, z));
+      c.lerp(path, onPath * 0.85);
       const dt = Math.hypot(x, z);
       const pz = 1 - smoothstep(TOWN_R - 7, TOWN_R - 3, dt);
       if (pz > 0) {
-        const tile = ((Math.floor(x / 2.5) + Math.floor(z / 2.5)) & 1) ? 0.9 : 1;
-        tmp.copy(plaza).multiplyScalar(tile * (0.94 + n * 0.12));
+        const ring = (Math.floor(dt / 2.4) & 1) ? 0.95 : 1;
+        tmp.copy(plaza).multiplyScalar(ring * (0.94 + n * 0.12));
         c.lerp(tmp, pz);
       }
       c.lerp(edge, smoothstep(FLOOR_R - 2, FLOOR_R + 8, dt));
       colr[i * 3] = c.r; colr[i * 3 + 1] = c.g; colr[i * 3 + 2] = c.b;
+      // densidade da grama: some em caminhos, praça, encostas, água, arena e borda
+      const patch = 0.45 + 0.55 * smoothstep(-0.5, 0.4, this.noise2(x * 0.02, z * 0.02));
+      let dn = grassy * patch * (1 - onPath) * (1 - pz) * (1 - smoothstep(0.35, 0.7, slope));
+      if (this.water && h < this.water.level + 0.25) dn = 0;
+      if (Math.hypot(x - this.arenaPos.x, z - this.arenaPos.z) < ARENA_R + 2.5) dn = 0;
+      if (Math.hypot(x - this.towerPos.x, z - this.towerPos.z) < 27) dn = 0;
+      if (dt > FLOOR_R - 3) dn = 0;
+      D[i] = dn;
+    }
+    if (grassy > 0) {
+      const gb = new THREE.Color(b.grassColors?.[0] || b.ground[0]).multiplyScalar(b.grassColors ? 1 : 0.8);
+      const gt = new THREE.Color(b.grassColors?.[1] || b.ground[2]).multiplyScalar(b.grassColors ? 1 : 1.15);
+      this.grass = new Grass({ N, half, cell, H, D, base: gb, tip: gt });
+      this.group.add(this.grass.mesh);
     }
     const idx = [];
     for (let iz = 0; iz < N; iz++) for (let ix = 0; ix < N; ix++) {
@@ -254,25 +292,49 @@ export class World {
     const t = this.b.trees;
     if (!t || !t.count) return;
     let trunkGeo = null, crownGeo = null;
+    const S = this.floor.seed;
+    const branch = (len, r, rz, rx, x, y, z) => new THREE.CylinderGeometry(r * 0.5, r, len, 7).translate(0, len / 2, 0).rotateZ(rz).rotateX(rx).translate(x, y, z);
     switch (t.style) {
-      case 'pine':
-        trunkGeo = new THREE.CylinderGeometry(0.18, 0.3, 2, 6).translate(0, 1, 0);
-        crownGeo = mergeGeometries([new THREE.ConeGeometry(1.7, 3.2, 7).translate(0, 3.2, 0), new THREE.ConeGeometry(1.2, 2.6, 7).translate(0, 4.9, 0)]);
+      case 'pine': {
+        trunkGeo = new THREE.CylinderGeometry(0.16, 0.32, 2.2, 10).translate(0, 1.1, 0);
+        const layers = [];
+        for (let i = 0; i < 4; i++) {
+          const r = 1.9 - i * 0.42, h = 2.4 - i * 0.3;
+          // camada aberta embaixo e levemente côncava, para as bordas caírem como galhos
+          const g = new THREE.ConeGeometry(r, h, 12, 2, true);
+          const p = g.attributes.position;
+          for (let k = 0; k < p.count; k++) if (p.getY(k) < -h / 2 + 0.01) p.setY(k, p.getY(k) - 0.25);
+          g.computeVertexNormals();
+          layers.push(g.translate(0, 2.4 + i * 1.15, 0));
+        }
+        crownGeo = mergeGeometries(layers);
         break;
+      }
       case 'dead':
         trunkGeo = mergeGeometries([
-          new THREE.CylinderGeometry(0.12, 0.32, 4.4, 5).translate(0, 2.2, 0),
-          new THREE.BoxGeometry(0.12, 1.7, 0.12).rotateZ(0.85).translate(0.55, 3.2, 0),
-          new THREE.BoxGeometry(0.1, 1.4, 0.1).rotateZ(-0.9).translate(-0.48, 2.5, 0.1),
-          new THREE.BoxGeometry(0.1, 1.2, 0.1).rotateX(0.8).translate(0, 3.6, 0.42),
+          new THREE.CylinderGeometry(0.13, 0.34, 4.4, 9).translate(0, 2.2, 0),
+          branch(1.8, 0.1, -0.9, 0, 0.05, 2.9, 0),
+          branch(1.5, 0.09, 1.0, 0.2, -0.05, 2.3, 0),
+          branch(1.3, 0.08, 0.3, 0.9, 0, 3.4, 0.05),
+          branch(1.0, 0.06, -0.4, -0.8, 0, 3.9, -0.05),
         ]);
         break;
       case 'crystal':
         crownGeo = new THREE.OctahedronGeometry(1, 0).scale(0.7, 2.6, 0.7).translate(0, 2.0, 0);
         break;
-      default:
-        trunkGeo = new THREE.CylinderGeometry(0.22, 0.34, 2.4, 6).translate(0, 1.2, 0);
-        crownGeo = new THREE.IcosahedronGeometry(1.7, 0).translate(0, 3.5, 0);
+      default: {
+        trunkGeo = mergeGeometries([
+          new THREE.CylinderGeometry(0.2, 0.36, 2.8, 10).translate(0, 1.4, 0),
+          branch(1.1, 0.12, -0.8, 0, 0.05, 2.1, 0),
+          branch(1.0, 0.11, 0.9, 0.3, -0.05, 2.3, 0),
+        ]);
+        const puffs = [[0, 3.7, 0, 1.55], [0.95, 3.2, 0.2, 1.05], [-0.9, 3.35, -0.3, 1.1], [0.2, 3.3, 0.95, 1.0], [-0.2, 3.25, -0.95, 0.95], [0.1, 4.55, 0.1, 1.05]];
+        crownGeo = mergeGeometries(puffs.map(([x, y, z, r], i) => {
+          const g = blob(1, 0.1, S + i);
+          g.deleteAttribute('uv');
+          return g.scale(r, r * 0.88, r).translate(x, y, z);
+        }));
+      }
     }
     const spots = [];
     let tries = t.count * 5;
@@ -291,7 +353,7 @@ export class World {
     const trunkMat = std(t.trunk);
     const crownMat = t.style === 'crystal'
       ? new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.15, metalness: 0.2, flatShading: true, emissive: '#2a2a44', transparent: true, opacity: 0.88 })
-      : std('#ffffff');
+      : std('#ffffff', { roughness: 0.95, side: t.style === 'pine' ? THREE.DoubleSide : THREE.FrontSide });
     const trunks = trunkGeo ? new THREE.InstancedMesh(trunkGeo, trunkMat, n) : null;
     const crowns = crownGeo ? new THREE.InstancedMesh(crownGeo, crownMat, n) : null;
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
@@ -312,7 +374,7 @@ export class World {
   buildRocks() {
     const n = this.b.rocks || 0;
     if (!n) return;
-    const im = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), std('#ffffff'), n);
+    const im = new THREE.InstancedMesh(blob(2, 0.3, this.floor.seed + 7), std('#ffffff', { roughness: 0.95 }), n);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color();
     const r = this.rand;
     let k = 0;
@@ -337,6 +399,58 @@ export class World {
     this.group.add(im);
   }
 
+  buildBushes() {
+    const b = this.b, r = this.rand;
+    const leaf = b.trees?.leaf || ['#4a8a3a'];
+    const nb = b.bushes ?? 160, nf = b.flowers ?? 0;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color();
+    if (nb) {
+      const im = new THREE.InstancedMesh(blob(2, 0.22, this.floor.seed + 3), std('#ffffff', { roughness: 1 }), nb);
+      let k = 0;
+      for (let tries = 0; tries < nb * 4 && k < nb; tries++) {
+        const rad = (FLOOR_R - 6) * Math.sqrt(r()), ang = r() * Math.PI * 2;
+        const x = Math.cos(ang) * rad, z = Math.sin(ang) * rad;
+        if (!this.freeSpot(x, z, 3.5)) continue;
+        const h = this.groundAt(x, z);
+        if (this.water && h < this.water.level + 0.3) continue;
+        const s = 0.5 + r() * 0.8;
+        e.set(0, r() * 6, 0);
+        q.setFromEuler(e);
+        m.compose(new THREE.Vector3(x, h + s * 0.25, z), q, new THREE.Vector3(s * 1.2, s * 0.8, s * 1.1));
+        im.setMatrixAt(k, m);
+        c.set(b.bushColor || leaf[k % leaf.length]).multiplyScalar(0.85 + r() * 0.3);
+        im.setColorAt(k, c);
+        k++;
+      }
+      im.count = k;
+      im.castShadow = im.receiveShadow = true;
+      this.group.add(im);
+    }
+    if (nf) {
+      const palette = b.flowerColors || ['#ffffff', '#ffe066', '#ff8ab0', '#b08aff', '#7ad0ff'];
+      const im = new THREE.InstancedMesh(new THREE.SphereGeometry(0.075, 8, 6), std('#ffffff', { roughness: 0.6, emissive: '#111111' }), nf);
+      let k = 0;
+      for (let tries = 0; tries < nf * 3 && k < nf; tries++) {
+        // flores em pequenos canteiros
+        const cx = (r() - 0.5) * FLOOR_R * 1.8, cz = (r() - 0.5) * FLOOR_R * 1.8;
+        const col = palette[Math.floor(r() * palette.length)];
+        for (let j = 0; j < 12 && k < nf; j++) {
+          const x = cx + (r() - 0.5) * 5, z = cz + (r() - 0.5) * 5;
+          if (!this.freeSpot(x, z, 2.5)) continue;
+          const h = this.groundAt(x, z);
+          if (this.water && h < this.water.level + 0.3) continue;
+          m.compose(new THREE.Vector3(x, h + 0.3 + r() * 0.25, z), q.identity(), new THREE.Vector3(1, 0.7, 1));
+          im.setMatrixAt(k, m);
+          c.set(col);
+          im.setColorAt(k, c);
+          k++;
+        }
+      }
+      im.count = k;
+      this.group.add(im);
+    }
+  }
+
   buildRuins() {
     const mat = std('#a09a8e'), mat2 = std('#8a8478');
     const r = this.rand;
@@ -347,7 +461,7 @@ export class World {
       const h = this.groundAt(x, z);
       if (r() < 0.55) {
         const hgt = 2 + r() * 7;
-        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.85, hgt, 8), mat);
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.85, hgt, 16), mat);
         p.position.set(x, h + hgt / 2 - 0.2, z);
         p.rotation.z = (r() - 0.5) * 0.15;
         p.castShadow = p.receiveShadow = true;
@@ -355,7 +469,7 @@ export class World {
         this.grid.add({ x, z, r: 0.9 });
       } else {
         const w = 4 + r() * 6, hgt = 1.5 + r() * 3.5, rot = r() * Math.PI;
-        const wall = new THREE.Mesh(new THREE.BoxGeometry(w, hgt, 0.9), mat2);
+        const wall = new THREE.Mesh(rbox(w, hgt, 0.9, 0.2), mat2);
         wall.position.set(x, h + hgt / 2 - 0.3, z);
         wall.rotation.y = rot;
         wall.castShadow = wall.receiveShadow = true;
@@ -380,8 +494,6 @@ export class World {
     const roofCols = ['#8a3a2a', '#6a4a3a', '#3a5a7a', '#7a2a2a', '#4a6a3a'];
     const mats = {};
     const M = (c) => mats[c] || (mats[c] = std(c));
-    const box = new THREE.BoxGeometry(1, 1, 1);
-    const roofGeo = new THREE.ConeGeometry(Math.SQRT1_2, 1, 4).rotateY(Math.PI / 4).translate(0, 0.5, 0);
     const winGeo = new THREE.PlaneGeometry(0.8, 0.9);
     this.windowMat = new THREE.MeshStandardMaterial({ color: '#3a3020', emissive: '#ffc864', emissiveIntensity: 0.1 });
     const doorMat = std('#5a3a22');
@@ -398,37 +510,57 @@ export class World {
       const house = new THREE.Group();
       house.position.set(x, this.townH, z);
       house.rotation.y = rot;
-      const walls = new THREE.Mesh(box, M(wallCols[Math.floor(r() * wallCols.length)]));
-      walls.scale.set(w, hgt, d);
-      walls.position.y = hgt / 2;
-      const roof = new THREE.Mesh(roofGeo, M(roofCols[Math.floor(r() * roofCols.length)]));
-      roof.scale.set(w * 1.2, 2.2 + r(), d * 1.2);
-      roof.position.y = hgt;
-      const door = new THREE.Mesh(box, doorMat);
-      door.scale.set(1.1, 2, 0.12);
-      door.position.set(0, 1, d / 2 + 0.03);
-      house.add(walls, roof, door);
+      // paredes com empena (perfil de casa extrudado, bordas arredondadas)
+      const rh = 1.6 + r() * 1.2;
+      const prof = new THREE.Shape();
+      prof.moveTo(-w / 2, 0); prof.lineTo(w / 2, 0); prof.lineTo(w / 2, hgt); prof.lineTo(0, hgt + rh); prof.lineTo(-w / 2, hgt);
+      const wallGeo = new THREE.ExtrudeGeometry(prof, { depth: d, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 2 });
+      wallGeo.translate(0, 0, -d / 2);
+      const walls = new THREE.Mesh(wallGeo, M(wallCols[Math.floor(r() * wallCols.length)]));
+      // telhado de duas águas com beiral
+      const roofMat = M(roofCols[Math.floor(r() * roofCols.length)]);
+      const slope = Math.hypot(w / 2, rh) + 0.55, ang2 = Math.atan2(rh, w / 2);
+      for (const s of [-1, 1]) {
+        const slab = new THREE.Mesh(rbox(slope, 0.2, d + 0.9, 0.08), roofMat);
+        slab.position.set(s * (w / 4 + 0.08), hgt + rh / 2 + 0.12, 0);
+        slab.rotation.z = -s * ang2;
+        house.add(slab);
+      }
+      const ridge = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, d + 0.95, 10).rotateX(Math.PI / 2), roofMat);
+      ridge.position.y = hgt + rh + 0.12;
+      const chimney = new THREE.Mesh(rbox(0.6, 1.4, 0.6, 0.08), M('#8a7a6a'));
+      chimney.position.set(w * 0.22, hgt + rh * 0.75, -d * 0.2);
+      const door = new THREE.Mesh(rbox(1.1, 2.1, 0.16, 0.06), doorMat);
+      door.position.set(0, 1.05, d / 2 + 0.06);
+      const step = new THREE.Mesh(rbox(1.6, 0.18, 0.7, 0.06), M('#9a948a'));
+      step.position.set(0, 0.09, d / 2 + 0.4);
+      house.add(walls, ridge, chimney, door, step);
       for (const sx of [-1, 1]) {
+        const frame = new THREE.Mesh(rbox(1.0, 1.1, 0.1, 0.04), doorMat);
+        frame.position.set(sx * w * 0.3, hgt * 0.58, d / 2 + 0.06);
         const win = new THREE.Mesh(winGeo, this.windowMat);
-        win.position.set(sx * w * 0.3, hgt * 0.62, d / 2 + 0.02);
-        house.add(win);
+        win.position.set(sx * w * 0.3, hgt * 0.58, d / 2 + 0.12);
+        house.add(frame, win);
       }
       house.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       this.group.add(house);
       this.grid.add({ x, z, hw: w / 2, hd: d / 2, rot });
     }
     // Postes de luz
-    const pole = new THREE.CylinderGeometry(0.07, 0.1, 3.4, 6);
-    const poleMat = std('#3a3a3a');
+    const pole = new THREE.CylinderGeometry(0.06, 0.1, 3.4, 10);
+    const lanGeo = new THREE.SphereGeometry(0.24, 14, 10);
+    const capGeo = new THREE.ConeGeometry(0.3, 0.28, 12);
+    const poleMat = std('#3a3a3a', { metalness: 0.4, roughness: 0.5 });
     for (let i = 0; i < 10; i++) {
       const ang = (i / 10) * Math.PI * 2 + 0.31, x = Math.cos(ang) * 15, z = Math.sin(ang) * 15;
       const p = new THREE.Mesh(pole, poleMat);
       p.position.set(x, this.townH + 1.7, z);
-      const lan = new THREE.Mesh(box, this.windowMat);
-      lan.scale.set(0.38, 0.5, 0.38);
-      lan.position.set(x, this.townH + 3.55, z);
+      const lan = new THREE.Mesh(lanGeo, this.windowMat);
+      lan.position.set(x, this.townH + 3.6, z);
+      const cap = new THREE.Mesh(capGeo, poleMat);
+      cap.position.set(x, this.townH + 3.95, z);
       p.castShadow = true;
-      this.group.add(p, lan);
+      this.group.add(p, lan, cap);
       this.grid.add({ x, z, r: 0.25 });
     }
   }
@@ -443,14 +575,14 @@ export class World {
     step.position.y = 0.3;
     g.add(base, step);
     for (const sx of [-1, 1]) {
-      const p = new THREE.Mesh(new THREE.BoxGeometry(0.7, 6.2, 0.7), stone);
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 6.2, 16), stone);
       p.position.set(sx * 3.1, 3.4, 0);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.35, 0.95), gold);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.35, 16), gold);
       cap.position.set(sx * 3.1, 0.5, 0);
       g.add(p, cap);
       this.grid.add({ x: this.gatePos.x + sx * 3.1, z: this.gatePos.z, r: 0.55 });
     }
-    const arch = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.32, 8, 40, Math.PI), stone);
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.34, 16, 48, Math.PI), stone);
     arch.position.y = 6.5;
     g.add(arch);
     const ringMat = new THREE.MeshBasicMaterial({ color: hdr('#6fd0ff', 3) });
@@ -500,7 +632,7 @@ export class World {
     g.position.copy(p);
     g.rotation.y = Math.atan2(-p.x, -p.z);
     const wood = std('#7a5232'), cloth1 = std('#c0392b'), cloth2 = std('#f0e8d8');
-    const counter = new THREE.Mesh(new THREE.BoxGeometry(3, 1.05, 1), wood);
+    const counter = new THREE.Mesh(rbox(3, 1.05, 1, 0.1), wood);
     counter.position.set(0, 0.52, 0.8);
     g.add(counter);
     for (const sx of [-1.4, 1.4]) for (const sz of [0.35, -0.9]) {
@@ -518,14 +650,16 @@ export class World {
     const npc = new THREE.Group();
     npc.position.set(0, 0, -0.3);
     const skin = std('#7a4a2e'), shirt = std('#4a5a3a'), pants = std('#3a3028');
-    const legs = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.9, 0.32), pants);
-    legs.position.y = 0.45;
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.85, 0.45), shirt);
-    body.position.y = 1.32;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 10, 8), skin);
-    head.position.y = 1.98;
+    const legs = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.5, 6, 14), pants);
+    legs.position.y = 0.5;
+    legs.scale.z = 0.7;
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.35, 8, 16), shirt);
+    body.position.y = 1.35;
+    body.scale.z = 0.7;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 14), skin);
+    head.position.y = 2.0;
     for (const sx of [-1, 1]) {
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.75, 0.22), skin);
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.55, 6, 10), skin);
       arm.position.set(sx * 0.55, 1.3, 0.12);
       arm.rotation.x = -0.5;
       npc.add(arm);
@@ -542,7 +676,7 @@ export class World {
   // ─────────── Arena do chefe e Labirinto ───────────
   buildArena() {
     const ap = this.arenaPos, tp = this.towerPos;
-    const floorMesh = new THREE.Mesh(new THREE.CylinderGeometry(ARENA_R + 1, ARENA_R + 2, 1.6, 48), std('#4a4850'));
+    const floorMesh = new THREE.Mesh(new THREE.CylinderGeometry(ARENA_R + 1, ARENA_R + 2, 1.6, 72), std('#4a4850'));
     floorMesh.position.set(ap.x, this.arenaH - 0.75, ap.z);
     floorMesh.receiveShadow = true;
     this.group.add(floorMesh);
@@ -556,30 +690,30 @@ export class World {
       const a = (i / 14) * Math.PI * 2;
       if (Math.abs(Math.atan2(Math.sin(a - townSide), Math.cos(a - townSide))) < 0.3) continue;
       const x = ap.x + Math.cos(a) * (ARENA_R - 0.5), z = ap.z + Math.sin(a) * (ARENA_R - 0.5);
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 10, 8), stone);
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 10, 16), stone);
       p.position.set(x, this.arenaH + 5, z);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.8, 2.4), stone);
+      const cap = new THREE.Mesh(rbox(2.4, 0.8, 2.4, 0.15), stone);
       cap.position.set(x, this.arenaH + 10.2, z);
       p.castShadow = cap.castShadow = true;
       this.group.add(p, cap);
       this.grid.add({ x, z, r: 1.1 });
     }
     // Torre do Labirinto, que perfura o teto até o próximo andar
-    const tower = new THREE.Mesh(new THREE.CylinderGeometry(20, 26, 400, 14, 1), std('#8c8a86'));
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(20, 26, 400, 32, 1), std('#8c8a86'));
     tower.position.set(tp.x, -40 + 200, tp.z);
     tower.castShadow = tower.receiveShadow = true;
     this.group.add(tower);
     const bandMat = std('#6a6864');
     for (let i = 0; i < 7; i++) {
       const y = 20 + i * 45, rr = 26 - ((y + 40) / 400) * 6 + 0.6;
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, 2.5, 14), bandMat);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, 2.5, 32), bandMat);
       band.position.set(tp.x, y, tp.z);
       this.group.add(band);
     }
     this.grid.add({ x: tp.x, z: tp.z, r: 25.6 });
     const dir = new THREE.Vector3(ap.x - tp.x, 0, ap.z - tp.z).normalize();
     const rot = Math.atan2(dir.x, dir.z);
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(9.5, 13.5, 1.2), std('#5a5860'));
+    const frame = new THREE.Mesh(rbox(9.5, 13.5, 1.2, 0.3), std('#5a5860'));
     frame.position.set(tp.x + dir.x * 25.4, this.arenaH + 6.6, tp.z + dir.z * 25.4);
     frame.rotation.y = rot;
     this.doorMat = new THREE.MeshStandardMaterial({ color: '#181818', emissive: '#ff2a2a', emissiveIntensity: 1.6 });
@@ -687,6 +821,7 @@ export class World {
   }
 
   dispose() {
+    this.grass?.map.dispose();
     this.group.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
       const ms = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];

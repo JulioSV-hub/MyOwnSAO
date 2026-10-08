@@ -448,7 +448,7 @@ export class UI {
       ${range('volume', 'Volume', 0, 1, 0.05)}
       ${range('xpRate', 'Taxa de EXP (seu mundo, suas regras)', 1, 10, 1)}
       ${range('dayMinutes', 'Duração do dia', 2, 60, 1)}
-      ${check('invertY', 'Inverter eixo Y')}${check('bloom', 'Brilho (bloom)')}${check('shadows', 'Sombras')}
+      ${check('invertY', 'Inverter eixo Y')}${check('bloom', 'Brilho (bloom)')}${check('shadows', 'Sombras')}${check('grass', 'Grama (desligue se o PC estiver lento)')}
       <div class="section">Mundo</div>
       <div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="export">Exportar mundo (.json)</button><button class="btn" data-act="import">Importar mundo</button></div>
       <div class="btns"><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Apagar save</button></div>

@@ -9,8 +9,8 @@ export const expNeed = (lv) => Math.floor(60 * Math.pow(lv, 1.6));
 export const BIOMES = {
   meadow: {
     label: 'Planícies verdejantes',
-    ground: ['#4c8a36', '#69a844', '#8dbf56'], cliff: '#7b7a62', path: '#bba57c', plaza: '#a9a294',
-    sky: { top: '#3b7bd8', bottom: '#cfe8ff' }, fog: [70, 470],
+    ground: ['#4c8a36', '#69a844', '#8dbf56'], cliff: '#7b7a62', path: '#b09a72', plaza: '#948e82',
+    sky: { top: '#3b7bd8', bottom: '#cfe8ff' }, fog: [80, 520],
     trees: { style: 'round', count: 380, trunk: '#6b4a2b', leaf: ['#3f7d32', '#4f9a3c', '#5ea845'] },
     rocks: 110, rockColor: '#8b8a82', amp: 9, freq: 0.0075,
     pool: ['boar', 'wolf', 'kobold', 'wasp'],
@@ -90,6 +90,21 @@ export const BIOMES = {
     pool: ['shadowknight', 'ghost', 'lizard', 'spider'],
   },
 };
+
+// Vegetação de cada bioma: densidade/cores da grama, arbustos e canteiros de flores.
+const LOOK = {
+  meadow: { grass: 1, grassColors: ['#3f7a2e', '#9ccf5a'], bushes: 180, flowers: 420 },
+  plateau: { grass: 0.8, grassColors: ['#7a6e30', '#d8c66a'], bushes: 60, flowers: 80, flowerColors: ['#ffe066', '#ffffff'] },
+  forest: { grass: 0.75, grassColors: ['#24461f', '#5f8f3a'], bushes: 340, flowers: 120, flowerColors: ['#ffffff', '#b08aff'] },
+  lake: { grass: 1, grassColors: ['#3f7f36', '#a6d468'], bushes: 160, flowers: 380 },
+  ruins: { grass: 0.7, grassColors: ['#5a6a48', '#a6aa7a'], bushes: 120, bushColor: '#5f7a48', flowers: 60, flowerColors: ['#ffffff', '#ffe066'] },
+  crystal: { grass: 0.4, grassColors: ['#4a4a8a', '#b8a8ff'], bushes: 0, flowers: 200, flowerColors: ['#7fd0ff', '#ff9ae0', '#ffffff'] },
+  snow: { grass: 0.12, grassColors: ['#a8b8c0', '#ffffff'], bushes: 80, bushColor: '#e8f0f4', flowers: 0 },
+  desert: { grass: 0.08, grassColors: ['#8a7a40', '#d8c080'], bushes: 40, bushColor: '#7a7a40', flowers: 0 },
+  volcanic: { grass: 0, bushes: 0, flowers: 0 },
+  dark: { grass: 0.45, grassColors: ['#1a2a2a', '#3a5a5a'], bushes: 140, bushColor: '#2a3a3a', flowers: 60, flowerColors: ['#c03aff', '#60a0ff'] },
+};
+for (const k in LOOK) Object.assign(BIOMES[k], LOOK[k]);
 
 // ───────────────────────────── Monstros ─────────────────────────────
 // arch: quad | humanoid | flyer | slime | spider | cube
