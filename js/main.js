@@ -109,7 +109,7 @@ class Game {
       },
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
       fragmentShader: `uniform vec3 top; uniform vec3 bottom; uniform vec3 sunDir; uniform vec3 sunCol; uniform float sunVis; uniform float uTime; uniform vec3 cloudCol; varying vec3 vDir;
-        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float hash(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
         float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
           return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }
         float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * vnoise(p); p = p * 2.03 + 1.7; a *= 0.5; } return s; }
@@ -120,7 +120,7 @@ class Game {
           float s = max(dot(d, normalize(sunDir)), 0.0);
           col += sunCol * pow(s, 14.0) * 0.35 * sunVis;
           if (h > 0.0) {
-            vec2 cp = d.xz / (h + 0.12) * 1.4 + vec2(uTime * 0.012, uTime * 0.005);
+            vec2 cp = d.xz / (h + 0.2) * 1.4 + vec2(mod(uTime * 0.012, 100.0), mod(uTime * 0.005, 100.0));
             float n = fbm(cp);
             float c = smoothstep(0.48, 0.75, n) * smoothstep(0.0, 0.18, h);
             vec3 cc = cloudCol * (0.82 + 0.25 * smoothstep(0.5, 0.9, n)) + sunCol * pow(s, 6.0) * 0.4 * sunVis;
