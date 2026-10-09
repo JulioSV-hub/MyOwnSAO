@@ -16,6 +16,7 @@ import { NPCManager } from './npcs.js';
 import { Quests } from './quests.js';
 import { Ambient } from './ambient.js';
 import { Pets } from './pets.js';
+import { Fishing } from './fishing.js';
 import { loadModels } from './models.js';
 import { Effects } from './effects.js';
 import { UI } from './ui.js';
@@ -100,6 +101,7 @@ class Game {
     this.quests = new Quests(this);
     this.ambient = new Ambient(this);
     this.pets = new Pets(this);
+    this.fishing = new Fishing(this);
     this.effects = new Effects(this);
 
     this.mode = 'title';
@@ -859,6 +861,10 @@ class Game {
       if (pr.cleared[n] && n < MAX_FLOOR) { hint = `[E] Subir para o Andar ${n + 1}`; act = () => this.travel(n + 1, true); }
       else if (!pr.cleared[n]) hint = 'A porta está selada. Derrote o chefe deste andar na arena.';
     }
+    if (!hint) {
+      if (this.fishing.active) hint = this.fishing.state.phase === 'bite' ? '❗ [F] Puxar!' : '[F] Recolher a linha · andar cancela';
+      else if (this.fishing.waterAhead()) hint = this.fishing.hasRod() ? '[F] Pescar' : 'Compre uma Vara de Pesca com o Agil para pescar aqui';
+    }
     this.ui.hint(hint);
     if (act && this.input.pressed('KeyE')) act();
     if (!this.bossFight && !pr.cleared[n] && !this.player.dead && w.inArena(pl, -3)) this.startBossFight();
@@ -883,6 +889,7 @@ class Game {
     if (inp.pressed('KeyR')) this.quickPotion();
     if (inp.pressed('KeyH')) this.combat.toggleSheath();
     if (inp.pressed('KeyT')) this.quickTeleport();
+    if (inp.pressed('KeyF')) this.fishing.press();
   }
 
   updateMusic(dt) {
@@ -920,6 +927,7 @@ class Game {
         this.npcs.update(dt);
         this.quests.update(dt);
         this.pets.update(dt);
+        this.fishing.update(dt);
         this.updateInteract();
         // guardar a espada sozinho ao entrar na cidade (opção em Sistema)
         const safe = this.world.inSafeZone(this.player.pos);

@@ -7,6 +7,7 @@ import { mulberry32 } from './rng.js';
 import { TOWN_R } from './world.js';
 import { weaponDef, MAX_FLOOR } from './data.js';
 import { Sfx } from './audio.js';
+import { isFish } from './fishing.js';
 
 const angleTo = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 const pickOf = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -241,7 +242,8 @@ class NPC {
           close,
         ]);
       }
-      case 'cook':
+      case 'cook': {
+        const fishCount = () => Object.entries(p.mats).filter(([nm]) => isFish(nm)).reduce((a, [, m]) => a + m.qty, 0);
         return say(`Oi, ${p.name}! Você parece cansado... Fiz uns sanduíches com um molho especial. Quer um?`, [
           { label: 'Aceitar o sanduíche', run: () => {
             p.hp = g.stats().maxHp;
@@ -249,9 +251,22 @@ class NPC {
             Sfx.levelUp();
             return say('Hehe, minha skill de Culinária está no máximo! HP totalmente restaurado. Agora vai lá e volta inteiro, ouviu?');
           } },
+          ...(fishCount() >= 2 ? [{ label: `Grelhar peixes (2 peixes → 1 Peixe Grelhado)`, run: () => {
+            let need = 2;
+            for (const [nm, m] of Object.entries(p.mats)) {
+              if (!isFish(nm) || need <= 0) continue;
+              const take = Math.min(need, m.qty);
+              m.qty -= take; need -= take;
+              if (m.qty <= 0) delete p.mats[nm];
+            }
+            p.items.grilled_fish = (p.items.grilled_fish || 0) + 1;
+            Sfx.coin();
+            return say('Hmm, que cheirinho! Prontinho — Peixe Grelhado com ervas. Recupera muito HP!');
+          } }] : []),
           { label: 'Conversar', run: () => say(nextLine(['Não quero passar meus dias trancada na cidade. Prefiro viver cada dia lutando.', 'Os Knights of the Blood estão planejando o ataque ao chefe. Você vem?', 'Um dia quero ter uma casinha perto de um lago... no andar 22, talvez.'])) },
           close,
         ]);
+      }
       case 'kirito':
         return say(p.name.toLowerCase() === 'kirito' ? 'Espera... você também se chama Kirito? Que coincidência estranha.' : `...Ah, oi. Precisa de alguma coisa, ${p.name}?`, [
           { label: 'Alguma dica de combate?', run: () => say(nextLine(['Sword Skills são poderosas, mas encadear com ataques normais é o que faz a diferença.', 'Em luta contra chefe, nunca fique parado na área vermelha. Movimente-se sempre.', 'Aparar no tempo certo abre o inimigo para um contra-ataque. Treine nos javalis.', 'Se um dia você conseguir empunhar duas espadas... bom, deixa pra lá.'])) },

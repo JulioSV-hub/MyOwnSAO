@@ -118,6 +118,12 @@ export class World {
       dx: Math.cos(a + k * Math.PI), dz: Math.sin(a + k * Math.PI),
       len: i === 0 ? ARENA_DIST - ARENA_R + 2 : 70 + this.rand() * 70,
     }));
+    {
+      const pa = a + Math.PI / 4 + Math.PI / 2, pr = 84;
+      const px = Math.cos(pa) * pr, pz = Math.sin(pa) * pr;
+      this.pond = null;
+      this.pond = { x: px, z: pz, r: 8, level: this.heightAt(px, pz) - 0.05 };
+    }
 
     this.buildTerrain();
     this.buildEnvironment();
@@ -161,6 +167,13 @@ export class World {
     h = lerp(this.arenaH, h, smoothstep(ARENA_R + 2, ARENA_R + 26, da));
     const dw = Math.hypot(x - this.towerPos.x, z - this.towerPos.z);
     h = lerp(this.arenaH, h, smoothstep(30, 48, dw));
+    if (this.pond) {
+      const dp = Math.hypot(x - this.pond.x, z - this.pond.z), R = this.pond.r;
+      if (dp < R + 7) {
+        h = lerp(this.pond.level + 0.15, h, smoothstep(R + 1, R + 7, dp));
+        if (dp < R + 0.6) h = Math.min(h, this.pond.level + 0.1 - 1.8 * (1 - Math.min(1, dp / (R + 0.6)) ** 2));
+      }
+    }
     if (dt > FLOOR_R) h -= (dt - FLOOR_R) * 1.8;
     return h;
   }
@@ -223,6 +236,7 @@ export class World {
       if (Math.hypot(x - this.arenaPos.x, z - this.arenaPos.z) < ARENA_R + 2.5) dn = 0;
       if (Math.hypot(x - this.towerPos.x, z - this.towerPos.z) < 27) dn = 0;
       if (dt > FLOOR_R - 3) dn = 0;
+      if (this.pond && Math.hypot(x - this.pond.x, z - this.pond.z) < this.pond.r + 0.8) dn = 0;
       D[i] = dn;
     }
     if (grassy > 0) {
@@ -250,6 +264,29 @@ export class World {
 
   buildEnvironment() {
     const b = this.b;
+    // lago de pesca (água + juncos + placa)
+    if (this.pond) {
+      const pd = this.pond;
+      const pw = new THREE.Mesh(new THREE.CircleGeometry(pd.r + 0.4, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#3fb0d8', transparent: true, opacity: 0.85, roughness: 0.1, metalness: 0.2 }));
+      pw.position.set(pd.x, pd.level, pd.z);
+      this.group.add(pw);
+      this.pondWater = pw;
+      const reedMat = std('#5a8a3a');
+      for (let i = 0; i < 26; i++) {
+        const ra = this.rand() * Math.PI * 2, rr = pd.r + 0.2 + this.rand() * 1.2;
+        const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, 1 + this.rand() * 0.8, 5), reedMat);
+        reed.position.set(pd.x + Math.cos(ra) * rr, pd.level + 0.5, pd.z + Math.sin(ra) * rr);
+        reed.rotation.z = (this.rand() - 0.5) * 0.3;
+        this.group.add(reed);
+      }
+      for (let i = 0; i < 4; i++) {
+        const lp = new THREE.Mesh(new THREE.CircleGeometry(0.45, 12).rotateX(-Math.PI / 2), std('#3f8a3a', { side: THREE.DoubleSide }));
+        const la = this.rand() * Math.PI * 2, lr = this.rand() * pd.r * 0.7;
+        lp.position.set(pd.x + Math.cos(la) * lr, pd.level + 0.02, pd.z + Math.sin(la) * lr);
+        this.group.add(lp);
+      }
+      this.labels.push({ text: 'Lago de Pesca', pos: new THREE.Vector3(pd.x, pd.level + 3, pd.z), cls: 'gate' });
+    }
     // Base rochosa da ilha flutuante
     const skirt = new THREE.ConeGeometry(FLOOR_R + 30, 170, 48, 6, true);
     skirt.rotateX(Math.PI);
@@ -494,6 +531,7 @@ export class World {
     if (dt < TOWN_R + pad + 2 || dt > FLOOR_R - 4) return false;
     if (Math.hypot(x - this.arenaPos.x, z - this.arenaPos.z) < ARENA_R + pad + 10) return false;
     if (Math.hypot(x - this.towerPos.x, z - this.towerPos.z) < 32 + pad) return false;
+    if (this.pond && Math.hypot(x - this.pond.x, z - this.pond.z) < this.pond.r + pad + 2) return false;
     return this.pathDist(x, z) > pad;
   }
 

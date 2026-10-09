@@ -199,11 +199,42 @@ const ITEM_LOOK = {
   heal_crystal: { kind: 'crystal', color: '#ff7ab8' },
   teleport_crystal: { kind: 'crystal', color: '#4ab8ff' },
   tame_treat: { kind: 'treat' },
+  fishing_rod: { kind: 'rod' },
+  grilled_fish: { kind: 'grilled' },
 };
+
+function fishMesh(color) {
+  const g = new THREE.Group();
+  const body = M(new THREE.SphereGeometry(0.12, 16, 12), std(color, { metalness: 0.4, roughness: 0.3 }));
+  body.scale.set(1.9, 0.8, 0.6);
+  const tail = M(new THREE.ConeGeometry(0.09, 0.14, 4), std(color, { metalness: 0.4 }), -0.27, 0, 0);
+  tail.rotation.z = Math.PI / 2;
+  tail.scale.z = 0.25;
+  const eye = M(new THREE.SphereGeometry(0.018, 6, 5), std('#111111'), 0.15, 0.03, 0.06);
+  g.add(body, tail, eye);
+  return g;
+}
 
 export function buildItem(id) {
   const look = ITEM_LOOK[id] || { kind: 'bottle', liquid: '#7aff9a' };
   const group = new THREE.Group();
+  if (look.kind === 'rod') {
+    const r = M(new THREE.CylinderGeometry(0.012, 0.03, 0.9, 8), std('#7a5232'));
+    r.rotation.z = -0.8;
+    const reel = M(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 14), std('#8a8a94', { metalness: 0.8 }), 0.1, -0.12, 0.03);
+    reel.rotation.x = Math.PI / 2;
+    group.add(r, reel);
+    return { group };
+  }
+  if (look.kind === 'grilled') {
+    const plate = M(new THREE.CylinderGeometry(0.3, 0.26, 0.04, 24), std('#f4f0e8'));
+    const fish = fishMesh('#c8803a');
+    fish.position.y = 0.08;
+    fish.scale.setScalar(0.9);
+    group.add(plate, fish);
+    for (let i = 0; i < 3; i++) group.add(M(new THREE.SphereGeometry(0.025, 6, 5), std('#4a9a3a'), -0.1 + i * 0.1, 0.13, 0.05));
+    return { group };
+  }
   if (look.kind === 'treat') {
     const bag = M(new THREE.SphereGeometry(0.2, 16, 12), std('#c8a070', { roughness: 0.9 }));
     bag.scale.set(1, 0.85, 1);
@@ -242,6 +273,11 @@ function hashColor(str, s = 0.45, l = 0.55) {
 export function buildMaterial(name) {
   const n = name.toLowerCase(), group = new THREE.Group();
   const col = hashColor(name);
+  if (/peixe|truta|carpa/.test(n)) {
+    const c = /dourada/.test(n) ? '#f0c040' : /azul/.test(n) ? '#4a8ad8' : /lua/.test(n) ? '#c8c8f0' : /listrada/.test(n) ? '#c87a4a' : '#b8c4d0';
+    group.add(fishMesh(c));
+    return { group };
+  }
   if (/moedas de col/.test(n)) {
     const gold = std('#e8c050', { metalness: 0.9, roughness: 0.25 });
     for (let i = 0; i < 6; i++) {

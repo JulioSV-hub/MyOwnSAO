@@ -270,6 +270,8 @@ export const ITEMS = {
   hipotion: { name: 'Poção Superior', desc: 'Recupera 100% do HP ao longo de 6s.', price: 180, heal: 1, over: 6, minFloor: 3 },
   heal_crystal: { name: 'Cristal de Cura', desc: 'Recupera todo o HP instantaneamente.', price: 600, heal: 1, over: 0, minFloor: 5 },
   teleport_crystal: { name: 'Cristal de Teletransporte', desc: 'Teletransporta para qualquer andar desbloqueado, de qualquer lugar.', price: 250 },
+  fishing_rod: { name: 'Vara de Pesca', desc: 'Perto da água, aperte F para lançar a linha. Quando a boia afundar, F de novo!', price: 150, tool: true },
+  grilled_fish: { name: 'Peixe Grelhado', desc: 'Prato da Asuna. Recupera 60% do HP na hora.', price: 0, heal: 0.6, over: 0, noShop: true },
   tame_treat: { name: 'Petisco de Domador', desc: 'Ofereça a um monstro dócil (♥) para tentar domá-lo. Cada tentativa aumenta a chance.', price: 120, tool: true },
 };
 
@@ -321,7 +323,7 @@ export function laReward(n) {
 }
 
 export function shopStock(n) {
-  const items = Object.entries(ITEMS).filter(([, d]) => !d.minFloor || n >= d.minFloor).map(([id]) => id);
+  const items = Object.entries(ITEMS).filter(([, d]) => !d.noShop && (!d.minFloor || n >= d.minFloor)).map(([id]) => id);
   return { items, weapons: [`gen_${n}`], armors: [`arm_${n}`] };
 }
 

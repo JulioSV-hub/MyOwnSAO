@@ -194,6 +194,7 @@ export class Combat {
   }
 
   basic() {
+    if (this.game.fishing?.active) return;
     if (this.sheathed) { this.setSheathed(false); return; }
     if (this.post > 0 || this.guard) return;
     if (this.action) {
