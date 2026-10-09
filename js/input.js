@@ -10,7 +10,9 @@ export class Input {
     this.onLockChange = null;
 
     addEventListener('keydown', (e) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      // só ignora teclas quando você está digitando (nome do avatar, créditos...); checkbox/slider com foco não bloqueiam o jogo
+      const t = e.target;
+      if (!this.isLocked && ((t instanceof HTMLInputElement && (t.type === 'text' || t.type === 'search')) || t instanceof HTMLTextAreaElement)) return;
       if (['Tab', 'Space', 'AltLeft'].includes(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) this.down.add(e.code);
       this.keys.add(e.code);
@@ -37,6 +39,7 @@ export class Input {
   get isLocked() { return this.locked || this.forceLocked; }
 
   lock() {
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
     if (this.forceLocked) return;
     try {
       const p = this.el.requestPointerLock();

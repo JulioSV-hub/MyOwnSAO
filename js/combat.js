@@ -169,7 +169,10 @@ export class Combat {
     if (!quiet) Sfx.sheath(on);
   }
 
-  toggleSheath() { this.setSheathed(!this.sheathed); }
+  toggleSheath() {
+    this.setSheathed(!this.sheathed);
+    this.game.ui.toast(this.sheathed ? 'Espada guardada (H para sacar)' : 'Espada em mãos');
+  }
 
   refresh() {
     const p = this.game.state.player;
