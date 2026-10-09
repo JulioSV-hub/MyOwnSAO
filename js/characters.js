@@ -22,6 +22,8 @@ export const CAST = {
   yui: { name: 'Yui', hair: 'long', hairColor: '#141418', eyes: '#2a2a3a', skin: '#fae6d8', top: '#f6f6f8', skirt: '#f6f6f8', skirtTrim: '#e8e8ee', boots: '#f0f0f2', female: true, kid: true, title: 'Menina misteriosa' },
 };
 
+for (const k in CAST) CAST[k].id = k;
+
 const HAIRS = ['short', 'short', 'spiky', 'long', 'ponytail', 'bob', 'twintails'];
 const HAIR_COLORS = ['#2a1e16', '#4a3020', '#7a4a28', '#c8a060', '#1a1a20', '#8a3a2a', '#d8c8a0', '#3a2a4a', '#5a5a6a'];
 const CLOTHES = ['#3a6a8a', '#8a4a3a', '#4a7a4a', '#c8a050', '#6a4a7a', '#d8d0c0', '#a03a3a', '#3a4a6a', '#7a6a50', '#e8c8a0'];

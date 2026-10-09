@@ -13,6 +13,7 @@ import { Player } from './player.js';
 import { Combat } from './combat.js';
 import { EnemyManager } from './enemies.js';
 import { NPCManager } from './npcs.js';
+import { loadModels } from './models.js';
 import { Effects } from './effects.js';
 import { UI } from './ui.js';
 import { Sfx } from './audio.js';
@@ -112,6 +113,11 @@ class Game {
     addEventListener('resize', () => this.resize());
     addEventListener('beforeunload', () => { if (this.state && this.mode !== 'title') this.save(); });
 
+    loadModels().then((reg) => {
+      const n = Object.keys(reg.cast).length + reg.folk.length;
+      if (reg.errors.length) console.warn('Modelos com erro:', reg.errors);
+      if (n && this.mode === 'play') { this.npcs.populate(); this.ui.toast(`${n} modelo(s) 3D carregado(s).`); }
+    });
     const save = loadSave();
     this.setFloor(save ? save.progress.floor : 1);
     this.combat.setVisible(false);

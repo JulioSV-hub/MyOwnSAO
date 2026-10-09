@@ -1,0 +1,26 @@
+MODELOS 3D DOS PERSONAGENS
+==========================
+
+Coloque nesta pasta arquivos .vrm (recomendado) ou .glb e escreva o nome do arquivo
+em modelos.json, no personagem correspondente. Exemplo:
+
+  "personagens": {
+    "kirito": "kirito.vrm",
+    "asuna": "asuna.vrm",
+    ...
+  },
+  "moradores": ["morador1.vrm", "morador2.vrm"]
+
+- "personagens": Kirito, Asuna, Klein, Agil, Lisbeth, Silica, Argo, Yui.
+- "moradores": modelos sorteados para os moradores da cidade (podem se repetir).
+- Personagem sem arquivo continua com o boneco feito pelo jogo.
+
+Onde conseguir modelos VRM de anime:
+- VRoid Studio (grátis, vroid.com/studio): você monta o personagem e exporta em VRM.
+- VRoid Hub (hub.vroid.com): muitos modelos de fãs; baixe só os que permitem download.
+
+O jogo anima sozinho os modelos VRM: andar, piscar, mexer a boca falando, olhar
+para você e balançar o cabelo e a roupa. Modelos .glb comuns tocam a primeira
+animação que vierem dentro do arquivo.
+
+Depois de copiar os arquivos, rode jogar.bat (ou suba no GitHub) e recarregue a página.

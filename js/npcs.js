@@ -1,6 +1,7 @@
 // NPCs da cidade: andam pelas ruas, olham para o jogador e conversam (tecla E).
 import * as THREE from 'three';
 import { buildCharacter, animateCharacter, CAST, randomTownsfolk } from './characters.js';
+import { registry, createModelCharacter, animateModel, disposeModel } from './models.js';
 import { mulberry32 } from './rng.js';
 import { TOWN_R } from './world.js';
 import { weaponDef, MAX_FLOOR } from './data.js';
@@ -36,6 +37,21 @@ class NPC {
     this.fixed = !!opts.fixed;
     this.c = buildCharacter(def);
     this.mesh = this.c.group;
+    // se existir um modelo 3D (VRM/GLB) para este personagem, troca o boneco assim que carregar
+    const file = (def.id && registry.cast[def.id]) || opts.modelFile;
+    if (file) {
+      const h = def.kid ? 1.25 : def.small ? 1.5 : def.big ? 1.9 : def.female ? 1.62 : 1.72;
+      createModelCharacter(file, h).then((mc) => {
+        if (this.dead) { disposeModel(mc); return; }
+        this.game.scene.remove(this.mesh);
+        this.mesh.traverse((o) => { if (o.material && !o.userData.outline) o.material.dispose?.(); });
+        this.c = mc;
+        this.mesh = mc.group;
+        this.mesh.position.copy(this.pos);
+        this.mesh.rotation.y = this.yaw;
+        this.game.scene.add(this.mesh);
+      }).catch((e) => console.warn('Modelo não carregou:', file, e));
+    }
     this.pos = new THREE.Vector3(x, 0, z);
     this.home = this.pos.clone();
     this.yaw = opts.yaw ?? Math.random() * Math.PI * 2;
@@ -123,14 +139,18 @@ class NPC {
     if (dist < m && dist > 1e-3) { pl.x = this.pos.x + (dx / dist) * m; pl.z = this.pos.z + (dz / dist) * m; }
 
     const look = dist < 7 ? angleTo(this.yaw, toPlayer) : 0;
-    animateCharacter(this.c, dt, t, moving, Math.abs(look) < 1.6 ? look : 0, this.talking);
+    const lk = Math.abs(look) < 1.6 ? look : 0;
+    if (this.c.external) animateModel(this.c, dt, t, moving, lk, this.talking);
+    else animateCharacter(this.c, dt, t, moving, lk, this.talking);
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = this.yaw;
     this.dist = dist;
   }
 
   destroy() {
+    this.dead = true;
     this.game.scene.remove(this.mesh);
+    if (this.c.external) { disposeModel(this.c); this.label?.remove(); return; }
     this.mesh.traverse((o) => { if (o.material && !o.userData.outline) o.material.dispose?.(); });
     this.label?.remove();
   }
@@ -251,7 +271,8 @@ export class NPCManager {
     for (let i = 0; i < 18; i++) {
       const kid = i >= 15;
       const ang = rand() * Math.PI * 2, rad = [8, 33, 51][i % 3] + (rand() - 0.5) * 4;
-      add(randomTownsfolk(rand, kid), Math.cos(ang) * rad, Math.sin(ang) * rad, {});
+      const folkFile = registry.folk.length && rand() < 0.7 ? registry.folk[Math.floor(rand() * registry.folk.length)] : null;
+      add(randomTownsfolk(rand, kid), Math.cos(ang) * rad, Math.sin(ang) * rad, { modelFile: folkFile });
     }
   }
 
