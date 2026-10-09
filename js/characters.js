@@ -17,7 +17,7 @@ export const CAST = {
   klein: { name: 'Klein', hair: 'spiky', hairColor: '#b0302a', bandana: '#c0392b', eyes: '#3a2818', skin: '#f0cfb0', top: '#a8322a', accent: '#d8b060', pants: '#4a3426', boots: '#3a2a20', stubble: true, sword: '#c8ccd4', title: 'Líder do Fuurinkazan' },
   agil: { name: 'Agil', hair: 'bald', eyes: '#2a1a10', skin: '#7a4a2e', top: '#4a5a3a', accent: '#a08050', pants: '#3a3028', boots: '#2a2018', big: true, beard: true, title: 'Mercador' },
   lisbeth: { name: 'Lisbeth', hair: 'bob', hairColor: '#ff8ab8', eyes: '#c8407a', skin: '#f9e3d4', top: '#d8584a', apron: '#f4efe6', skirt: '#c84a3c', boots: '#6a3a2a', female: true, title: 'Ferreira' },
-  silica: { name: 'Silica', hair: 'twintails', hairColor: '#9a5a32', eyes: '#c06a30', skin: '#f9e3d4', top: '#d8484a', accent: '#f0d070', skirt: '#4a3a6a', boots: '#5a3a2a', female: true, small: true, pet: true, title: 'Domadora de Feras' },
+  silica: { name: 'Silica', hair: 'twintails', hairColor: '#9a5a32', eyes: '#c06a30', skin: '#f9e3d4', top: '#d8484a', accent: '#f0d070', skirt: '#4a3a6a', boots: '#5a3a2a', female: true, pet: true, title: 'Domadora de Feras' },
   argo: { name: 'Argo', hair: 'hood', hairColor: '#d8a850', hood: '#6a5a46', eyes: '#c8902a', skin: '#f4dcc4', top: '#5a4a38', pants: '#3a3028', boots: '#2a2018', whiskers: true, female: true, title: 'A Rata · Corretora de Informações' },
   yui: { name: 'Yui', hair: 'long', hairColor: '#141418', eyes: '#2a2a3a', skin: '#fae6d8', top: '#f6f6f8', skirt: '#f6f6f8', skirtTrim: '#e8e8ee', boots: '#f0f0f2', female: true, kid: true, title: 'Menina misteriosa' },
 };

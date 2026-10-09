@@ -7,6 +7,7 @@ import { icon } from './icons.js';
 import { TOWN_R } from './world.js';
 import { registry, displayName } from './models.js';
 import { CAST } from './characters.js';
+import { getNpcConfig, setNpc, setGlobal, resetNpc, npcHeight, presence, PRESENCE_IDS, DEFAULT_H } from './npcconfig.js';
 import { assignLocal, removeLocal, getLocalMap, setLocalCredit } from './localmodels.js';
 
 const $ = (id) => document.getElementById(id);
@@ -21,10 +22,11 @@ const ICONS = {
   equip: '<svg viewBox="0 0 24 24"><path d="M20 2l2 2-11.5 11.5-2-2z"/><path d="M6.5 13.5l4 4-1.5 1.5-1.2-1.2L4 21.6 2.4 20l3.8-3.8L5 15z"/></svg>',
   skills: '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
   map: '<svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/></svg>',
+  npcs: '<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.2"/><circle cx="16.5" cy="9" r="2.7"/><path d="M2 20c0-3.6 2.7-6 6-6s6 2.4 6 6z"/><path d="M13.5 20c.2-2.4-.6-4.3-1.9-5.4 1.2-.7 2.6-1 4-.9 3 .2 5.4 2.4 5.4 6.3z"/></svg>',
   system: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="3.4 2.1"/><circle cx="12" cy="12" r="2.6"/></svg>',
 };
-const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['map', 'Mapa'], ['system', 'Sistema']];
-const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja do Agil' };
+const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['map', 'Mapa'], ['npcs', 'NPCs'], ['system', 'Sistema']];
+const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja do Agil', npcs: 'NPCs da cidade' };
 const SET_FMT = {
   sens: (v) => (+v).toFixed(2), fov: (v) => `${v}°`, volume: (v) => `${Math.round(v * 100)}%`,
   xpRate: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`,
@@ -247,7 +249,7 @@ export class UI {
       const n = l.npc;
       const d = cam.distanceTo(n.pos);
       const maxD = n.role === 'folk' || n.role === 'kid' ? 9 : 26;
-      const p = d < maxD ? this.project(v3.set(n.pos.x, n.pos.y + n.c.height + 0.15, n.pos.z)) : null;
+      const p = d < maxD ? this.project(v3.set(n.pos.x, n.pos.y + n.labelHeight() + 0.15, n.pos.z)) : null;
       if (!p || this.dialogOpen) { l.el.style.display = 'none'; continue; }
       l.el.style.display = '';
       l.el.style.transform = `translate(${p[0].toFixed(1)}px, ${p[1].toFixed(1)}px) translate(-50%, -100%) scale(${Math.max(0.6, 1 - d / 40).toFixed(3)})`;
@@ -449,7 +451,7 @@ export class UI {
 
   renderPanel() {
     if (!this.menuOpen) return;
-    const fn = { status: this.pStatus, items: this.pItems, equip: this.pEquip, skills: this.pSkills, map: this.pMap, system: this.pSystem, shop: this.pShop }[this.panel];
+    const fn = { status: this.pStatus, items: this.pItems, equip: this.pEquip, skills: this.pSkills, map: this.pMap, system: this.pSystem, shop: this.pShop, npcs: this.pNpcs }[this.panel];
     const body = $('mp-body');
     const scroll = body.scrollTop;
     body.innerHTML = fn ? fn.call(this) : '';
@@ -607,12 +609,46 @@ export class UI {
         ? '<div class="unique hc">Modo <b>Hardcore</b>: a morte é permanente. Exportar e importar ficam desativados neste mundo.</div><div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Desistir (apagar este mundo)</button></div>'
         : '<div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="export">Exportar mundo (.json)</button><button class="btn" data-act="import">Importar mundo</button></div><div class="btns"><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Apagar save</button></div>'}
       <div class="muted pad">O jogo salva sozinho a cada 30s e em momentos importantes. Exporte de vez em quando como backup.</div>
-      <div class="section">Modelos 3D (guardados só neste navegador)</div>
-      <div class="muted pad">Escolha arquivos .vrm do seu PC. Eles ficam salvos apenas neste navegador e nunca são enviados para a internet — por isso funcionam no site online sem redistribuir os modelos.</div>
-      ${this.modelRows()}
+      <div class="section">Modelos 3D</div>
+      <div class="muted pad">Modelos, altura e presença de cada personagem ficam em <b>Menu → NPCs</b>.</div>
       ${Object.keys(registry.credits).length ? `<div class="section">Créditos dos modelos 3D</div>${Object.entries(registry.credits).map(([f, c]) => `<div class="row"><div><b>${esc(c.title)}</b> <span class="muted">por</span> <b>${esc(c.author)}</b>${c.contact ? `<div class="muted">${/^https?:\/\//.test(c.contact) ? `<a href="${esc(c.contact)}" target="_blank" rel="noopener">${esc(c.contact)}</a>` : esc(c.contact)}</div>` : ''}</div><div class="row-r"><span class="muted">${esc(displayName(f))}</span>${f.startsWith('local:') ? `<button class="btn sm" data-act="creditEdit" data-key="${esc(f)}">Editar</button>` : ''}</div></div>`).join('')}<div class="muted pad">Modelos usados conforme as condições de uso de cada autor: sem redistribuição, sem alterações e sem atos violentos.</div>` : ''}
       <div class="section">Controles</div>
       <div class="keys"><b>WASD</b> mover · <b>Shift</b> correr · <b>Espaço</b> pular · <b>Q</b> esquiva · <b>Clique</b> atacar (combo) · <b>Botão direito</b> defender (no tempo certo = <i>parry</i>) · <b>1–4</b> Sword Skills · <b>R</b> poção · <b>E</b> interagir · <b>Tab/Esc</b> menu</div>`;
+  }
+
+  pNpcs() {
+    const local = getLocalMap(), cfg = getNpcConfig(), g = this.g;
+    const src = (slot) => {
+      const key = local.personagens[slot], file = registry.cast[slot];
+      return key ? `<span class="tag ok">${esc(displayName(key))}</span>` : file ? `<span class="tag">pasta: ${esc(file)}</span>` : '<span class="tag">boneco padrão</span>';
+    };
+    const presSel = (id) => {
+      if (!PRESENCE_IDS.includes(id)) return '<span class="muted">sempre na cidade (tem função)</span>';
+      const v = presence(id), o = (val, l) => `<option value="${val}" ${v === val ? 'selected' : ''}>${l}</option>`;
+      return `<label class="muted">Aparece: <select data-npcp="${id}">${o('always', 'Sempre')}${o('sometimes', 'Às vezes')}${o('never', 'Nunca')}</select></label>`;
+    };
+    const cards = Object.entries(CAST).map(([id, c]) => {
+      const key = local.personagens[id], h = npcHeight(id), here = !!g.npcs.byId(id);
+      return `<div class="npccard">
+        <div class="nc-head"><b>${esc(c.name)}</b> <span class="muted">${esc(c.title || '')}</span> ${src(id)}</div>
+        <div class="nc-row"><span class="muted">Altura</span><input type="range" min="0.9" max="2.3" step="0.01" value="${h}" data-npch="${id}"><span class="num" id="npch-${id}">${h.toFixed(2)} m</span>
+          ${cfg.cast[id]?.height ? `<button class="btn sm" data-act="npcReset" data-id="${id}" title="Voltar à altura padrão (${DEFAULT_H[id]} m)">↺</button>` : ''}</div>
+        <div class="nc-row">${presSel(id)}</div>
+        <div class="btns"><button class="btn sm" data-act="modelPick" data-slot="${id}">Escolher .vrm</button>${key ? `<button class="btn sm" data-act="modelRemove" data-slot="${id}" data-key="${esc(key)}">Remover modelo</button>` : ''}
+          <button class="btn sm" data-act="npcCall" data-id="${id}" ${here ? '' : 'disabled title="Não está neste andar"'}>Chamar aqui</button></div>
+      </div>`;
+    }).join('');
+    const list = (slot) => local[slot].map((k) => `<span class="tag ok">${esc(displayName(k))} <button class="x" data-act="modelRemove" data-slot="${slot}" data-key="${esc(k)}">✕</button></span>`).join(' ');
+    const group = (slot, label, scaleKey, hint) => `<div class="npccard">
+        <div class="nc-head"><b>${label}</b> ${list(slot) || '<span class="tag">bonecos padrão</span>'}</div>
+        <div class="muted">${hint}</div>
+        <div class="nc-row"><span class="muted">Escala</span><input type="range" min="0.75" max="1.3" step="0.01" value="${cfg[scaleKey]}" data-npcg="${scaleKey}"><span class="num" id="npcg-${scaleKey}">${Math.round(cfg[scaleKey] * 100)}%</span></div>
+        <div class="btns"><button class="btn sm" data-act="modelPick" data-slot="${slot}">Adicionar .vrm</button></div>
+      </div>`;
+    return `<div class="muted pad">Ajuste cada personagem do seu jeito. Arraste a altura e veja na hora — use <b>Chamar aqui</b> para trazer o personagem até você. Modelos .vrm ficam guardados só neste navegador.</div>
+      <div class="npcgrid">${cards}</div>
+      <div class="section">Moradores e crianças</div>
+      <div class="npcgrid">${group('moradores', 'Moradores', 'folkScale', 'Modelos distribuídos em rodízio — quanto mais arquivos, mais variados.')}${group('criancas', 'Crianças', 'kidScale', 'Cada criança usa um modelo diferente desta lista.')}</div>`;
   }
 
   modelRows() {
@@ -724,6 +760,18 @@ export class UI {
           g.reloadModels().then(() => this.renderPanel());
           return;
         }
+        case 'npcReset': resetNpc(d.id); g.npcs.applyHeights(); break;
+        case 'npcCall': {
+          const n = g.npcs.byId(d.id);
+          if (n) {
+            const f = g.player.forward();
+            n.pos.set(g.player.pos.x + f.x * 2.2, n.pos.y, g.player.pos.z + f.z * 2.2);
+            n.state = 'idle';
+            n.timer = 20;
+            this.toast(`${n.name} veio até você.`);
+          }
+          break;
+        }
         case 'tab': this.shopTab = d.t; break;
         case 'bagCat': this.bagCat = d.c; this.detail = null; break;
         case 'detail': this.detail = { kind: d.kind, id: d.id }; break;
@@ -737,7 +785,28 @@ export class UI {
       this.renderPanel();
     });
     body.addEventListener('input', (e) => {
-      const el = e.target, k = el.dataset.set;
+      const el = e.target;
+      if (el.dataset.npch) {
+        const id = el.dataset.npch, h = +el.value;
+        setNpc(id, { height: h });
+        $(`npch-${id}`).textContent = `${h.toFixed(2)} m`;
+        this.g.npcs.applyHeights();
+        return;
+      }
+      if (el.dataset.npcg) {
+        setGlobal(el.dataset.npcg, +el.value);
+        $(`npcg-${el.dataset.npcg}`).textContent = `${Math.round(+el.value * 100)}%`;
+        this.g.npcs.applyHeights();
+        return;
+      }
+      if (el.dataset.npcp) {
+        setNpc(el.dataset.npcp, { presence: el.value });
+        this.g.npcs.populate();
+        this.toast(el.value === 'never' ? 'Personagem removido da cidade.' : 'Presença atualizada.');
+        this.renderPanel();
+        return;
+      }
+      const k = el.dataset.set;
       if (!k) return;
       const s = this.g.state.settings;
       s[k] = el.type === 'checkbox' ? el.checked : +el.value;

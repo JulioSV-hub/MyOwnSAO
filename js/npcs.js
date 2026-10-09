@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { buildCharacter, animateCharacter, CAST, randomTownsfolk } from './characters.js';
 import { registry, createModelCharacter, animateModel, disposeModel } from './models.js';
+import { npcHeight, presence, getNpcConfig } from './npcconfig.js';
 import { mulberry32 } from './rng.js';
 import { TOWN_R } from './world.js';
 import { weaponDef, MAX_FLOOR } from './data.js';
@@ -37,16 +38,22 @@ class NPC {
     this.fixed = !!opts.fixed;
     this.c = buildCharacter(def);
     this.mesh = this.c.group;
+    this.variation = def.id ? 1 : 0.93 + Math.random() * 0.12;
+    // altura "natural" do boneco procedural (topo da cabeça), para escalar até a altura configurada
+    this.naturalH = 1.78 * (def.kid ? 0.68 : def.small ? 0.86 : def.big ? 1.12 : 1);
+    this.applyHeight();
     // se existir um modelo 3D (VRM/GLB) para este personagem, troca o boneco assim que carregar
     const file = (def.id && registry.cast[def.id]) || opts.modelFile;
     if (file) {
-      const h = (def.kid ? 1.25 : def.small ? 1.5 : def.big ? 1.9 : def.female ? 1.62 : 1.72) * (opts.modelFile ? 0.93 + Math.random() * 0.12 : 1);
+      const h = this.targetHeight();
       createModelCharacter(file, h).then((mc) => {
         if (this.dead) { disposeModel(mc); return; }
         this.game.scene.remove(this.mesh);
         this.mesh.traverse((o) => { if (o.material && !o.userData.outline) o.material.dispose?.(); });
         this.c = mc;
         this.mesh = mc.group;
+        this.naturalH = h;
+        this.applyHeight();
         this.mesh.position.copy(this.pos);
         this.mesh.rotation.y = this.yaw;
         this.game.scene.add(this.mesh);
@@ -69,6 +76,19 @@ class NPC {
     this.game.scene.add(this.mesh);
     this.label = this.game.ui.createNpcLabel(this);
   }
+
+  targetHeight() {
+    const d = this.def;
+    if (d.id) return npcHeight(d.id);
+    const cfg = getNpcConfig();
+    return (d.kid ? 1.25 * cfg.kidScale : (d.female ? 1.62 : 1.72) * cfg.folkScale) * this.variation;
+  }
+
+  applyHeight() {
+    this.mesh.scale.setScalar(this.targetHeight() / this.naturalH);
+  }
+
+  labelHeight() { return this.c.height * this.mesh.scale.y; }
 
   pickTarget() {
     const w = this.game.world;
@@ -262,6 +282,10 @@ export class NPCManager {
 
   byName(name) { return this.list.find((n) => n.name === name); }
 
+  byId(id) { return this.list.find((n) => n.def.id === id); }
+
+  applyHeights() { for (const n of this.list) n.applyHeight(); }
+
   populate() {
     this.clear();
     const g = this.game, w = g.world, n = g.floor.n;
@@ -274,7 +298,8 @@ export class NPCManager {
     // O elenco principal aparece pela cidade (cada andar sorteia quem está lá)
     const cast = [['kirito', 'kirito'], ['asuna', 'cook'], ['klein', 'klein'], ['silica', 'silica'], ['yui', 'yui']];
     for (const [id, role] of cast) {
-      if (n > 1 && id !== 'kirito' && id !== 'asuna' && rand() < 0.35) continue; // Kirito e Asuna estão em todo andar
+      const pres = presence(id);
+      if (pres === 'never' || (pres === 'sometimes' && n > 1 && rand() < 0.35)) continue;
       const ang = rand() * Math.PI * 2, rad = 7 + rand() * 9;
       add(CAST[id], Math.cos(ang) * rad, Math.sin(ang) * rad, { role, follow: id === 'yui' && this.byName('Asuna') ? 'Asuna' : null });
     }
