@@ -103,6 +103,13 @@ export class UI {
       const act = g.quests.activeList().slice(0, 4);
       $('tracker').innerHTML = act.map((x) => { const pr = g.quests.progress(x), ok = pr >= x.count; return `<div class="tq ${ok ? 'ok' : ''}"><b>${x.main ? '★ ' : ''}${esc(x.title)}</b><span>${ok ? (x.giver ? `entregar: ${esc(g.quests.giverName(x.giver))}` : 'concluída') : `${pr}/${x.count}`}</span></div>`; }).join('');
     }
+    this.partyT = (this.partyT || 0) - dt;
+    if (this.partyT <= 0) {
+      this.partyT = 0.25;
+      const rows = g.party.members.map((m) => `<div class="ph ${m.alive ? '' : 'down'}"><b>${esc(m.name.replace(/ \(.*\)$/, ''))}</b><i><s style="width:${((m.hp / m.maxHp) * 100).toFixed(0)}%"></s></i>${m.alive ? '' : `<em>${Math.ceil(m.down)}s</em>`}</div>`);
+      if (g.state.pet) rows.push(`<div class="ph pet"><b>♥ ${esc(g.state.pet.name)}</b><span>Lv ${g.state.pet.level}</span></div>`);
+      $('party-hud').innerHTML = rows.join('');
+    }
     $('hp-panel').classList.toggle('danger', r < 0.25);
 
     for (let i = 0; i < 4; i++) {
@@ -770,7 +777,10 @@ export class UI {
     const s = this.g.state.settings;
     const range = (k, label, min, max, step) => `<div class="row"><span>${label}</span><div class="row-r"><input type="range" min="${min}" max="${max}" step="${step}" value="${s[k]}" data-set="${k}"><span class="num" id="set-${k}">${SET_FMT[k](s[k])}</span></div></div>`;
     const check = (k, label) => `<div class="row"><span>${label}</span><input type="checkbox" data-set="${k}" ${s[k] ? 'checked' : ''}></div>`;
-    return `<div class="section">Configurações</div>
+    const diff = s.difficulty || 'normal';
+    return `<div class="section">Dificuldade</div>
+      <div class="row"><span>Força dos monstros e chefes <span class="muted">(vale para os monstros que aparecerem a partir de agora)</span></span><select data-set="difficulty">${[['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil'], ['sao', 'Death Game (muito difícil)']].map(([v, l]) => `<option value="${v}" ${diff === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="section">Configurações</div>
       ${range('sens', 'Sensibilidade do mouse', 0.2, 3, 0.05)}
       ${range('fov', 'Campo de visão', 60, 100, 1)}
       ${range('volume', 'Volume dos efeitos', 0, 1, 0.05)}
@@ -983,7 +993,8 @@ export class UI {
       const k = el.dataset.set;
       if (!k) return;
       const s = this.g.state.settings;
-      s[k] = el.type === 'checkbox' ? el.checked : +el.value;
+      s[k] = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' ? el.value : +el.value;
+      if (k === 'difficulty') this.toast(`Dificuldade: ${el.selectedOptions[0].textContent}. Os próximos monstros já nascem assim.`);
       const lab = $(`set-${k}`);
       if (lab && SET_FMT[k]) lab.textContent = SET_FMT[k](s[k]);
       this.g.applySettings();

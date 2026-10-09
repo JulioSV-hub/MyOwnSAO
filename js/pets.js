@@ -115,8 +115,10 @@ export class Pets {
     if (pet.target && !g.indoor) {
       tx = pet.target.pos.x; tz = pet.target.pos.z; speed = 7; stop = pet.target.radius + 0.8;
     } else {
-      const back = pl.forward().multiplyScalar(-1.6), side = new THREE.Vector3(-back.z, 0, back.x).multiplyScalar(0.7);
-      tx = pl.pos.x + back.x + side.x; tz = pl.pos.z + back.z + side.z; speed = 6.5; stop = 0.6;
+      // o mascote anda um pouco à frente, à direita, onde dá para ver
+      const f = pl.forward();
+      tx = pl.pos.x + f.x * 3 - f.z * 1.5; tz = pl.pos.z + f.z * 3 + f.x * 1.5;
+      speed = Math.max(6.5, Math.hypot(pl.vel.x, pl.vel.z) * 1.3 + 1); stop = 0.3;
     }
     const dx = tx - pet.pos.x, dz = tz - pet.pos.z, dd = Math.hypot(dx, dz);
     if (dd > 30 || g.indoor) { pet.pos.set(tx, 0, tz); }

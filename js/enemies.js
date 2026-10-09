@@ -7,6 +7,12 @@ import { Sfx } from './audio.js';
 import { hdr } from './effects.js';
 
 const TAMEABLE = new Set(['quad', 'flyer', 'slime', 'spider', 'cube']);
+export const DIFFICULTY = {
+  easy: { label: 'Fácil', hp: 0.65, atk: 0.6, boss: 1 },
+  normal: { label: 'Normal', hp: 1, atk: 1, boss: 1 },
+  hard: { label: 'Difícil', hp: 1.5, atk: 1.45, boss: 1.15 },
+  sao: { label: 'Death Game', hp: 2.1, atk: 2, boss: 1.3 },
+};
 
 const RED = new THREE.Color('#ff2010');
 const WHITE = new THREE.Color('#ffffff');
@@ -27,11 +33,14 @@ export class Enemy {
     this.pos = new THREE.Vector3(x, 0, z);
     this.home = this.pos.clone();
     this.yaw = Math.random() * Math.PI * 2;
-    const L = level;
-    this.maxHp = Math.round((40 + 24 * L) * (this.boss ? (def.hpMul ?? 9) : (def.hp ?? 1)));
+    const L = level, n = this.game.floor?.n || 1;
+    // dificuldade escolhida em Sistema + reforço por andar (o jogador fica bem mais forte a cada andar)
+    const D = DIFFICULTY[this.game.state?.settings?.difficulty] || DIFFICULTY.normal;
+    const fHp = 1 + (n - 1) * 0.03, fAtk = 1 + (n - 1) * 0.055;
+    this.maxHp = Math.round((40 + 24 * L) * (this.boss ? (def.hpMul ?? 12) : (def.hp ?? 1)) * fHp * D.hp * (this.boss ? D.boss : 1));
     this.hp = this.maxHp;
-    this.atk = (6 + 3.4 * L) * (def.atk ?? 1) * (this.boss ? 1.3 : 1);
-    this.defense = L * 2;
+    this.atk = (6 + 3.4 * L) * (def.atk ?? 1) * (this.boss ? 1.6 : 1) * fAtk * D.atk;
+    this.defense = L * 2.4;
     this.speed = def.speed ?? (this.boss ? 4.8 : 4);
     const sc = def.scale || 1;
     this.flyH = def.arch === 'flyer' ? 1.5 * Math.min(sc, 1.6) : def.arch === 'cube' ? 0.9 * sc : 0;

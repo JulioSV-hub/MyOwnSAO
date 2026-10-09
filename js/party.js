@@ -123,16 +123,18 @@ class Companion {
     if (this.target) {
       tx = this.target.pos.x; tz = this.target.pos.z; stop = this.target.radius + this.spec.reach * 0.7; speed = 6.4;
     } else {
+      // formação à frente e dos lados, dentro do campo de visão (antes ficavam atrás e ninguém via)
       const f = pl.forward(), side = this.slot === 0 ? -1 : this.slot === 1 ? 1 : 0;
-      tx = pl.pos.x - f.x * (side ? 1.6 : 2.8) + -f.z * side * 1.3;
-      tz = pl.pos.z - f.z * (side ? 1.6 : 2.8) + f.x * side * 1.3;
-      stop = 0.5; speed = 5.6;
+      const ahead = side ? 3.2 : 5.5, wide = side ? 2.1 : -0.6;
+      tx = pl.pos.x + f.x * ahead - f.z * side * wide;
+      tz = pl.pos.z + f.z * ahead + f.x * side * wide;
+      stop = 0.35; speed = Math.max(5.6, Math.hypot(pl.vel.x, pl.vel.z) * 1.25 + 1);
     }
     const dx = tx - this.pos.x, dz = tz - this.pos.z, dd = Math.hypot(dx, dz);
     let moving = 0;
     if (dd > 34) { this.pos.set(tx, 0, tz); }
     else if (dd > stop) {
-      const sp = Math.min(speed * (dd > 7 ? 1.5 : 1), dd * 3);
+      const sp = Math.min(speed * (dd > 7 ? 1.5 : 1), dd * 4);
       this.pos.x += (dx / dd) * sp * dt;
       this.pos.z += (dz / dd) * sp * dt;
       moving = sp;
@@ -141,7 +143,10 @@ class Companion {
       this.yaw += angleTo(this.yaw, Math.atan2(-dx, -dz)) * Math.min(1, dt * 10);
       if (this.cool <= 0) this.attack(dx / (dd || 1), dz / (dd || 1));
     } else {
-      this.yaw += angleTo(this.yaw, pl.yaw) * Math.min(1, dt * 3);
+      // parado: vira um pouco para você (dá para ver o rosto); andando: olha para a frente
+      const still = Math.hypot(pl.vel.x, pl.vel.z) < 0.5;
+      const face = still ? Math.atan2(-(pl.pos.x - this.pos.x), -(pl.pos.z - this.pos.z)) : pl.yaw;
+      this.yaw += angleTo(this.yaw, face) * Math.min(1, dt * 3);
     }
     w.resolve(this.pos, this.radius);
     this.pos.y = w.groundAt(this.pos.x, this.pos.z);
