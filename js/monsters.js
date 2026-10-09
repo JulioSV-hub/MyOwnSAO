@@ -1,7 +1,7 @@
 // Modelos dos monstros feitos de formas suaves (cápsulas, esferas, lâminas extrudadas). Frente do modelo = -Z.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { toonMat, outlineMat, addOutlines } from './toon.js';
+import { toonMat, outlineMat, addOutlines, animeGradient } from './toon.js';
 
 const G = {};
 const geo = (key, fn) => G[key] || (G[key] = fn());
@@ -59,7 +59,7 @@ function M(g, mat, x = 0, y = 0, z = 0) {
 }
 
 function stdMat(color, def) {
-  const m = toonMat(color);
+  const m = toonMat(color, { gradientMap: animeGradient });
   if (def.ghost) {
     m.transparent = true;
     m.opacity = 0.62;
@@ -127,7 +127,7 @@ export function buildMonster(def, boss) {
   const body = stdMat(def.color, def);
   const acc = stdMat(def.color2 || '#cccccc', def);
   const eye = eyeMat(def.eye || (boss ? '#ff3020' : '#ff3a2a'));
-  const dark = toonMat('#2a2420');
+  const dark = toonMat('#2a2420', { gradientMap: animeGradient });
   dark.userData.base = dark.emissive.clone();
   const metal = new THREE.MeshStandardMaterial({ color: '#c4c8d0', metalness: 0.75, roughness: 0.28 });
   metal.userData.base = metal.emissive.clone();
@@ -341,7 +341,7 @@ export function buildMonster(def, boss) {
       inner.add(M(SPH(0.6), body, 0, 0.6, 0));
   }
 
-  const outline = outlineMat('#2a1e16', boss ? 1.8 : 1.3);
+  const outline = outlineMat('#1c1410', boss ? 2.2 : 1.6);
   if (!def.ghost && def.arch !== 'cube') addOutlines(inner, outline, (o) => o.material === eye || o.material.transparent);
   const s = def.scale || 1;
   inner.scale.setScalar(s);

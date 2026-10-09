@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { SKILLS, ITEMS, weaponDef, armorDef, getFloor, expNeed, skillById, shopStock } from './data.js';
 import { Sfx } from './audio.js';
 import { exportSave, importSave, newSave } from './save.js';
+import { TOWN_R } from './world.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -32,6 +33,9 @@ export class UI {
     this.panel = null;
     this.shopTab = 'buy';
     this.enemyLabels = new Set();
+    this.npcLabels = new Set();
+    this.dialogOpen = false;
+    this.dlg = null;
     this.worldLabels = [];
     this.dmgs = [];
     this.mm = $('minimap').getContext('2d');
@@ -139,6 +143,74 @@ export class UI {
     return lab;
   }
 
+  createNpcLabel(npc) {
+    const el = document.createElement('div');
+    el.className = `nlabel ${npc.role === 'folk' || npc.role === 'kid' ? 'folk' : 'named'}`;
+    el.innerHTML = `<div class="cursor">${npc.role === 'folk' || npc.role === 'kid' ? '▼' : '◆'}</div><div class="nname">${esc(npc.name)}</div>${npc.title ? `<div class="ntitle">${esc(npc.title)}</div>` : ''}`;
+    $('labels').appendChild(el);
+    const lab = { el, npc, remove: () => { el.remove(); this.npcLabels.delete(lab); } };
+    this.npcLabels.add(lab);
+    return lab;
+  }
+
+  // ─────────── Diálogos com NPCs ───────────
+  openDialog(npc) {
+    this.dialogOpen = true;
+    this.dlgNpc = npc;
+    npc.talking = true;
+    this.g.input.unlock();
+    Sfx.menuOpen();
+    $('dialog').classList.remove('hidden');
+    $('dlg-name').textContent = npc.name;
+    $('dlg-title').textContent = npc.title || '';
+    this.showNode(npc.dialog());
+  }
+
+  showNode(node) {
+    this.dlg = node;
+    this.typed = 0;
+    $('dlg-opts').innerHTML = node.options.map((o, i) => `<button class="dlg-opt" data-i="${i}"><span>${i + 1}</span>${esc(o.label)}</button>`).join('');
+    $('dlg-opts').classList.add('wait');
+    $('dlg-opts').onclick = (e) => { const b = e.target.closest('[data-i]'); if (b) this.chooseOption(+b.dataset.i); };
+    $('dlg-text').onclick = () => this.skipTyping();
+    clearInterval(this.typeTimer);
+    this.typeTimer = setInterval(() => {
+      this.typed += 2;
+      $('dlg-text').textContent = node.text.slice(0, this.typed);
+      if (this.typed >= node.text.length) this.skipTyping();
+    }, 16);
+  }
+
+  skipTyping() {
+    if (!this.dlg) return;
+    clearInterval(this.typeTimer);
+    $('dlg-text').textContent = this.dlg.text;
+    this.typed = this.dlg.text.length;
+    $('dlg-opts').classList.remove('wait');
+  }
+
+  chooseOption(i) {
+    if (!this.dlg) return;
+    if (this.typed < this.dlg.text.length) { this.skipTyping(); return; }
+    const o = this.dlg.options[i];
+    if (!o) return;
+    Sfx.click();
+    const next = o.run();
+    if (next === null) this.closeDialog();
+    else if (next) this.showNode(next);
+  }
+
+  closeDialog(relock = true) {
+    if (!this.dialogOpen) return;
+    clearInterval(this.typeTimer);
+    this.dialogOpen = false;
+    this.dlg = null;
+    if (this.dlgNpc) this.dlgNpc.talking = false;
+    this.dlgNpc = null;
+    $('dialog').classList.add('hidden');
+    if (relock && this.g.mode === 'play') this.g.input.lock();
+  }
+
   setWorldLabels(specs) {
     for (const l of this.worldLabels) l.el.remove();
     this.worldLabels = specs.map((s) => {
@@ -165,6 +237,16 @@ export class UI {
       l.el.style.transform = `translate(${p[0].toFixed(1)}px, ${p[1].toFixed(1)}px) translate(-50%, -100%) scale(${Math.max(0.6, 1 - d / 70).toFixed(3)})`;
       l.fill.style.width = `${((e.hp / e.maxHp) * 100).toFixed(1)}%`;
       l.el.classList.toggle('aggro', e.state === 'chase' || e.state === 'windup' || e.state === 'recover');
+    }
+    for (const l of this.npcLabels) {
+      const n = l.npc;
+      const d = cam.distanceTo(n.pos);
+      const maxD = n.role === 'folk' || n.role === 'kid' ? 9 : 26;
+      const p = d < maxD ? this.project(v3.set(n.pos.x, n.pos.y + n.c.height + 0.15, n.pos.z)) : null;
+      if (!p || this.dialogOpen) { l.el.style.display = 'none'; continue; }
+      l.el.style.display = '';
+      l.el.style.transform = `translate(${p[0].toFixed(1)}px, ${p[1].toFixed(1)}px) translate(-50%, -100%) scale(${Math.max(0.6, 1 - d / 40).toFixed(3)})`;
+      l.el.classList.toggle('near', d < 2.8);
     }
     for (const l of this.worldLabels) {
       const d = cam.distanceTo(l.pos);
@@ -267,7 +349,7 @@ export class UI {
     c.lineWidth = 1;
     c.beginPath(); c.arc(x, y, 230 * scale, 0, Math.PI * 2); c.stroke();
     c.fillStyle = 'rgba(160,200,255,0.12)';
-    c.beginPath(); c.arc(x, y, 34 * scale, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(x, y, TOWN_R * scale, 0, Math.PI * 2); c.fill();
     const [ax, ay] = tr(w.arenaPos.x, w.arenaPos.z);
     c.strokeStyle = 'rgba(210,190,150,0.35)';
     c.lineWidth = 3;
@@ -289,7 +371,7 @@ export class UI {
       c.fillStyle = col;
       c.beginPath(); c.arc(q[0], q[1], r, 0, Math.PI * 2); c.fill();
     };
-    dot(w.npcPos.x, w.npcPos.z, '#ffd54f', 3);
+    for (const n of g.npcs.list) { const [nx2, ny2] = tr(n.pos.x, n.pos.z); c.fillStyle = n.role === 'folk' || n.role === 'kid' ? '#7adf8a' : '#ffd54f'; c.beginPath(); c.arc(nx2, ny2, n.role === 'folk' || n.role === 'kid' ? 1.8 : 2.8, 0, Math.PI * 2); c.fill(); }
     dot(w.gatePos.x, w.gatePos.z, '#4fc3ff', 4, true);
     dot(w.doorPos.x, w.doorPos.z, cleared ? '#4fc3ff' : '#b07aff', 4, true);
     const [nx, ny] = clampEdge(tr(p.x, p.z - 500), 10);

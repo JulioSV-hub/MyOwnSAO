@@ -7,6 +7,18 @@ export const gradientMap = new THREE.DataTexture(ramp, ramp.length, 1, THREE.Red
 gradientMap.minFilter = gradientMap.magFilter = THREE.LinearFilter;
 gradientMap.needsUpdate = true;
 
+// Rampa de anime: duas cores bem definidas (luz / sombra), para personagens e monstros.
+const ramp2 = new Uint8Array([150, 150, 152, 255, 255, 255]);
+export const animeGradient = new THREE.DataTexture(ramp2, ramp2.length, 1, THREE.RedFormat);
+animeGradient.minFilter = animeGradient.magFilter = THREE.NearestFilter;
+animeGradient.needsUpdate = true;
+
+export function animeMat(color, o = {}) {
+  const m = new THREE.MeshToonMaterial({ color, gradientMap: animeGradient, ...o });
+  m.userData.base = m.emissive.clone();
+  return m;
+}
+
 export const windTime = { value: 0 };
 
 const DROP = new Set(['roughness', 'metalness', 'envMapIntensity', 'flatShading']);

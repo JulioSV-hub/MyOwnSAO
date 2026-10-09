@@ -12,6 +12,7 @@ import { World } from './world.js';
 import { Player } from './player.js';
 import { Combat } from './combat.js';
 import { EnemyManager } from './enemies.js';
+import { NPCManager } from './npcs.js';
 import { Effects } from './effects.js';
 import { UI } from './ui.js';
 import { Sfx } from './audio.js';
@@ -89,6 +90,7 @@ class Game {
     this.player = new Player(this);
     this.combat = new Combat(this);
     this.enemies = new EnemyManager(this);
+    this.npcs = new NPCManager(this);
     this.effects = new Effects(this);
 
     this.mode = 'title';
@@ -104,7 +106,7 @@ class Game {
     this.last = performance.now();
 
     this.input.onLockChange = (locked) => {
-      if (!locked && this.mode === 'play' && !this.ui.menuOpen) this.ui.openMenu('status');
+      if (!locked && this.mode === 'play' && !this.ui.menuOpen && !this.ui.dialogOpen) this.ui.openMenu('status');
     };
     r.domElement.addEventListener('click', () => { if (this.mode === 'play' && !this.input.isLocked && !this.ui.menuOpen) this.input.lock(); });
     addEventListener('resize', () => this.resize());
@@ -289,6 +291,7 @@ class Game {
       this.world.dispose();
     }
     this.enemies.clear();
+    this.npcs.clear();
     this.effects.clear();
     this.ui.clearEnemyLabels();
     this.bossFight = null;
@@ -311,6 +314,7 @@ class Game {
     this.player.place(0, 9, 0);
     this.player.dead = false;
     this.enemies.populate();
+    this.npcs.populate();
     this.combat.reset();
     this.ui.banner(`Andar ${n}`, `${this.floor.town} — ${this.floor.desc}`, 3.5);
     this.save();
@@ -362,6 +366,8 @@ class Game {
   }
 
   logout() {
+    this.npcs.clear();
+    this.ui.closeDialog(false);
     this.save();
     this.ui.closeMenu(false);
     this.mode = 'title';
@@ -374,6 +380,8 @@ class Game {
   }
 
   wipe() {
+    this.npcs.clear();
+    this.ui.closeDialog(false);
     deleteSave();
     this.state = null;
     this.ui.closeMenu(false);
@@ -414,10 +422,11 @@ class Game {
     const p = this.state.player, w = weaponDef(p.weapon), a = armorDef(p.armor);
     const o = p.dualBlades && p.offhand ? weaponDef(p.offhand) : null;
     const base = p.str * 2 + p.level * 1.5;
+    const up = (id) => 1 + 0.08 * ((p.upgrades && p.upgrades[id]) || 0);
     return {
       maxHp: Math.round(180 + 25 * (p.level - 1) + p.vit * 15 + a.hp),
-      atkR: w.atk + base,
-      atkL: (o ? o.atk : w.atk) + base,
+      atkR: w.atk * up(p.weapon) + base,
+      atkL: (o ? o.atk * up(p.offhand) : w.atk * up(p.weapon)) + base,
       dual: !!o,
       def: a.def + p.vit * 0.5 + p.level * 0.5,
       crit: Math.min(0.6, 0.05 + p.agi * 0.008),
@@ -691,6 +700,21 @@ class Game {
     this.ui.toast(`Comprou ${q > 1 ? `${q}× ` : ''}${d.name}.`);
   }
 
+  upgradeCost(id) {
+    const lv = (this.state.player.upgrades?.[id]) || 0;
+    return Math.round((60 + weaponDef(id).atk * 6) * Math.pow(lv + 1, 1.5));
+  }
+
+  upgradeWeapon(id) {
+    const p = this.state.player, cost = this.upgradeCost(id);
+    if (p.col < cost) return false;
+    p.col -= cost;
+    (p.upgrades ||= {})[id] = ((p.upgrades[id]) || 0) + 1;
+    this.effects.sparks(this.world.lisbethSpot.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), '#ffb84a', 24, 0.8);
+    this.save();
+    return true;
+  }
+
   sellPrice(d) { return Math.max(10, Math.floor(d.price * 0.4)); }
 
   sellMat(name) {
@@ -718,9 +742,10 @@ class Game {
     if (this.nearGate()) {
       hint = '[E] Portal de Teletransporte';
       act = () => this.ui.openMenu('map');
-    } else if (pl.distanceTo(w.npcPos) < 4.5) {
-      hint = '[E] Falar com Agil (loja)';
-      act = () => { this.ui.shopTab = 'buy'; this.ui.openMenu('shop'); };
+    } else if (this.npcs.nearest(pl, 2.8)) {
+      const npc = this.npcs.nearest(pl, 2.8);
+      hint = `[E] Falar com ${npc.name}`;
+      act = () => this.ui.openDialog(npc);
     } else if (Math.hypot(pl.x - w.doorPos.x, pl.z - w.doorPos.z) < 9) {
       if (pr.cleared[n] && n < MAX_FLOOR) { hint = `[E] Subir para o Andar ${n + 1}`; act = () => this.travel(n + 1, true); }
       else if (!pr.cleared[n]) hint = 'A porta está selada. Derrote o chefe deste andar na arena.';
@@ -732,6 +757,12 @@ class Game {
 
   handleKeys() {
     const inp = this.input;
+    if (this.ui.dialogOpen) {
+      if (inp.pressed('Escape')) this.ui.closeDialog();
+      for (let i = 0; i < 6; i++) if (inp.pressed(`Digit${i + 1}`)) this.ui.chooseOption(i);
+      if (inp.pressed('KeyE') || inp.pressed('Space')) this.ui.skipTyping();
+      return;
+    }
     if (this.ui.menuOpen) {
       if (inp.pressed('Escape') || inp.pressed('Tab')) this.ui.closeMenu();
       return;
@@ -754,17 +785,19 @@ class Game {
 
     if (this.mode === 'play') {
       this.handleKeys();
-      const paused = this.ui.menuOpen || !this.input.isLocked;
-      this.ui.setClickToPlay(!this.ui.menuOpen && !this.input.isLocked);
+      const paused = this.ui.menuOpen || this.ui.dialogOpen || !this.input.isLocked;
+      this.ui.setClickToPlay(!this.ui.menuOpen && !this.ui.dialogOpen && !this.input.isLocked);
       if (!paused) {
         this.player.update(dt);
         this.combat.update(dt);
         this.enemies.update(dt);
+        this.npcs.update(dt);
         this.updateInteract();
         this.state.playTime += real;
         this.autosaveT -= real;
         if (this.autosaveT <= 0) { this.autosaveT = 30; this.save(); }
       }
+      if (paused && this.ui.dialogOpen) this.npcs.update(dt);
       this.effects.update(paused ? 0 : dt);
       this.updateSky(dt, !paused);
     } else if (this.mode === 'dead') {

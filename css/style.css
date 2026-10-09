@@ -130,6 +130,30 @@ button { font-family: inherit; cursor: pointer; }
 .dmgn.miss { color: #9fd8ff; font-size: 17px; letter-spacing: 2px; }
 .dmgn.parry { color: #fff; font-size: 26px; letter-spacing: 3px; text-shadow: 0 0 12px #9fd8ff, 0 2px 4px #000; }
 
+/* ─────────── NPCs e diálogo ─────────── */
+.nlabel { position: absolute; left: 0; top: 0; will-change: transform; white-space: nowrap; text-align: center; }
+.nlabel .cursor { font-size: 12px; line-height: 1; color: #7adf8a; text-shadow: 0 0 6px #7adf8a; }
+.nlabel.named .cursor { color: #ffd54f; text-shadow: 0 0 8px #ffd54f; font-size: 14px; }
+.nlabel .nname { font-size: 12px; font-weight: 600; text-shadow: 0 1px 3px #000, 0 0 2px #000; }
+.nlabel.folk .nname { font-size: 11px; opacity: 0.8; }
+.nlabel .ntitle { font-size: 10px; color: #ffe8a8; text-shadow: 0 1px 2px #000; }
+.nlabel.near .nname { color: #ffd54f; }
+#dialog {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); width: min(760px, 86vw);
+  background: rgba(244, 245, 247, 0.96); color: #3a3c42; border-radius: 8px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  padding: 16px 20px 10px; border-top: 4px solid var(--accent); animation: panelIn 0.25s ease-out;
+}
+.dlg-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+#dlg-name { font-size: 18px; font-weight: 800; color: #2a2c32; }
+#dlg-title { font-size: 12px; color: var(--accent); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+#dlg-text { font-size: 16px; line-height: 1.5; min-height: 48px; cursor: pointer; }
+#dlg-opts { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; transition: opacity 0.2s; }
+#dlg-opts.wait { opacity: 0.35; pointer-events: none; }
+.dlg-opt { text-align: left; border: 1px solid #d3d6dc; background: linear-gradient(#ffffff, #eef0f3); border-radius: 4px; padding: 7px 12px; font-size: 14px; font-weight: 600; color: #4a4d55; }
+.dlg-opt span { display: inline-block; width: 20px; color: var(--accent); font-weight: 800; }
+.dlg-opt:hover { border-color: var(--accent); background: linear-gradient(#fff6e6, #ffe8c4); }
+.dlg-hint { margin-top: 8px; font-size: 11px; color: var(--ui-muted); text-align: right; }
+
 /* ─────────── Overlays ─────────── */
 #clicktoplay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35); cursor: pointer; }
 .ctp-box { background: var(--ui-bg); color: var(--ui-text); padding: 22px 34px; border-radius: 6px; text-align: center; box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5); border-top: 4px solid var(--accent); }

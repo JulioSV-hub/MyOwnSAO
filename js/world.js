@@ -8,7 +8,7 @@ import { Grass } from './grass.js';
 import { toonMat } from './toon.js';
 
 export const FLOOR_R = 230;
-export const TOWN_R = 34;
+export const TOWN_R = 58;
 export const ARENA_R = 24;
 const ARENA_DIST = 165;
 const TOWER_GAP = 54;
@@ -108,7 +108,8 @@ export class World {
     const td = ARENA_DIST + TOWER_GAP;
     this.towerPos = new THREE.Vector3(Math.cos(a) * td, this.arenaH, Math.sin(a) * td);
     this.gatePos = new THREE.Vector3(0, this.townH, 0);
-    this.npcPos = new THREE.Vector3(8, this.townH, 4);
+    this.npcPos = new THREE.Vector3(10, this.townH, 6);
+    this.smithPos = new THREE.Vector3(-10, this.townH, 6);
     this.spokes = [0, 0.5, 1, 1.5].map((k, i) => ({
       dx: Math.cos(a + k * Math.PI), dz: Math.sin(a + k * Math.PI),
       len: i === 0 ? ARENA_DIST - ARENA_R + 2 : 70 + this.rand() * 70,
@@ -130,7 +131,7 @@ export class World {
   pathDist(x, z) {
     let best = 1e9;
     for (const s of this.spokes) {
-      const t = Math.max(TOWN_R - 8, Math.min(s.len, x * s.dx + z * s.dz));
+      const t = Math.max(15, Math.min(s.len, x * s.dx + z * s.dz));
       const d = Math.hypot(x - s.dx * t, z - s.dz * t);
       if (d < best) best = d;
     }
@@ -199,7 +200,9 @@ export class World {
       const onPath = 1 - smoothstep(2.2, 3.8, this.pathDist(x, z));
       c.lerp(path, onPath * 0.85);
       const dt = Math.hypot(x, z);
-      const pz = 1 - smoothstep(TOWN_R - 7, TOWN_R - 3, dt);
+      const plazaM = 1 - smoothstep(18, 20.5, dt);
+      const streetM = dt < TOWN_R ? Math.max(1 - smoothstep(2.6, 3.6, Math.abs(dt - 33)), 1 - smoothstep(2.2, 3.2, Math.abs(dt - 51.5))) : 0;
+      const pz = Math.max(plazaM, streetM);
       if (pz > 0) {
         const ring = (Math.floor(dt / 2.4) & 1) ? 0.95 : 1;
         tmp.copy(plaza).multiplyScalar(ring * (0.94 + n * 0.12));
@@ -491,8 +494,8 @@ export class World {
   // ─────────── Cidade ───────────
   buildTown() {
     const r = this.rand;
-    const wallCols = ['#f3e6cf', '#efe0c4', '#f6efe0', '#ead6b4', '#f0dcc8'];
-    const roofCols = ['#c4572e', '#d36b3a', '#3f7f8f', '#9a3f2e', '#5d8a4a', '#b8482e'];
+    const wallCols = ['#f3e6cf', '#efe0c4', '#f6efe0', '#ead6b4', '#f0dcc8', '#e8d8c0'];
+    const roofCols = ['#c4572e', '#d36b3a', '#3f7f8f', '#9a3f2e', '#5d8a4a', '#b8482e', '#4a6a9a'];
     const doorCols = ['#4a7a4a', '#3a6a8a', '#8a3a2a', '#6a4a2a'];
     const flowerCols = ['#ff6a7a', '#ffb0c8', '#fff0a0', '#ffffff', '#c8a0ff'];
     const mats = {};
@@ -503,83 +506,90 @@ export class World {
     const leafMat = M('#4f9a3a');
     this.windowMat = new THREE.MeshStandardMaterial({ color: '#3a3020', emissive: '#ffc864', emissiveIntensity: 0.1 });
     const doorMat = std('#5a3a22');
-    const spokeAngles = this.spokes.map((s) => Math.atan2(s.dz, s.dx));
-    const N = 18;
-    for (let i = 0; i < N; i++) {
-      const ang = (i / N) * Math.PI * 2 + 0.09;
-      const nearSpoke = spokeAngles.some((s) => Math.abs(Math.atan2(Math.sin(ang - s), Math.cos(ang - s))) < 0.26);
-      if (nearSpoke) continue;
-      const rad = 23 + r() * 4;
-      const x = Math.cos(ang) * rad, z = Math.sin(ang) * rad;
-      const w = 5 + r() * 3, d = 4.5 + r() * 2, hgt = 3.4 + r() * 1.8;
-      const rot = Math.atan2(-Math.cos(ang), -Math.sin(ang));
-      const house = new THREE.Group();
-      house.position.set(x, this.townH, z);
-      house.rotation.y = rot;
-      // paredes com empena (perfil de casa extrudado, bordas arredondadas)
-      const rh = 1.6 + r() * 1.2;
-      const prof = new THREE.Shape();
-      prof.moveTo(-w / 2, 0); prof.lineTo(w / 2, 0); prof.lineTo(w / 2, hgt); prof.lineTo(0, hgt + rh); prof.lineTo(-w / 2, hgt);
-      const wallGeo = new THREE.ExtrudeGeometry(prof, { depth: d, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 2 });
-      wallGeo.translate(0, 0, -d / 2);
-      const walls = new THREE.Mesh(wallGeo, M(wallCols[Math.floor(r() * wallCols.length)]));
-      // telhado de duas águas com beiral
-      const roofMat = M(roofCols[Math.floor(r() * roofCols.length)]);
-      const slope = Math.hypot(w / 2, rh) + 0.55, ang2 = Math.atan2(rh, w / 2);
-      for (const s of [-1, 1]) {
-        const slab = new THREE.Mesh(rbox(slope, 0.2, d + 0.9, 0.08), roofMat);
-        slab.position.set(s * (w / 4 + 0.08), hgt + rh / 2 + 0.12, 0);
-        slab.rotation.z = -s * ang2;
-        house.add(slab);
-      }
-      const ridge = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, d + 0.95, 10).rotateX(Math.PI / 2), roofMat);
-      ridge.position.y = hgt + rh + 0.12;
-      const chimney = new THREE.Mesh(rbox(0.6, 1.4, 0.6, 0.08), M('#8a7a6a'));
-      chimney.position.set(w * 0.22, hgt + rh * 0.75, -d * 0.2);
-      const door = new THREE.Mesh(rbox(1.1, 2.1, 0.16, 0.06), M(doorCols[Math.floor(r() * doorCols.length)]));
-      door.position.set(0, 1.05, d / 2 + 0.06);
-      const step = new THREE.Mesh(rbox(1.6, 0.18, 0.7, 0.06), M('#9a948a'));
-      step.position.set(0, 0.09, d / 2 + 0.4);
-      house.add(walls, ridge, chimney, door, step);
-      for (const sx of [-1, 1]) {
-        const frame = new THREE.Mesh(rbox(1.0, 1.1, 0.1, 0.04), doorMat);
-        frame.position.set(sx * w * 0.3, hgt * 0.58, d / 2 + 0.06);
-        const win = new THREE.Mesh(winGeo, this.windowMat);
-        win.position.set(sx * w * 0.3, hgt * 0.58, d / 2 + 0.12);
-        house.add(frame, win);
-        // floreira sob a janela
-        const box = new THREE.Mesh(rbox(1.15, 0.28, 0.35, 0.05), beamMat);
-        box.position.set(sx * w * 0.3, hgt * 0.58 - 0.72, d / 2 + 0.2);
-        house.add(box);
-        const fc = M(flowerCols[Math.floor(r() * flowerCols.length)]);
-        for (let f = 0; f < 5; f++) {
-          const bl = new THREE.Mesh(flowerGeo, f % 2 ? leafMat : fc);
-          bl.position.set(sx * w * 0.3 - 0.45 + f * 0.22, hgt * 0.58 - 0.5, d / 2 + 0.2);
-          house.add(bl);
-        }
-      }
-      // vigas de madeira (enxaimel) nos cantos e no meio da parede
-      for (const cx of [-1, 1]) for (const cz of [-1, 1]) {
-        const post = new THREE.Mesh(rbox(0.22, hgt, 0.22, 0.05), beamMat);
-        post.position.set(cx * (w / 2 + 0.04), hgt / 2, cz * (d / 2 + 0.04));
-        house.add(post);
-      }
-      for (const cz of [-1, 1]) {
-        const beam = new THREE.Mesh(rbox(w + 0.2, 0.2, 0.14, 0.05), beamMat);
-        beam.position.set(0, hgt * 0.92, cz * (d / 2 + 0.07));
-        house.add(beam);
-      }
-      house.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-      this.group.add(house);
-      this.grid.add({ x, z, hw: w / 2, hd: d / 2, rot });
+    const spokeAngles = this.spokes.map((sp) => Math.atan2(sp.dz, sp.dx));
+    const onRoad = (ang, rad, half) => spokeAngles.some((sa) => Math.abs(Math.atan2(Math.sin(ang - sa), Math.cos(ang - sa))) * rad < half);
+
+    const makeHouse = (x, z, rot, w, d, hgt) => {
+    const house = new THREE.Group();
+    house.position.set(x, this.townH, z);
+    house.rotation.y = rot;
+    // paredes com empena (perfil de casa extrudado, bordas arredondadas)
+    const rh = 1.6 + r() * 1.2;
+    const prof = new THREE.Shape();
+    prof.moveTo(-w / 2, 0); prof.lineTo(w / 2, 0); prof.lineTo(w / 2, hgt); prof.lineTo(0, hgt + rh); prof.lineTo(-w / 2, hgt);
+    const wallGeo = new THREE.ExtrudeGeometry(prof, { depth: d, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 2 });
+    wallGeo.translate(0, 0, -d / 2);
+    const walls = new THREE.Mesh(wallGeo, M(wallCols[Math.floor(r() * wallCols.length)]));
+    // telhado de duas águas com beiral
+    const roofMat = M(roofCols[Math.floor(r() * roofCols.length)]);
+    const slope = Math.hypot(w / 2, rh) + 0.55, ang2 = Math.atan2(rh, w / 2);
+    for (const s of [-1, 1]) {
+      const slab = new THREE.Mesh(rbox(slope, 0.2, d + 0.9, 0.08), roofMat);
+      slab.position.set(s * (w / 4 + 0.08), hgt + rh / 2 + 0.12, 0);
+      slab.rotation.z = -s * ang2;
+      house.add(slab);
     }
-    // Postes de luz
+    const ridge = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, d + 0.95, 10).rotateX(Math.PI / 2), roofMat);
+    ridge.position.y = hgt + rh + 0.12;
+    const chimney = new THREE.Mesh(rbox(0.6, 1.4, 0.6, 0.08), M('#8a7a6a'));
+    chimney.position.set(w * 0.22, hgt + rh * 0.75, -d * 0.2);
+    const door = new THREE.Mesh(rbox(1.1, 2.1, 0.16, 0.06), M(doorCols[Math.floor(r() * doorCols.length)]));
+    door.position.set(0, 1.05, d / 2 + 0.06);
+    const step = new THREE.Mesh(rbox(1.6, 0.18, 0.7, 0.06), M('#9a948a'));
+    step.position.set(0, 0.09, d / 2 + 0.4);
+    house.add(walls, ridge, chimney, door, step);
+    for (const sx of [-1, 1]) {
+      const frame = new THREE.Mesh(rbox(1.0, 1.1, 0.1, 0.04), doorMat);
+      frame.position.set(sx * w * 0.3, hgt * 0.58, d / 2 + 0.06);
+      const win = new THREE.Mesh(winGeo, this.windowMat);
+      win.position.set(sx * w * 0.3, hgt * 0.58, d / 2 + 0.12);
+      house.add(frame, win);
+      // floreira sob a janela
+      const box = new THREE.Mesh(rbox(1.15, 0.28, 0.35, 0.05), beamMat);
+      box.position.set(sx * w * 0.3, hgt * 0.58 - 0.72, d / 2 + 0.2);
+      house.add(box);
+      const fc = M(flowerCols[Math.floor(r() * flowerCols.length)]);
+      for (let f = 0; f < 5; f++) {
+        const bl = new THREE.Mesh(flowerGeo, f % 2 ? leafMat : fc);
+        bl.position.set(sx * w * 0.3 - 0.45 + f * 0.22, hgt * 0.58 - 0.5, d / 2 + 0.2);
+        house.add(bl);
+      }
+    }
+    // vigas de madeira (enxaimel) nos cantos e no meio da parede
+    for (const cx of [-1, 1]) for (const cz of [-1, 1]) {
+      const post = new THREE.Mesh(rbox(0.22, hgt, 0.22, 0.05), beamMat);
+      post.position.set(cx * (w / 2 + 0.04), hgt / 2, cz * (d / 2 + 0.04));
+      house.add(post);
+    }
+    for (const cz of [-1, 1]) {
+      const beam = new THREE.Mesh(rbox(w + 0.2, 0.2, 0.14, 0.05), beamMat);
+      beam.position.set(0, hgt * 0.92, cz * (d / 2 + 0.07));
+      house.add(beam);
+    }
+    house.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.group.add(house);
+    this.grid.add({ x, z, hw: w / 2, hd: d / 2, rot });
+    };
+
+    // Anel interno (casas menores) e anel externo (casas maiores, algumas de dois andares)
+    const ring = (n, r0, r1, wr, dr, hr) => {
+      for (let i = 0; i < n; i++) {
+        const ang = (i / n) * Math.PI * 2 + r() * 0.08;
+        const w = wr[0] + r() * (wr[1] - wr[0]), d = dr[0] + r() * (dr[1] - dr[0]), hgt = hr[0] + r() * (hr[1] - hr[0]);
+        const rad = r0 + r() * (r1 - r0);
+        if (onRoad(ang, rad, 4.2 + w / 2)) continue;
+        makeHouse(Math.cos(ang) * rad, Math.sin(ang) * rad, Math.atan2(-Math.cos(ang), -Math.sin(ang)), w, d, hgt);
+      }
+    };
+    ring(16, 23, 26, [5, 7], [4.5, 6], [3.4, 4.6]);
+    ring(26, 41.5, 45.5, [6, 8.5], [5, 7], [4.4, 7]);
+
+    // Postes de luz na praça e na rua principal
     const pole = new THREE.CylinderGeometry(0.06, 0.1, 3.4, 10);
     const lanGeo = new THREE.SphereGeometry(0.24, 14, 10);
     const capGeo = new THREE.ConeGeometry(0.3, 0.28, 12);
-    const poleMat = std('#3a3a3a', { metalness: 0.4, roughness: 0.5 });
-    for (let i = 0; i < 10; i++) {
-      const ang = (i / 10) * Math.PI * 2 + 0.31, x = Math.cos(ang) * 15, z = Math.sin(ang) * 15;
+    const poleMat = std('#3a3a3a');
+    const lamp = (x, z) => {
       const p = new THREE.Mesh(pole, poleMat);
       p.position.set(x, this.townH + 1.7, z);
       const lan = new THREE.Mesh(lanGeo, this.windowMat);
@@ -589,7 +599,156 @@ export class World {
       p.castShadow = true;
       this.group.add(p, lan, cap);
       this.grid.add({ x, z, r: 0.25 });
+    };
+    for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 + 0.31; if (!onRoad(a, 19.5, 3)) lamp(Math.cos(a) * 19.5, Math.sin(a) * 19.5); }
+    for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2 + 0.1; if (!onRoad(a, 36.8, 3.5)) lamp(Math.cos(a) * 36.8, Math.sin(a) * 36.8); }
+
+    // Bancos e canteiros de flores na praça
+    const wood = M('#8a5a36'), iron = M('#3a3a3a');
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+      if (onRoad(a, 13, 2.5)) continue;
+      const x = Math.cos(a) * 13, z = Math.sin(a) * 13, rot = Math.atan2(-Math.cos(a), -Math.sin(a));
+      const b = new THREE.Group();
+      b.position.set(x, this.townH, z);
+      b.rotation.y = rot;
+      const seat = new THREE.Mesh(rbox(2, 0.12, 0.55, 0.04), wood);
+      seat.position.y = 0.48;
+      const back = new THREE.Mesh(rbox(2, 0.5, 0.1, 0.04), wood);
+      back.position.set(0, 0.8, 0.26);
+      b.add(seat, back);
+      for (const sx of [-0.85, 0.85]) { const l = new THREE.Mesh(rbox(0.1, 0.48, 0.5, 0.03), iron); l.position.set(sx, 0.24, 0); b.add(l); }
+      b.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+      this.group.add(b);
+      this.grid.add({ x, z, hw: 1, hd: 0.35, rot });
     }
+    const bedGeo = new THREE.CylinderGeometry(2.1, 2.2, 0.45, 24);
+    const soilGeo = new THREE.CylinderGeometry(1.9, 1.9, 0.1, 24);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      if (onRoad(a, 8.5, 2.5)) continue;
+      const x = Math.cos(a) * 8.5, z = Math.sin(a) * 8.5;
+      if (Math.hypot(x - this.npcPos.x, z - this.npcPos.z) < 4 || Math.hypot(x - this.smithPos.x, z - this.smithPos.z) < 5) continue;
+      const bed = new THREE.Mesh(bedGeo, M('#a8987e'));
+      bed.position.set(x, this.townH + 0.22, z);
+      const soil = new THREE.Mesh(soilGeo, M('#5a4030'));
+      soil.position.set(x, this.townH + 0.45, z);
+      this.group.add(bed, soil);
+      const fc = M(flowerCols[i % flowerCols.length]);
+      for (let k = 0; k < 26; k++) {
+        const fa = r() * Math.PI * 2, fr = Math.sqrt(r()) * 1.7;
+        const f = new THREE.Mesh(flowerGeo, k % 3 ? fc : leafMat);
+        f.position.set(x + Math.cos(fa) * fr, this.townH + 0.6, z + Math.sin(fa) * fr);
+        this.group.add(f);
+      }
+      this.grid.add({ x, z, r: 2.2 });
+    }
+
+    // Árvores nos jardins entre as casas
+    const crown = mergeGeometries([[0, 3.5, 0, 1.5], [0.9, 3.0, 0.2, 1.0], [-0.85, 3.1, -0.3, 1.05], [0.1, 4.3, 0.1, 1.0]].map(([x, y, z, rr], i) => {
+      const g = blob(1, 0.1, this.floor.seed + 50 + i);
+      return g.scale(rr, rr * 0.9, rr).translate(x, y, z);
+    }));
+    const trunkG = new THREE.CylinderGeometry(0.2, 0.34, 2.8, 10).translate(0, 1.4, 0);
+    const crownMat = std('#5aa846', { wind: { strength: 0.05, minY: 2.2 } }), trunkMat = M('#6e4c34');
+    const q = [];
+    for (let i = 0, placed = 0; i < 160 && placed < 26; i++) {
+      const outer = r() < 0.6;
+      const rad = outer ? 38 + r() * 11 : 20 + r() * 8.5, a = r() * Math.PI * 2;
+      const x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+      if (onRoad(a, rad, 4.5) || this.grid.query(x, z, 3.2, q).length) continue;
+      const t = new THREE.Mesh(trunkG, trunkMat), c = new THREE.Mesh(crown, crownMat);
+      const sc = 0.8 + r() * 0.5;
+      t.position.set(x, this.townH, z);
+      c.position.copy(t.position);
+      t.scale.setScalar(sc);
+      c.scale.setScalar(sc);
+      t.castShadow = c.castShadow = true;
+      this.group.add(t, c);
+      this.grid.add({ x, z, r: 0.45 * sc });
+      placed++;
+    }
+
+    // Muralha da cidade com torres, aberta nas estradas
+    const wallR = TOWN_R - 1.2, wallMat = M('#d8ccb4'), towerMat = M('#cfc2a8'), roofT = M('#b8482e');
+    const segs = 64;
+    const towerG = new THREE.CylinderGeometry(1.5, 1.7, 5, 16), towerRoof = new THREE.ConeGeometry(2.0, 2.4, 16);
+    for (let i = 0; i < segs; i++) {
+      const a = ((i + 0.5) / segs) * Math.PI * 2;
+      if (onRoad(a, wallR, 5)) continue;
+      const len = (Math.PI * 2 * wallR) / segs + 0.3;
+      const x = Math.cos(a) * wallR, z = Math.sin(a) * wallR, rot = Math.atan2(-Math.cos(a), -Math.sin(a));
+      const seg = new THREE.Mesh(rbox(len, 2.6, 1.1, 0.12), wallMat);
+      seg.position.set(x, this.townH + 1.1, z);
+      seg.rotation.y = rot;
+      seg.castShadow = seg.receiveShadow = true;
+      this.group.add(seg);
+      this.grid.add({ x, z, hw: len / 2, hd: 0.6, rot });
+      if (i % 8 === 0) {
+        const tw = new THREE.Mesh(towerG, towerMat);
+        tw.position.set(x, this.townH + 2.3, z);
+        const tr = new THREE.Mesh(towerRoof, roofT);
+        tr.position.set(x, this.townH + 6, z);
+        tw.castShadow = tr.castShadow = true;
+        this.group.add(tw, tr);
+        this.grid.add({ x, z, r: 1.7 });
+      }
+    }
+    for (const sa of spokeAngles) for (const side of [-1, 1]) {
+      const a = sa + side * (5.6 / wallR);
+      const x = Math.cos(a) * wallR, z = Math.sin(a) * wallR;
+      const tw = new THREE.Mesh(towerG, towerMat);
+      tw.scale.set(0.95, 1.3, 0.95);
+      tw.position.set(x, this.townH + 3, z);
+      const tr = new THREE.Mesh(towerRoof, roofT);
+      tr.position.set(x, this.townH + 7.6, z);
+      tw.castShadow = tr.castShadow = true;
+      this.group.add(tw, tr);
+      this.grid.add({ x, z, r: 1.6 });
+    }
+
+    // Barracas do mercado ao redor da praça
+    const cloths = [['#c0392b', '#f0e8d8'], ['#2e7d9a', '#f0e8d8'], ['#e0a030', '#fff4dc'], ['#5d8a4a', '#f0e8d8'], ['#8a4a9a', '#f4e8f8']];
+    for (let i = 0, placed = 0; i < 12 && placed < 5; i++) {
+      const a = (i / 12) * Math.PI * 2 + 0.2, rad = 16;
+      if (onRoad(a, rad, 4)) continue;
+      const pos = new THREE.Vector3(Math.cos(a) * rad, this.townH, Math.sin(a) * rad);
+      if (pos.distanceTo(this.npcPos) < 6 || pos.distanceTo(this.smithPos) < 7) continue;
+      this.buildStall(pos, cloths[placed % cloths.length]);
+      placed++;
+    }
+  }
+
+  buildStall(pos, [c1, c2]) {
+    const g = new THREE.Group();
+    g.position.copy(pos);
+    g.rotation.y = Math.atan2(-pos.x, -pos.z);
+    const wood = std('#7a5232'), cloth1 = std(c1), cloth2 = std(c2);
+    const counter = new THREE.Mesh(rbox(3, 1.05, 1, 0.1), wood);
+    counter.position.set(0, 0.52, 0.8);
+    g.add(counter);
+    for (const sx of [-1.4, 1.4]) for (const sz of [0.35, -0.9]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.8, 8), wood);
+      post.position.set(sx, 1.4, sz);
+      g.add(post);
+    }
+    for (let i = 0; i < 5; i++) {
+      const sl = new THREE.Mesh(rbox(0.62, 0.08, 1.8, 0.03), i % 2 ? cloth2 : cloth1);
+      sl.position.set(-1.24 + i * 0.62, 2.85, -0.25);
+      sl.rotation.x = -0.18;
+      g.add(sl);
+    }
+    const goods = ['#e05a3a', '#f0c040', '#7ac04a', '#c87aff', '#ff9a5a'];
+    const goodGeo = new THREE.SphereGeometry(0.12, 10, 8);
+    for (let i = 0; i < 6; i++) {
+      const it = new THREE.Mesh(goodGeo, std(goods[i % goods.length]));
+      it.position.set(-1.1 + i * 0.44, 1.15, 0.8);
+      g.add(it);
+    }
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.group.add(g);
+    this.grid.add({ x: pos.x, z: pos.z, hw: 1.6, hd: 1.4, rot: g.rotation.y });
+    return g;
   }
 
   buildGate() {
@@ -654,50 +813,36 @@ export class World {
   }
 
   buildNpc() {
-    const g = new THREE.Group();
-    const p = this.npcPos;
-    g.position.copy(p);
-    g.rotation.y = Math.atan2(-p.x, -p.z);
-    const wood = std('#7a5232'), cloth1 = std('#c0392b'), cloth2 = std('#f0e8d8');
-    const counter = new THREE.Mesh(rbox(3, 1.05, 1, 0.1), wood);
-    counter.position.set(0, 0.52, 0.8);
-    g.add(counter);
-    for (const sx of [-1.4, 1.4]) for (const sz of [0.35, -0.9]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.8, 0.12), wood);
-      post.position.set(sx, 1.4, sz);
-      g.add(post);
-    }
-    for (let i = 0; i < 5; i++) {
-      const s = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 1.8), i % 2 ? cloth2 : cloth1);
-      s.position.set(-1.24 + i * 0.62, 2.85, -0.25);
-      s.rotation.x = -0.18;
-      g.add(s);
-    }
-    // Agil, o mercador
-    const npc = new THREE.Group();
-    npc.position.set(0, 0, -0.3);
-    const skin = std('#7a4a2e'), shirt = std('#4a5a3a'), pants = std('#3a3028');
-    const legs = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.5, 6, 14), pants);
-    legs.position.y = 0.5;
-    legs.scale.z = 0.7;
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.35, 8, 16), shirt);
-    body.position.y = 1.35;
-    body.scale.z = 0.7;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 14), skin);
-    head.position.y = 2.0;
-    for (const sx of [-1, 1]) {
-      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.55, 6, 10), skin);
-      arm.position.set(sx * 0.55, 1.3, 0.12);
-      arm.rotation.x = -0.5;
-      npc.add(arm);
-    }
-    npc.add(legs, body, head);
-    g.add(npc);
-    this.npcModel = npc;
-    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    this.group.add(g);
-    this.grid.add({ x: p.x, z: p.z, hw: 1.6, hd: 1.4, rot: g.rotation.y });
-    this.labels.push({ text: 'Agil — Mercador', pos: new THREE.Vector3(p.x, p.y + 2.8, p.z), cls: 'npc' });
+    // Os personagens (Agil, Lisbeth...) são NPCs animados; aqui ficam só as barracas e a forja.
+    const behind = (p, rot) => new THREE.Vector3(p.x - Math.sin(rot) * 0.35, p.y, p.z - Math.cos(rot) * 0.35);
+    const shop = this.buildStall(this.npcPos, ['#c0392b', '#f0e8d8']);
+    this.agilSpot = { pos: behind(this.npcPos, shop.rotation.y), yaw: shop.rotation.y + Math.PI };
+    this.labels.push({ text: "Agil's Store", pos: new THREE.Vector3(this.npcPos.x, this.townH + 3.7, this.npcPos.z), cls: 'npc' });
+    const smith = this.buildStall(this.smithPos, ['#ff8ab8', '#fff0f6']);
+    this.lisbethSpot = { pos: behind(this.smithPos, smith.rotation.y), yaw: smith.rotation.y + Math.PI };
+    const rot = smith.rotation.y, side = new THREE.Vector3(Math.cos(rot), 0, -Math.sin(rot));
+    const fp = this.smithPos.clone().addScaledVector(side, 2.7);
+    const forge = new THREE.Mesh(rbox(1.4, 1.1, 1.2, 0.15), std('#8a8070'));
+    forge.position.set(fp.x, this.townH + 0.55, fp.z);
+    this.forgeMat = new THREE.MeshBasicMaterial({ color: hdr('#ff7a2a', 2.2) });
+    const coals = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.1, 16), this.forgeMat);
+    coals.position.set(fp.x, this.townH + 1.12, fp.z);
+    const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, 2.4, 12), std('#7a7060'));
+    chim.position.set(fp.x + side.x * 0.35, this.townH + 2.3, fp.z + side.z * 0.35);
+    const ap = this.smithPos.clone().addScaledVector(side, -2.5);
+    const anvil = new THREE.Mesh(rbox(0.9, 0.3, 0.4, 0.06), std('#4a4a52'));
+    anvil.position.set(ap.x, this.townH + 0.85, ap.z);
+    anvil.rotation.y = rot;
+    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 0.7, 10), std('#6a4a32'));
+    stand.position.set(ap.x, this.townH + 0.35, ap.z);
+    for (const m of [forge, chim, anvil, stand]) m.castShadow = true;
+    this.group.add(forge, coals, chim, anvil, stand);
+    this.forgeLight = new THREE.PointLight('#ff8a3a', 12, 8, 2);
+    this.forgeLight.position.set(fp.x, this.townH + 1.6, fp.z);
+    this.group.add(this.forgeLight);
+    this.grid.add({ x: fp.x, z: fp.z, r: 0.9 });
+    this.grid.add({ x: ap.x, z: ap.z, r: 0.5 });
+    this.labels.push({ text: "Lisbeth's Smith Shop", pos: new THREE.Vector3(this.smithPos.x, this.townH + 3.7, this.smithPos.z), cls: 'npc' });
   }
 
   // ─────────── Arena do chefe e Labirinto ───────────
@@ -842,7 +987,7 @@ export class World {
     if (this.cloudMat) { this.cloudMat.map.offset.x += dt * 0.002; this.cloudMat.map.offset.y += dt * 0.001; }
     if (this.waterMesh) this.waterMesh.position.y = this.water.level + Math.sin(t * 0.6) * 0.06;
     if (this.windowMat) this.windowMat.emissiveIntensity = 0.1 + night * 2.6;
-    if (this.npcModel) this.npcModel.rotation.y = Math.sin(t * 0.7) * 0.25;
+    if (this.forgeMat) { const f = 0.8 + Math.sin(t * 7) * 0.12 + Math.sin(t * 13) * 0.08; this.forgeMat.color.setRGB(2.2 * f, 0.9 * f, 0.25 * f); this.forgeLight.intensity = 12 * f; }
     if (this.barrier.visible) this.barrierMat.uniforms.uTime.value = t;
     this.runeMat.opacity = 0.35 + Math.sin(t * 1.5) * 0.15;
   }
