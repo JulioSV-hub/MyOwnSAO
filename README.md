@@ -51,6 +51,12 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 - **Pesca:** lago perto da cidade em todo andar; a Asuna grelha seus peixes.
 - **Casa própria:** compre pela placa na cidade e decore com 12 móveis (G).
 - **Town of Beginnings** no estilo do anime: Black Iron Palace, Monumento da Vida e torre do relógio.
+- **Rua do Comércio** (junto à muralha): Armaduras do Grimm (leves, médias e pesadas), Oficina de Runas da Mira, Toca dos Mascotes (filhotes e petiscos), Taverna do Javali Dourado (comidas com bônus, boatos de baús, contratar companheiros) e Guilda dos Aventureiros (postos F → S, contratos diários, bônus). A Lisbeth também vende armas forjadas.
+- **Runas:** até 3 encaixes (níveis 1, 10 e 20) com bônus de ataque, defesa, HP, velocidade, crítico, roubo de vida, Col ou EXP. Equipe em *Menu → Equipamento*.
+- **Time:** chame Kirito, Asuna, Klein ou Silica, contrate companheiros na Taverna ou chame membros da Guilda. Eles lutam, curam e podem ser atacados (*Menu → Time*). Companheiros usam sempre os bonecos do jogo, nunca os modelos `.vrm`.
+- **Pedidos do dia:** o Quadro de Missões e a Guilda sorteiam 3 pedidos novos a cada dia do jogo (caçadas, coleta, pesca, baús, patrulha, caçada noturna, procurados...). As missões dos personagens também mudam de andar para andar.
+- **Baús e coleta:** 12 baús por andar (madeira, prata, dourado) que reabastecem a cada 3 dias, e ervas, cogumelos, minérios e cristais espalhados pelos campos.
+- **Mapa:** mapa do andar inteiro com sua casa, lojas e missões, e teletransporte para qualquer ponto da cidade (grátis na cidade; no campo gasta 1 cristal).
 
 ## Modelos 3D (VRM) e música
 
@@ -82,6 +88,11 @@ js/combat.js      Espada em 1ª pessoa, combos e Sword Skills
 js/player.js      Movimento e câmera
 js/ui.js          HUD, menu, minimapa, Link Start
 js/data.js        Conteúdo (edite aqui!)
+js/shops.js       Rua do Comércio (fachadas das lojas)
+js/shopui.js      Janelas das lojas e do Time
+js/party.js       Companheiros de time
+js/loot.js        Baús e itens de coleta
+js/guild.js       Postos da Guilda
 js/save.js        Salvar / exportar / importar
 js/audio.js       Efeitos sonoros sintetizados
 ```

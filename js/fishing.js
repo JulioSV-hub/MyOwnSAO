@@ -102,6 +102,7 @@ export class Fishing {
     if (fish.rare) { Sfx.levelUp(); g.ui.banner('Peixe raro!', `${fish.name} — vale ${value} Col`, 3); }
     else g.ui.toast(`🎣 Você pescou: ${fish.name} (${value} Col)`, 'skill');
     p.fishCaught = (p.fishCaught || 0) + 1;
+    g.quests.onFish();
     this.stop();
     g.save();
   }

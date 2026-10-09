@@ -1,8 +1,10 @@
 // Ícones dos itens: cada arma, armadura, poção e material é renderizado em 3D e vira uma imagem (cache em memória).
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { buildSword, buildArmor, buildItem, buildMaterial } from './gear3d.js';
-import { weaponDef, armorDef } from './data.js';
+import { buildSword, buildArmor, buildItem, buildMaterial, buildRune, buildFood } from './gear3d.js';
+import { weaponDef, armorDef, runeDef, MONSTERS, MERCS } from './data.js';
+import { buildMonster } from './monsters.js';
+import { buildCharacter } from './characters.js';
 
 const SIZE = 256;
 let R = null, scene, camera;
@@ -56,6 +58,10 @@ export function icon(kind, id) {
     if (kind === 'weapon') url = render(buildSword(weaponDef(id)).group, { diagonal: true });
     else if (kind === 'armor') url = render(buildArmor(armorDef(id)).group, { spin: 0.4 });
     else if (kind === 'item') url = render(buildItem(id).group, { spin: 0.3 });
+    else if (kind === 'rune') url = render(buildRune(runeDef(id)).group, { spin: 0.2 });
+    else if (kind === 'food') url = render(buildFood(id).group, { spin: 0.2 });
+    else if (kind === 'pet') url = render(buildMonster(MONSTERS[id], false).group, { spin: -0.7 });
+    else if (kind === 'merc') url = render(buildCharacter({ ...MERCS[id].look, skin: '#f4d8c0', eyes: '#3a2a1a', boots: '#2a2018' }).group, { spin: 0.35 });
     else url = render(buildMaterial(id).group, { spin: 0.6 });
   } catch (e) {
     console.warn('ícone falhou', key, e);

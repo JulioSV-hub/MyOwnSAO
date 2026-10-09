@@ -135,7 +135,7 @@ export class Player {
     const p = g.state.player;
     if (!this.dead) {
       const safe = w.inSafeZone(this.pos);
-      if (this.lastHit > 8 || safe) p.hp = Math.min(st.maxHp, p.hp + st.maxHp * (safe ? 0.08 : 0.012) * dt);
+      if (this.lastHit > 8 || safe) p.hp = Math.min(st.maxHp, p.hp + st.maxHp * (safe ? 0.08 : 0.012 * st.regen) * dt);
       if (this.hot) {
         const h = Math.min(this.hot.left, this.hot.rate * dt);
         p.hp = Math.min(st.maxHp, p.hp + h);

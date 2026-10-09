@@ -8,6 +8,9 @@ import { TOWN_R } from './world.js';
 import { registry, displayName } from './models.js';
 import { CAST } from './characters.js';
 import { FURNITURE } from './housing.js';
+import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO } from './shopui.js';
+import { runeDef, FOODS } from './data.js';
+import { guildRank } from './guild.js';
 import { getNpcConfig, setNpc, setGlobal, resetNpc, npcHeight, presence, PRESENCE_IDS, DEFAULT_H } from './npcconfig.js';
 import { assignLocal, removeLocal, getLocalMap, setLocalCredit } from './localmodels.js';
 
@@ -24,11 +27,12 @@ const ICONS = {
   skills: '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
   map: '<svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/></svg>',
   quests: '<svg viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6z"/><path d="M9 10h7M9 14h7M9 18h4" stroke="#fff" stroke-width="1.6"/></svg>',
+  party: '<svg viewBox="0 0 24 24"><path d="M4 20l7-7M20 20l-7-7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M14.5 3.5L20.5 3.5 20.5 9.5 13 17 7 11z" opacity=".55"/><path d="M9.5 3.5L3.5 3.5 3.5 9.5 11 17 17 11z"/></svg>',
   npcs: '<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.2"/><circle cx="16.5" cy="9" r="2.7"/><path d="M2 20c0-3.6 2.7-6 6-6s6 2.4 6 6z"/><path d="M13.5 20c.2-2.4-.6-4.3-1.9-5.4 1.2-.7 2.6-1 4-.9 3 .2 5.4 2.4 5.4 6.3z"/></svg>',
   system: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="3.4 2.1"/><circle cx="12" cy="12" r="2.6"/></svg>',
 };
-const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['quests', 'Missões'], ['map', 'Mapa'], ['npcs', 'NPCs'], ['system', 'Sistema']];
-const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja do Agil', npcs: 'NPCs da cidade', quests: 'Missões' };
+const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['quests', 'Missões'], ['party', 'Time'], ['map', 'Mapa'], ['npcs', 'NPCs'], ['system', 'Sistema']];
+const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja', npcs: 'NPCs da cidade', quests: 'Missões', party: 'Time' };
 const SET_FMT = {
   sens: (v) => (+v).toFixed(2), fov: (v) => `${v}°`, volume: (v) => `${Math.round(v * 100)}%`,
   xpRate: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`,
@@ -172,6 +176,16 @@ export class UI {
     return lab;
   }
 
+  createAllyLabel(m) {
+    const el = document.createElement('div');
+    el.className = 'nlabel ally';
+    el.innerHTML = `<div class="cursor">◆</div><div class="nname">${esc(m.name)}</div><div class="ehp"><i></i></div>`;
+    $('labels').appendChild(el);
+    const lab = { el, m, fill: el.querySelector('.ehp i'), remove: () => el.remove() };
+    m.label = lab;
+    return lab;
+  }
+
   createNpcLabel(npc) {
     const el = document.createElement('div');
     el.className = `nlabel ${npc.role === 'folk' || npc.role === 'kid' ? 'folk' : 'named'}`;
@@ -291,6 +305,16 @@ export class UI {
         if (l.txt !== txt) { l.txt = txt; l.el.querySelector('.nname').textContent = txt; }
       }
     }
+    for (const m of this.g.party.members) {
+      const l = m.label;
+      if (!l) continue;
+      const d = cam.distanceTo(m.pos);
+      const p = m.alive && !this.g.indoor && d < 40 ? this.project(v3.set(m.pos.x, m.pos.y + 2.05, m.pos.z)) : null;
+      if (!p || this.dialogOpen) { l.el.style.display = 'none'; continue; }
+      l.el.style.display = '';
+      l.el.style.transform = `translate(${p[0].toFixed(1)}px, ${p[1].toFixed(1)}px) translate(-50%, -100%) scale(${Math.max(0.6, 1 - d / 50).toFixed(3)})`;
+      l.fill.style.width = `${((m.hp / m.maxHp) * 100).toFixed(1)}%`;
+    }
     for (const l of this.worldLabels) {
       const d = cam.distanceTo(l.pos);
       const p = d < 90 ? this.project(l.pos) : null;
@@ -373,6 +397,23 @@ export class UI {
 
   setClickToPlay(v) { $('clicktoplay').classList.toggle('hidden', !v); }
 
+  showLoading(title, sub) {
+    const el = $('loading'), fill = $('ld-fill');
+    const tips = ['Dica: segure o botão direito no instante do golpe para aparar (parry).', 'Dica: baús escondidos pelos campos guardam Col, runas e até equipamentos raros.',
+      'Dica: na Taverna você ouve boatos sobre baús e pode contratar companheiros.', 'Dica: a Guilda dos Aventureiros tem contratos novos todo dia.',
+      'Dica: runas da Loja de Runas dão bônus permanentes enquanto equipadas.', 'Dica: pelo Portal você pode se teletransportar para qualquer ponto da cidade.',
+      'Dica: a esquiva (Q) deixa você invencível por um instante.', 'Dica: pesque no lago perto da cidade e peça para a Asuna grelhar os peixes.'];
+    $('ld-title').textContent = title;
+    $('ld-sub').textContent = sub || '';
+    $('ld-tip').textContent = tips[Math.floor(Math.random() * tips.length)];
+    fill.style.width = '0%';
+    el.classList.remove('hidden', 'out');
+    return {
+      set: (p) => { fill.style.width = `${Math.round(p * 100)}%`; },
+      done: () => { fill.style.width = '100%'; el.classList.add('out'); setTimeout(() => el.classList.add('hidden'), 460); },
+    };
+  }
+
   fade(cb) {
     const f = $('fade');
     f.classList.add('on');
@@ -445,6 +486,15 @@ export class UI {
     };
     for (const n of g.npcs.list) { const [nx2, ny2] = tr(n.pos.x, n.pos.z); c.fillStyle = n.role === 'folk' || n.role === 'kid' ? '#7adf8a' : '#ffd54f'; c.beginPath(); c.arc(nx2, ny2, n.role === 'folk' || n.role === 'kid' ? 1.8 : 2.8, 0, Math.PI * 2); c.fill(); }
     dot(w.gatePos.x, w.gatePos.z, '#4fc3ff', 4, true);
+    for (const sp of Object.values(w.shopSpots || {})) dot(sp.pos.x, sp.pos.z, '#ffb84a', 2.6);
+    for (const ch of g.loot.revealed()) dot(ch.pos.x, ch.pos.z, '#ffe066', 3.4, true);
+    for (const m of g.party.members) if (m.alive) dot(m.pos.x, m.pos.z, '#7ad8ff', 2.6);
+    if (g.state.house && g.state.house.floor === g.floor.n) {
+      let q = clampEdge(tr(w.housePlaque.x, w.housePlaque.z));
+      c.fillStyle = '#ff8ac8';
+      c.beginPath(); c.moveTo(q[0], q[1] - 6); c.lineTo(q[0] + 5.5, q[1] - 1); c.lineTo(q[0] + 4, q[1] - 1); c.lineTo(q[0] + 4, q[1] + 4.5); c.lineTo(q[0] - 4, q[1] + 4.5); c.lineTo(q[0] - 4, q[1] - 1); c.lineTo(q[0] - 5.5, q[1] - 1); c.closePath(); c.fill();
+      c.strokeStyle = '#fff'; c.lineWidth = 1; c.stroke();
+    }
     if (w.boardPos) dot(w.boardPos.x, w.boardPos.z, '#ffd54f', 2.6);
     for (const m of g.quests.markers) dot(m.pos.x, m.pos.z, m.elite ? '#ff5a4a' : m.flower ? '#ffffff' : '#7ad0ff', 3.5, true);
     dot(w.doorPos.x, w.doorPos.z, cleared ? '#4fc3ff' : '#b07aff', 4, true);
@@ -474,6 +524,12 @@ export class UI {
     $('menu').addEventListener('mousedown', (e) => { if (e.target.id === 'menu') this.closeMenu(); });
   }
 
+  openShop(id, tab = 'buy') {
+    this.shopId = id;
+    this.shopTab = tab;
+    this.openMenu('shop');
+  }
+
   openMenu(panel = 'status') {
     if (!this.menuOpen) Sfx.menuOpen();
     this.menuOpen = true;
@@ -493,17 +549,18 @@ export class UI {
   setPanel(id) {
     this.panel = id;
     document.querySelectorAll('.micon').forEach((b) => b.classList.toggle('on', b.dataset.panel === id));
-    $('mp-title').textContent = TITLES[id] || id;
+    $('mp-title').textContent = id === 'shop' ? SHOP_INFO[this.shopId || 'agil'].title : TITLES[id] || id;
     this.renderPanel();
   }
 
   renderPanel() {
     if (!this.menuOpen) return;
-    const fn = { status: this.pStatus, items: this.pItems, equip: this.pEquip, skills: this.pSkills, map: this.pMap, system: this.pSystem, shop: this.pShop, npcs: this.pNpcs, quests: this.pQuests }[this.panel];
+    const fn = { status: this.pStatus, items: this.pItems, equip: this.pEquip, skills: this.pSkills, map: this.pMap, system: this.pSystem, shop: () => renderShop(this), npcs: this.pNpcs, quests: this.pQuests, party: () => renderParty(this) }[this.panel];
     const body = $('mp-body');
     const scroll = body.scrollTop;
     body.innerHTML = fn ? fn.call(this) : '';
     body.scrollTop = scroll;
+    if (this.panel === 'map') this.drawFloorMap();
   }
 
   pStatus() {
@@ -528,6 +585,8 @@ export class UI {
       <div class="section">Pontos de atributo: <b class="accent">${p.points}</b></div>
       ${statRow('str', 'STR', '+3% de dano da arma por ponto')}${statRow('agi', 'AGI', '+0,8% crítico, +0,6% velocidade, −1% recarga das skills')}${statRow('vit', 'VIT', '+2% HP máximo, +10 HP e defesa')}
       ${p.dualBlades ? '<div class="unique">Habilidade Única: <b>Dual Blades</b></div>' : ''}
+      ${p.food && p.food.until > g.state.playTime ? `<div class="unique">Refeição da taverna: <b>${esc(FOODS[p.food.id].name)}</b> — ${esc(FOODS[p.food.id].desc)} (mais ${Math.ceil((p.food.until - g.state.playTime) / 60)} min)</div>` : ''}
+      ${g.state.guild ? (() => { const r = guildRank(g.state.guild); return `<div class="unique">Guilda: <b>${esc(g.state.guild.name)}</b> · posto <b>${r.letter}</b> (${g.state.guild.pts} pts${r.next ? ` / ${r.next.pts} para ${r.next.letter}` : ''}) · +${Math.round(r.exp * 100)}% EXP · −${Math.round(r.discount * 100)}% nas lojas</div>`; })() : ''}
       ${g.state.pet ? `<div class="section">Mascote</div><div class="row"><div class="withicon"><b>♥ ${esc(g.state.pet.name)}</b> <span class="muted">${esc(MONSTERS[g.state.pet.mon]?.name || '')} · nível ${g.state.pet.level} · ataca junto com você e cura quando seu HP está baixo</span></div><div class="row-r"><button class="btn sm" data-act="petName">Renomear</button><button class="btn sm" data-act="petFree">Libertar</button></div></div>` : '<div class="muted pad">Sem mascote. Procure monstros dóceis (♥ rosa) e ofereça um Petisco de Domador.</div>'}`;
   }
 
@@ -547,6 +606,7 @@ export class UI {
       tiles.push({ cat: 'armor', kind: 'armor', id, name: d.name, rarity: d.rarity, eq: id === p.armor ? '✓' : '' });
     }
     for (const [id, q] of Object.entries(p.items)) if (q > 0 && ITEMS[id]) tiles.push({ cat: 'item', kind: 'item', id, name: ITEMS[id].name, rarity: 1, qty: q });
+    for (const [id, q] of Object.entries(p.runes || {})) if (q > 0 && runeDef(id)) tiles.push({ cat: 'item', kind: 'rune', id, name: runeDef(id).name, rarity: runeDef(id).rarity, qty: q });
     for (const [name, m] of Object.entries(p.mats)) if (m.qty > 0) tiles.push({ cat: 'mat', kind: 'mat', id: name, name, rarity: 0, qty: m.qty });
     const shown = tiles.filter((t) => cat === 'all' || t.cat === cat);
     const tab = (k, l) => `<button class="tab ${cat === k ? 'on' : ''}" data-act="bagCat" data-c="${k}">${l}</button>`;
@@ -575,6 +635,11 @@ export class UI {
       title = d.name; rar = d.rarity;
       lines = [`DEF ${d.def} · HP +${d.hp}`, d.floor ? `Origem: Andar ${d.floor}${d.rarity === 2 ? ' — item raro' : ''}` : 'Equipamento inicial'];
       if (id !== p.armor) acts += `<button class="btn sm" data-act="equipA" data-id="${id}">Equipar</button>`;
+    } else if (kind === 'rune') {
+      const d = runeDef(id);
+      title = d.name; rar = d.rarity;
+      lines = [d.desc, `Você tem ${p.runes?.[id] || 0} · equipe em Menu → Equipamento`];
+      acts += `<button class="btn sm" data-act="runeOn" data-id="${id}">Equipar</button>`;
     } else if (kind === 'item') {
       const d = ITEMS[id];
       title = d.name; rar = 1;
@@ -608,6 +673,7 @@ export class UI {
         ${p.dualBlades ? `<div><span class="muted">Mão esquerda</span><b>${o ? esc(this.g.weaponLabel(p.offhand)) : '—'}</b><span>${o ? `ATK ${this.g.weaponAtk(p.offhand)}` : 'vazia'}</span></div>` : ''}
         <div><span class="muted">Armadura</span><b>${esc(a.name)}</b><span>DEF ${a.def} · HP +${a.hp}</span></div>
       </div>
+      ${runeSlotsHtml(this.g)}
       <div class="section">Armas</div>${weapons}
       <div class="section">Armaduras</div>${armors}`;
   }
@@ -639,7 +705,60 @@ export class UI {
     const msg = atGate ? 'Você está no Portal de Teletransporte. Escolha um destino.'
       : crystals ? `Viajar consumirá 1 Cristal de Teletransporte (você tem ${crystals}).`
         : 'Vá até o Portal no centro da cidade ou compre um Cristal de Teletransporte com o Agil.';
-    return `<div class="muted pad">${msg}</div>${rows}<div class="muted pad">Para liberar um andar novo, derrote o chefe na arena e entre pela porta do Labirinto.</div>`;
+    const w = g.world, inTown = w.inSafeZone(g.player.pos) || atGate;
+    const house = g.state.house;
+    const tp = w.townPoints().filter((x) => x.id !== 'house' || (house && house.floor === g.floor.n)).map((x) => `<button class="tpbtn" data-act="townTp" data-id="${x.id}" ${inTown || crystals ? '' : 'disabled'}>${esc(x.id === 'house' ? '🏠 Minha casa' : x.name)}</button>`).join('');
+    return `<div class="mapwrap"><canvas id="floormap" width="420" height="420"></canvas>
+        <div class="maplegend"><span style="--c:#4fc3ff">Portal</span><span style="--c:#ffd54f">Personagens</span><span style="--c:#ffb84a">Lojas</span><span style="--c:#ff8ac8">Sua casa</span><span style="--c:#7ad0ff">Missões</span><span style="--c:#ff5a4a">Elite/chefe</span><span style="--c:#ffe066">Baú (boato)</span><span style="--c:#3fb0d8">Lago</span></div></div>
+      <div class="section">Teletransporte na cidade — Andar ${g.floor.n}</div>
+      <div class="muted pad">${inTown ? 'Grátis dentro da cidade.' : crystals ? 'Fora da cidade: gasta 1 Cristal de Teletransporte.' : 'Fora da cidade você precisa de um Cristal de Teletransporte.'}${house ? ` Sua casa fica no Andar ${house.floor}.` : ''}</div>
+      <div class="tpgrid">${tp}</div>
+      <div class="section">Andares</div><div class="muted pad">${msg}</div>${rows}<div class="muted pad">Para liberar um andar novo, derrote o chefe na arena e entre pela porta do Labirinto.</div>`;
+  }
+
+  // Mapa do andar inteiro (norte para cima), desenhado no painel Mapa
+  drawFloorMap() {
+    const cv = $('floormap');
+    if (!cv) return;
+    const c = cv.getContext('2d'), W = cv.width, S = W / 2, k = (S - 8) / 232, g = this.g, w = g.world;
+    const tr = (x, z) => [S + x * k, S + z * k];
+    c.clearRect(0, 0, W, W);
+    c.fillStyle = '#16202c';
+    c.beginPath(); c.arc(S, S, S - 2, 0, Math.PI * 2); c.fill();
+    const gr = c.createRadialGradient(S, S, 0, S, S, S);
+    gr.addColorStop(0, '#3e5a3a'); gr.addColorStop(1, '#253826');
+    c.fillStyle = gr;
+    c.beginPath(); c.arc(S, S, 230 * k, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = 'rgba(214,190,140,0.55)'; c.lineWidth = 3;
+    for (const sp of w.spokes) { c.beginPath(); c.moveTo(S, S); const [x, y] = tr(sp.dx * sp.len, sp.dz * sp.len); c.lineTo(x, y); c.stroke(); }
+    c.fillStyle = 'rgba(200,190,170,0.75)';
+    c.beginPath(); c.arc(S, S, TOWN_R * k, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#8a8070'; c.lineWidth = 2; c.stroke();
+    if (w.pond) { const [x, y] = tr(w.pond.x, w.pond.z); c.fillStyle = '#3fb0d8'; c.beginPath(); c.arc(x, y, w.pond.r * k, 0, Math.PI * 2); c.fill(); }
+    const [ax, ay] = tr(w.arenaPos.x, w.arenaPos.z);
+    c.strokeStyle = g.state.progress.cleared[g.floor.n] ? '#4fc3ff' : '#ff5a5a'; c.lineWidth = 2.5;
+    c.beginPath(); c.arc(ax, ay, 24 * k, 0, Math.PI * 2); c.stroke();
+    const [tx, ty] = tr(w.towerPos.x, w.towerPos.z);
+    c.fillStyle = '#8c8a86'; c.beginPath(); c.arc(tx, ty, 25 * k, 0, Math.PI * 2); c.fill();
+    const dot = (x, z, col, r) => { const [px, py] = tr(x, z); c.fillStyle = col; c.beginPath(); c.arc(px, py, r, 0, Math.PI * 2); c.fill(); };
+    dot(0, 0, '#4fc3ff', 4.5);
+    for (const sp of Object.values(w.shopSpots || {})) dot(sp.pos.x, sp.pos.z, '#ffb84a', 3);
+    for (const n of g.npcs.list) if (n.role !== 'folk' && n.role !== 'kid') dot(n.pos.x, n.pos.z, '#ffd54f', 2.4);
+    for (const m of g.quests.markers) dot(m.pos.x, m.pos.z, m.elite ? '#ff5a4a' : m.flower ? '#ffffff' : '#7ad0ff', 3.4);
+    for (const ch of g.loot.revealed()) dot(ch.pos.x, ch.pos.z, '#ffe066', 4);
+    if (g.state.house?.floor === g.floor.n) {
+      const [hx, hy] = tr(w.housePlaque.x, w.housePlaque.z);
+      c.fillStyle = '#ff8ac8';
+      c.beginPath(); c.moveTo(hx, hy - 8); c.lineTo(hx + 7, hy - 1); c.lineTo(hx + 5, hy - 1); c.lineTo(hx + 5, hy + 6); c.lineTo(hx - 5, hy + 6); c.lineTo(hx - 5, hy - 1); c.lineTo(hx - 7, hy - 1); c.closePath(); c.fill();
+      c.strokeStyle = '#fff'; c.lineWidth = 1.2; c.stroke();
+    }
+    // jogador (seta)
+    const pl = g.player, [px, py] = tr(pl.pos.x, pl.pos.z);
+    c.save(); c.translate(px, py); c.rotate(-pl.yaw);
+    c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(0, -8); c.lineTo(6, 6); c.lineTo(0, 3); c.lineTo(-6, 6); c.closePath(); c.fill();
+    c.restore();
+    c.fillStyle = '#fff'; c.font = 'bold 13px "Exo 2", sans-serif'; c.textAlign = 'center';
+    c.fillText('N', S, 16);
   }
 
   pSystem() {
@@ -730,41 +849,6 @@ export class UI {
       + `<div class="row"><div><b>Crianças</b> ${list('criancas') || '<span class="muted">bonecos padrão</span>'}<div class="muted">Cada criança usa um modelo diferente desta lista.</div></div><button class="btn sm" data-act="modelPick" data-slot="criancas">Adicionar .vrm</button></div>`;
   }
 
-  pShop() {
-    const g = this.g, p = g.state.player, n = g.floor.n, stock = shopStock(n);
-    const tab = (t, l) => `<button class="tab ${this.shopTab === t ? 'on' : ''}" data-act="tab" data-t="${t}">${l}</button>`;
-    let html = `<div class="npc-say">"Bem-vindo! Aqui no Andar ${n} eu tenho o que você precisa — preço justo, palavra do Agil."</div>
-      <div class="tabs">${tab('buy', 'Comprar')}${tab('sell', 'Vender')}<span class="col">${nf(p.col)} Col</span></div>`;
-    if (this.shopTab === 'buy') {
-      html += '<div class="section">Consumíveis</div>';
-      for (const id of stock.items) {
-        const d = ITEMS[id];
-        html += `<div class="row"><div class="withicon"><img class="ico" src="${icon('item', id)}" alt=""><b>${d.name}</b> <span class="qty">tem ${p.items[id] || 0}</span><div class="muted">${d.desc}</div></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="item" data-id="${id}" data-q="1">×1</button><button class="btn sm" data-act="buy" data-kind="item" data-id="${id}" data-q="5">×5</button></div></div>`;
-      }
-      html += '<div class="section">Equipamento</div>';
-      const cur = weaponDef(p.weapon), curA = armorDef(p.armor);
-      for (const id of stock.weapons) {
-        const d = weaponDef(id), diff = d.atk - g.weaponAtk(p.weapon);
-        html += `<div class="row"><div class="withicon"><img class="ico" src="${icon('weapon', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">ATK ${d.atk}</span> <span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '+' : ''}${diff}</span></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="weapon" data-id="${id}">Comprar</button></div></div>`;
-      }
-      for (const id of stock.armors) {
-        const d = armorDef(id), diff = d.def - curA.def;
-        html += `<div class="row"><div class="withicon"><img class="ico" src="${icon('armor', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">DEF ${d.def} · HP +${d.hp}</span> <span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '+' : ''}${diff}</span></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="armor" data-id="${id}">Comprar</button></div></div>`;
-      }
-    } else {
-      const mats = Object.entries(p.mats).filter(([, m]) => m.qty > 0);
-      html += '<div class="section">Materiais</div>';
-      html += mats.length ? mats.map(([name, m]) => `<div class="row"><div>${esc(name)} <span class="qty">×${m.qty}</span></div><div class="row-r"><span class="price">${nf(m.qty * m.value)}</span><button class="btn sm" data-act="sellMat" data-id="${esc(name)}">Vender tudo</button></div></div>`).join('') : '<div class="muted pad">Nada para vender.</div>';
-      if (mats.length > 1) html += '<div class="btns"><button class="btn" data-act="sellAllMats">Vender todos os materiais</button></div>';
-      html += '<div class="section">Equipamento guardado</div>';
-      const gear = [];
-      p.weapons.forEach((id) => { if (id !== p.weapon && id !== p.offhand) gear.push(['weapon', id, weaponDef(id)]); });
-      p.armors.forEach((id) => { if (id !== p.armor) gear.push(['armor', id, armorDef(id)]); });
-      html += gear.length ? gear.map(([k, id, d]) => `<div class="row"><div><span class="rar r${d.rarity}">◆</span> ${esc(d.name)}</div><div class="row-r"><span class="price">${nf(g.sellPrice(d))}</span><button class="btn sm" data-act="sellGear" data-kind="${k}" data-id="${id}">Vender</button></div></div>`).join('') : '<div class="muted pad">Nenhum equipamento sobrando.</div>';
-    }
-    return html;
-  }
-
   bindPanel() {
     const body = $('mp-body');
     body.addEventListener('click', (e) => {
@@ -845,6 +929,19 @@ export class UI {
           break;
         }
         case 'tab': this.shopTab = d.t; break;
+        case 'runeOn': g.equipRune(d.id); break;
+        case 'runeOff': g.unequipRune(+d.i); break;
+        case 'dismiss': g.party.dismiss(+d.i); break;
+        case 'talkMember': {
+          const m = g.party.members[+d.i];
+          if (!m || m.data.kind !== 'cast') break;
+          const id = m.data.id, back = () => node();
+          const node = () => ({ text: 'Precisa de alguma coisa? Estou bem aqui.', options: [...g.quests.dialogOptions(id, back), { label: 'Até já', run: () => null }] });
+          this.closeMenu(false);
+          this.openDialog({ name: m.name, title: 'No seu time', def: { id }, talking: false, dialog: node });
+          return;
+        }
+        case 'townTp': g.townTeleport(d.id); return;
         case 'bagCat': this.bagCat = d.c; this.detail = null; break;
         case 'detail': this.detail = { kind: d.kind, id: d.id }; break;
         case 'closeDetail': this.detail = null; break;

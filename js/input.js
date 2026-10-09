@@ -8,12 +8,15 @@ export class Input {
     this.locked = false;
     this.forceLocked = false; // usado em testes automatizados
     this.onLockChange = null;
+    this.wantLock = null;
 
     addEventListener('keydown', (e) => {
       // só ignora teclas quando você está digitando (nome do avatar, créditos...); checkbox/slider com foco não bloqueiam o jogo
       const t = e.target;
       if (!this.isLocked && ((t instanceof HTMLInputElement && (t.type === 'text' || t.type === 'search')) || t instanceof HTMLTextAreaElement)) return;
       if (['Tab', 'Space', 'AltLeft'].includes(e.code)) e.preventDefault();
+      // o navegador às vezes recusa recapturar o mouse (ex.: menu fechado com Esc); qualquer tecla tenta de novo
+      if (e.code !== 'Escape' && !this.isLocked && this.wantLock?.()) this.lock();
       if (!this.keys.has(e.code)) this.down.add(e.code);
       this.keys.add(e.code);
     });

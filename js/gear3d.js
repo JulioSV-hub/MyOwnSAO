@@ -341,3 +341,47 @@ export function buildMaterial(name) {
   }
   return { group };
 }
+
+// Runa: pedra gravada flutuando dentro de um anel de luz na cor do tipo.
+export function buildRune(def) {
+  const group = new THREE.Group();
+  const c = new THREE.Color(def.color);
+  const stone = M(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshStandardMaterial({ color: c.clone().multiplyScalar(0.5), emissive: c.clone().multiplyScalar(0.6), roughness: 0.3, metalness: 0.3, flatShading: true }));
+  stone.scale.set(0.8, 1.25, 0.5);
+  group.add(stone, M(new THREE.SphereGeometry(0.07, 10, 8), glow(def.color, 2.4)));
+  for (let i = 0; i < def.tier; i++) {
+    const ring = M(new THREE.TorusGeometry(0.3 + i * 0.07, 0.014, 6, 36), glow(def.color, 1.6));
+    ring.rotation.set(1.2 + i * 0.35, i * 0.6, 0);
+    group.add(ring);
+  }
+  return { group };
+}
+
+// Comidas da taverna
+export function buildFood(id) {
+  const group = new THREE.Group();
+  if (id === 'mead' || id === 'tea') {
+    const mug = M(new THREE.CylinderGeometry(0.17, 0.15, 0.36, 18), std(id === 'mead' ? '#8a5a32' : '#e8e0d0', { roughness: 0.7 }));
+    const top = M(new THREE.CylinderGeometry(0.16, 0.16, 0.04, 18), std(id === 'mead' ? '#fff4d8' : '#8aa040'), 0, 0.17, 0);
+    const handle = M(new THREE.TorusGeometry(0.09, 0.025, 6, 14), mug.material, 0.18, 0, 0);
+    group.add(mug, top, handle);
+  } else if (id === 'pie') {
+    group.add(M(new THREE.CylinderGeometry(0.3, 0.26, 0.12, 24), std('#d89a4a')), M(new THREE.CylinderGeometry(0.27, 0.27, 0.03, 24), std('#e8b860'), 0, 0.07, 0));
+    for (let i = 0; i < 4; i++) { const s = M(new THREE.BoxGeometry(0.5, 0.02, 0.03), std('#b07a30'), 0, 0.09, 0); s.rotation.y = (i * Math.PI) / 4; group.add(s); }
+  } else if (id === 'bread') {
+    const b = M(new THREE.SphereGeometry(0.22, 16, 12), std('#5a3a22', { roughness: 0.9 }));
+    b.scale.set(1.3, 0.7, 0.9);
+    const cream = M(new THREE.SphereGeometry(0.1, 12, 8), std('#fff8e8'), 0.05, 0.14, 0);
+    cream.scale.y = 0.5;
+    group.add(b, cream);
+  } else {
+    // ensopado e banquete: tigela fumegante (o banquete ganha um frango assado)
+    const bowl = M(new THREE.SphereGeometry(0.28, 20, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), std('#8a5a32', { side: THREE.DoubleSide }));
+    const soup = M(new THREE.CircleGeometry(0.26, 20), std('#a8582a'), 0, -0.03, 0);
+    soup.rotation.x = -Math.PI / 2;
+    group.add(bowl, soup);
+    for (let i = 0; i < 4; i++) group.add(M(new THREE.SphereGeometry(0.05, 8, 6), std(i % 2 ? '#e0a040' : '#5a9a3a'), Math.cos(i * 1.6) * 0.12, 0, Math.sin(i * 1.6) * 0.12));
+    if (id === 'feast') { const ck = M(new THREE.SphereGeometry(0.16, 14, 10), std('#c8803a'), 0.05, 0.14, 0); ck.scale.set(1.3, 0.9, 1); group.add(ck); }
+  }
+  return { group };
+}

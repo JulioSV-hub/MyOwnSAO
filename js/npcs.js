@@ -5,7 +5,9 @@ import { registry, createModelCharacter, animateModel, disposeModel } from './mo
 import { npcHeight, presence, getNpcConfig } from './npcconfig.js';
 import { mulberry32 } from './rng.js';
 import { TOWN_R } from './world.js';
-import { weaponDef, MAX_FLOOR } from './data.js';
+import { weaponDef, MAX_FLOOR, CAST_PARTY, MERCS } from './data.js';
+import { SHOPS } from './shops.js';
+import { guildRank } from './guild.js';
 import { Sfx } from './audio.js';
 import { isFish } from './fishing.js';
 
@@ -192,7 +194,15 @@ class NPC {
     const node = this.baseDialog();
     if (!this.def.id) return node;
     const qopts = this.game.quests.dialogOptions(this.def.id, () => this.dialog());
-    return { ...node, options: [...qopts, ...node.options] };
+    const g = this.game, id = this.def.id, extra = [];
+    if (CAST_PARTY[id] && !g.party.has(id)) {
+      extra.push({ label: '⚔ Chamar para o time', run: () => {
+        if (!g.party.add({ kind: 'cast', id, name: this.name })) return { text: `Seu time já está cheio (máximo ${g.party.maxSize()}). Dispense alguém no menu Time.`, options: [{ label: 'Ok', run: () => null }] };
+        setTimeout(() => this.mgr.remove(this), 0);
+        return { text: CAST_PARTY[id].line, options: [{ label: 'Vamos!', run: () => null }] };
+      } });
+    }
+    return { ...node, options: [...qopts, ...extra, ...node.options] };
   }
 
   baseDialog() {
@@ -203,8 +213,8 @@ class NPC {
     switch (this.role) {
       case 'shop':
         return say(`Ei, ${p.name}! Bem-vindo à Agil's Store. Preço justo, palavra de honra — bom, quase sempre. O que vai ser hoje?`, [
-          { label: 'Ver a loja', run: () => { g.ui.closeDialog(false); g.ui.shopTab = 'buy'; g.ui.openMenu('shop'); return undefined; } },
-          { label: 'Vender materiais', run: () => { g.ui.closeDialog(false); g.ui.shopTab = 'sell'; g.ui.openMenu('shop'); return undefined; } },
+          { label: 'Ver a loja', run: () => { g.ui.closeDialog(false); g.ui.openShop('agil'); return undefined; } },
+          { label: 'Vender materiais', run: () => { g.ui.closeDialog(false); g.ui.openShop('agil', 'sell'); return undefined; } },
           { label: 'Como vão os negócios?', run: () => say(nextLine(['Uso parte do lucro para ajudar os jogadores de nível baixo. Não conte pra ninguém, hein?', 'Material de monstro raro vende bem. Traga o que achar nos campos!', 'Desde que a linha de frente chegou a este andar, o movimento triplicou.'])) },
           close,
         ]);
@@ -222,6 +232,7 @@ class NPC {
             return say(`*CLANG! CLANG!* ... Prontinho! ${wd.name} agora está +${lv + 1} — ATK ${atkNow} → ${atkNext}. Olha esse brilho! Não vai quebrar ela, viu?`, [{ label: 'Fortalecer de novo', run: () => this.dialog() }, close]);
           } });
         } else opts.push({ label: 'Já está no máximo (+10)', run: () => say('Essa lâmina está perfeita. Nem eu consigo melhorar mais!') });
+        opts.push({ label: 'Comprar armas forjadas', run: () => { g.ui.closeDialog(false); g.ui.openShop('forge'); return undefined; } });
         opts.push({ label: 'Conversar', run: () => say(nextLine(['Uma espada feita com metal de cristal... um dia eu faço uma assim de novo.', 'Meu sonho é ter uma loja com uma roda d\'água no andar 48!', 'Se o fio da sua lâmina gastar, eu dou um jeito. É meu trabalho!'])) });
         opts.push(close);
         return say(`Bem-vinda à Lisbeth's Smith Shop! Quer dizer... bem-vindo! Posso deixar sua arma mais forte. Na sua mão: ${wd.name} +${lv} (ATK ${atkNow}). Cada nível dá +10% de ataque à arma — e o nível fica na arma, não em você.`, opts);
@@ -300,6 +311,76 @@ class NPC {
       }
       case 'chain':
         return say(g.quests.chainInfo()?.greet || 'Olá, viajante.');
+      case 'armor':
+        return say(`Hm. ${p.name}, né? Armadura boa salva vida. Tenho leves, médias e pesadas — de vários andares.`, [
+          { label: 'Ver armaduras', run: () => { g.ui.closeDialog(false); g.ui.openShop('armor'); return undefined; } },
+          { label: 'Vender equipamento', run: () => { g.ui.closeDialog(false); g.ui.openShop('armor', 'sell'); return undefined; } },
+          { label: 'Qual armadura escolher?', run: () => say('Leve: +6% de velocidade, menos defesa. Pesada: muita defesa e HP, mas −6% de velocidade. Média: o equilíbrio. Contra chefe, eu iria de pesada.') },
+          close,
+        ]);
+      case 'rune':
+        return say('As runas sussurram... Bem-vindo à minha oficina. Uma runa equipada dá poder enquanto estiver no encaixe.', [
+          { label: 'Ver runas', run: () => { g.ui.closeDialog(false); g.ui.openShop('rune'); return undefined; } },
+          { label: 'Como funcionam?', run: () => say('Você começa com 1 encaixe de runa. Ganha o segundo no nível 10 e o terceiro no 20. Não dá para equipar duas do mesmo tipo. Equipe em Menu → Equipamento — e dá para trocar quando quiser, sem perder a runa.') },
+          close,
+        ]);
+      case 'petshop':
+        return say(g.state.pet ? `Que ${g.state.pet.name} mais fofo! Quer algo para ele?` : 'Oi, oi! Procurando um amiguinho? Tenho filhotes prontos para uma aventura!', [
+          { label: 'Ver a loja', run: () => { g.ui.closeDialog(false); g.ui.openShop('pet'); return undefined; } },
+          { label: 'Dica de mascote', run: () => say(nextLine(['Mascotes ganham EXP lutando com você. O Biscoito de Mascote dá um empurrãozinho!', 'Monstros dóceis (♥) nos campos também podem ser domados com o Petisco de Domador.', 'Quando seu HP fica baixo, o mascote solta uma cura. Quanto maior o nível, mais forte.'])) },
+          close,
+        ]);
+      case 'tavern': {
+        const rumor = 20 + n * 10;
+        return say(`Bem-vindo à Taverna do Javali Dourado! Comida quente, boatos frescos e gente procurando trabalho. O que vai ser, ${p.name}?`, [
+          { label: 'Ver o cardápio', run: () => { g.ui.closeDialog(false); g.ui.openShop('tavern'); return undefined; } },
+          { label: `Ouvir boatos (${rumor} Col)`, run: () => {
+            if (p.col < rumor) { Sfx.error(); return say('Boato bom custa uma bebida, amigo.'); }
+            const c = g.loot.reveal();
+            if (!c) return say('Hm... ninguém comentou de tesouro nenhum por aqui. Talvez você já tenha achado tudo! Volte daqui a uns dias.');
+            p.col -= rumor;
+            Sfx.coin();
+            const ang = Math.atan2(c.pos.z, c.pos.x), dirs = ['leste', 'sudeste', 'sul', 'sudoeste', 'oeste', 'noroeste', 'norte', 'nordeste'];
+            const dir = dirs[Math.round(((ang + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8];
+            const tier = { wood: 'um baú de madeira', silver: 'um baú de prata', gold: 'um BAÚ DOURADO' }[c.tier];
+            return say(`*psst* Um viajante jurou ter visto ${tier} a ${Math.round(Math.hypot(c.pos.x, c.pos.z))} metros da cidade, para o ${dir}. Marquei no seu mapa — ponto amarelo.`);
+          } },
+          { label: 'Contratar companheiro', run: () => { g.ui.closeDialog(false); g.ui.openMenu('party'); return undefined; } },
+          { label: 'Conversar', run: () => say(nextLine(['Os aventureiros da linha de frente pagam a conta inteira quando vencem um chefe. Adoro dia de chefe!', 'Ouvi dizer que tem gente formando guildas por aí. A Elena, ali da Guilda, que cuida disso.', 'Meu ensopado de javali é famoso em três andares. Quatro, se contar o boato.'])) },
+          close,
+        ]);
+      }
+      case 'guild': {
+        const gd = g.state.guild;
+        if (!gd) {
+          return say('Bem-vindo à Guilda dos Aventureiros! Registrados recebem contratos novos todo dia, sobem de posto (F até S) e ganham bônus de EXP, descontos nas lojas e companheiros da guilda.', [
+            { label: 'Fundar minha guilda (grátis)', run: () => {
+              const nm = (prompt('Nome da sua guilda:', `Lâminas de ${p.name}`) || '').trim().slice(0, 28) || `Lâminas de ${p.name}`;
+              g.state.guild = { name: nm, pts: 0, done: 0 };
+              g.quests.rebuild();
+              g.quests.refreshMarkers();
+              Sfx.levelUp();
+              g.ui.banner('Guilda fundada!', `${nm} · posto F`, 3.5);
+              g.save();
+              return this.dialog();
+            } },
+            close,
+          ]);
+        }
+        const r = guildRank(gd);
+        const opts = [{ label: 'Meu posto e bônus', run: () => say(`Guilda ${gd.name} · posto ${r.letter} · ${gd.pts} pontos${r.next ? ` (faltam ${r.next.pts - gd.pts} para o posto ${r.next.letter})` : ' — posto máximo!'}. Bônus atuais: +${Math.round(r.exp * 100)}% de EXP e −${Math.round(r.discount * 100)}% nas lojas.${r.i >= 2 ? ' Membros da guilda podem lutar no seu time.' : ' No posto D, membros da guilda podem entrar no seu time.'}${r.i >= 3 ? ' Seu time pode ter 3 companheiros.' : ' No posto C o time aumenta para 3.'}`) }];
+        if (r.i >= 2 && !g.state.party.some((m) => m.guild)) {
+          opts.push({ label: 'Chamar um membro da guilda para o time (grátis)', run: () => {
+            const cls = ['sword', 'lance', 'cleric', 'tank'][Math.floor(Math.random() * 4)];
+            const names = ['Ren', 'Aiko', 'Taro', 'Mei', 'Haru', 'Yuki'];
+            if (!g.party.add({ kind: 'merc', cls, guild: true, name: `${names[Math.floor(Math.random() * names.length)]} (${MERCS[cls].name} da guilda)`, seed: Math.floor(Math.random() * 1e6) })) return say('Seu time já está cheio.');
+            return null;
+          } });
+        }
+        opts.push(close);
+        return say(`${gd.name}, posto ${r.letter}. Temos contratos novos todo dia — escolha um!`, opts);
+      }
+
       case 'yui':
         return say('Papai...? Ah, desculpa! Você parece alguém que eu conheço...', [{ label: 'Você está perdida?', run: () => say('Não... eu acho que estou procurando alguém. Obrigada por perguntar!') }, close]);
       case 'kid':
@@ -323,6 +404,13 @@ export class NPCManager {
 
   byName(name) { return this.list.find((n) => n.name === name); }
 
+  remove(npc) {
+    const i = this.list.indexOf(npc);
+    if (i >= 0) this.list.splice(i, 1);
+    npc.destroy();
+    for (const n of this.list) if (n.followName === npc.name) n.followName = null;
+  }
+
   byId(id) { return this.list.find((n) => n.def.id === id); }
 
   applyHeights() { for (const n of this.list) n.applyHeight(); }
@@ -343,9 +431,16 @@ export class NPCManager {
       const cdef = { ...randomTownsfolk(mulberry32(g.floor.seed + 5), false), ...ch.look, id: 'chain', name: ch.npc, title: ch.title };
       add(cdef, w.chainPos.x, w.chainPos.z, { role: 'chain', fixed: true, yaw: Math.atan2(w.chainPos.x, w.chainPos.z) });
     }
-    // O elenco principal aparece pela cidade (cada andar sorteia quem está lá)
+    // Lojistas da Rua do Comércio
+    const roleOf = { armor: 'armor', rune: 'rune', pet: 'petshop', tavern: 'tavern', guild: 'guild' };
+    for (const [key, sp] of Object.entries(w.shopSpots || {})) {
+      const spec = SHOPS[key], def = { ...randomTownsfolk(mulberry32(g.floor.seed + key.length * 31), false), ...spec.npc, id: key === 'guild' ? 'guild' : undefined };
+      add(def, sp.pos.x, sp.pos.z, { role: roleOf[key], fixed: true, yaw: sp.yaw });
+    }
+    // O elenco principal aparece pela cidade (cada andar sorteia quem está lá); quem está no seu time não fica na cidade
     const cast = [['kirito', 'kirito'], ['asuna', 'cook'], ['klein', 'klein'], ['silica', 'silica'], ['yui', 'yui']];
     for (const [id, role] of cast) {
+      if (g.party.has(id)) continue;
       const pres = presence(id);
       if (pres === 'never' || (pres === 'sometimes' && n > 1 && rand() < 0.35)) continue;
       const ang = rand() * Math.PI * 2, rad = 7 + rand() * 9;

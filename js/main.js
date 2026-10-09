@@ -18,6 +18,8 @@ import { Ambient } from './ambient.js';
 import { Pets } from './pets.js';
 import { Fishing } from './fishing.js';
 import { Housing } from './housing.js';
+import { Party } from './party.js';
+import { Loot } from './loot.js';
 import { loadModels } from './models.js';
 import { Effects } from './effects.js';
 import { UI } from './ui.js';
@@ -25,7 +27,9 @@ import { Sfx } from './audio.js';
 import { windTime } from './toon.js';
 import { Music } from './music.js';
 import { smoothstep } from './rng.js';
-import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward } from './data.js';
+import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward, runeDef, FOODS, MERCS, mercPrice, runeSlotsFor } from './data.js';
+import { guildRank, guildDiscount } from './guild.js';
+import { adoptPrice, ADOPT_NAMES } from './shopui.js';
 import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord } from './save.js';
 
 const NIGHT_TOP = new THREE.Color('#050a1c');
@@ -104,6 +108,8 @@ class Game {
     this.pets = new Pets(this);
     this.fishing = new Fishing(this);
     this.housing = new Housing(this);
+    this.party = new Party(this);
+    this.loot = new Loot(this);
     this.indoor = null;
     this.effects = new Effects(this);
 
@@ -123,6 +129,7 @@ class Game {
       if (!locked && this.mode === 'play' && !this.ui.menuOpen && !this.ui.dialogOpen) this.ui.openMenu('status');
     };
     r.domElement.addEventListener('click', () => { if (this.mode === 'play' && !this.input.isLocked && !this.ui.menuOpen) this.input.lock(); });
+    this.input.wantLock = () => this.mode === 'play' && !this.ui.menuOpen && !this.ui.dialogOpen && !this.loading && !this.player.dead;
     addEventListener('resize', () => this.resize());
     addEventListener('beforeunload', () => { if (this.state && this.mode !== 'title') this.save(); });
 
@@ -264,7 +271,11 @@ class Game {
 
   updateSky(dt, advance) {
     const s = this.state?.settings || DEFAULT_SETTINGS;
-    if (advance) this.tod = (this.tod + dt / (s.dayMinutes * 60)) % 1;
+    if (advance) {
+      const next = this.tod + dt / (s.dayMinutes * 60);
+      this.tod = next % 1;
+      if (next >= 1 && this.state && this.mode === 'play') this.newDay();
+    }
     const elev = Math.sin((this.tod - 0.25) * Math.PI * 2);
     const az = this.tod * Math.PI * 2, ce = Math.sqrt(Math.max(0, 1 - elev * elev));
     const sun = this.sunDir.set(Math.cos(az) * ce, elev, Math.sin(az) * ce * 0.6 + 0.2).normalize();
@@ -312,6 +323,8 @@ class Game {
     }
     this.enemies.clear();
     this.npcs.clear();
+    this.party.despawn();
+    this.loot.clear();
     this.effects.clear();
     this.ui.clearEnemyLabels();
     this.bossFight = null;
@@ -338,8 +351,10 @@ class Game {
     this.indoor = null;
     this.housing.setDecorate(false);
     if (this.housing.room) this.housing.room.visible = false;
-    this.npcs.populate();
     this.quests.setFloor(this.floor);
+    this.npcs.populate();
+    this.loot.setFloor(this.floor);
+    this.party.spawn();
     this.pets.spawn();
     this.combat.reset();
     this.combat.setSheathed(!!this.state.settings.autoSheath, true);
@@ -359,16 +374,36 @@ class Game {
     }
     this.ui.closeMenu(false);
     Sfx.teleport();
-    this.ui.fade(() => {
-      this.loadFloor(n);
-      this.input.lock();
-    });
+    const f = getFloor(n);
+    this.withLoading(`Andar ${n}`, `${f.town} — ${f.desc}`, () => this.loadFloor(n)).then(() => this.input.lock());
+  }
+
+  // Tela de carregamento: monta o andar por trás dela, compila os shaders e renderiza alguns quadros
+  // (texturas e sombras sobem para a GPU) antes de mostrar o mundo — assim não trava ao aparecer.
+  async withLoading(title, sub, work) {
+    const frames = (k = 1) => new Promise((res) => { let i = 0; const f = () => (++i >= k ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
+    this.loading = true;
+    const L = this.ui.showLoading(title, sub);
+    await frames(2);
+    L.set(0.2);
+    try {
+      work();
+      this.player.updateCamera(0);
+      L.set(0.5);
+      await frames(1);
+      await this.renderer.compileAsync(this.scene, this.camera).catch(() => {});
+      L.set(0.75);
+      for (let i = 0; i < 14; i++) { await frames(1); L.set(0.75 + i * 0.018); }
+    } finally {
+      this.loading = false;
+      L.done();
+    }
   }
 
   // ─────────── Sessão ───────────
   beginGame(state) {
     this.ui.hideTitle();
-    this.ui.linkStart(() => this.startState(state));
+    this.ui.linkStart(() => this.withLoading('Link Start!', `Entrando em Aincrad — Andar ${state.progress.floor}`, () => this.startState(state)).then(() => this.input.lock()));
   }
 
   startState(state) {
@@ -395,6 +430,8 @@ class Game {
 
   logout() {
     this.pets.despawn();
+    this.party.despawn();
+    this.loot.clear();
     if (this.hardcoreDead) { this.hardcoreDead = null; this.ui.hideDeath(); this.state = null; this.mode = 'title'; this.combat.setVisible(false); this.enemies.clear(); this.npcs.clear(); this.ui.clearEnemyLabels(); this.ui.showTitle(); return; }
     this.npcs.clear();
     this.ui.closeDialog(false);
@@ -411,6 +448,8 @@ class Game {
 
   wipe() {
     this.pets.despawn();
+    this.party.despawn();
+    this.loot.clear();
     this.npcs.clear();
     this.ui.closeDialog(false);
     deleteSave(this.state?.mode || 'normal');
@@ -450,21 +489,33 @@ class Game {
   }
 
   // ─────────── Atributos ───────────
+  // Bônus somados de runas equipadas, comida da taverna e posto na guilda.
+  bonus() {
+    const p = this.state.player, b = { atk: 0, def: 0, defMul: 0, hp: 0, spd: 0, crit: 0, leech: 0, col: 0, exp: 0, regen: 0 };
+    const map = { fire: 'atk', stone: 'def', life: 'hp', wind: 'spd', eagle: 'crit', leech: 'leech', fortune: 'col', sage: 'exp' };
+    for (const id of p.runeSlots || []) { const r = id && runeDef(id); if (r) b[map[r.key]] += r.value; }
+    const f = p.food && p.food.until > this.state.playTime ? FOODS[p.food.id] : null;
+    if (f) for (const [k, v] of Object.entries(f.buff)) b[k === 'def' ? 'defMul' : k] += v;
+    const rank = guildRank(this.state.guild);
+    if (rank) b.exp += rank.i * 0.03;
+    return b;
+  }
+
   stats() {
-    const p = this.state.player, w = weaponDef(p.weapon), a = armorDef(p.armor);
+    const p = this.state.player, w = weaponDef(p.weapon), a = armorDef(p.armor), b = this.bonus();
     const o = p.dualBlades && p.offhand ? weaponDef(p.offhand) : null;
-    const base = p.str * 2 + p.level * 1.5;
-    const up = (id) => (1 + UPGRADE_STEP * this.upgradeLevel(id)) * (1 + 0.03 * p.str);
+    const up = (id) => (1 + UPGRADE_STEP * this.upgradeLevel(id)) * (1 + 0.03 * p.str) * (1 + b.atk);
     const flat = p.str + p.level * 1.5;
     return {
-      maxHp: Math.round((180 + 25 * (p.level - 1) + a.hp) * (1 + 0.02 * p.vit) + p.vit * 10),
+      maxHp: Math.round(((180 + 25 * (p.level - 1) + a.hp) * (1 + 0.02 * p.vit) + p.vit * 10) * (1 + b.hp)),
       atkR: w.atk * up(p.weapon) + flat,
       atkL: (o ? o.atk * up(p.offhand) : w.atk * up(p.weapon)) + flat,
       dual: !!o,
-      def: a.def + p.vit * 0.8 + p.level * 0.5,
+      def: (a.def + p.vit * 0.8 + p.level * 0.5 + b.def) * (1 + b.defMul),
       cdMul: 1 - Math.min(0.35, p.agi * 0.01),
-      crit: Math.min(0.6, 0.05 + p.agi * 0.008),
-      speedMul: 1 + Math.min(0.5, p.agi * 0.006),
+      crit: Math.max(0, Math.min(0.7, 0.05 + p.agi * 0.008 + (w.crit || 0) + b.crit)),
+      speedMul: Math.max(0.7, 1 + Math.min(0.5, p.agi * 0.006) + (a.spd || 0) + b.spd),
+      leech: b.leech, colMul: 1 + b.col, expMul: 1 + b.exp, regen: 1 + b.regen,
     };
   }
 
@@ -481,7 +532,7 @@ class Game {
     const fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw);
     const atk = h.hand === 'L' ? st.atkL : st.atkR;
     const color = a.color ? `#${a.color.getHexString()}` : '#dfefff';
-    let hits = 0, anyCrit = false;
+    let hits = 0, anyCrit = false, dealt = 0;
     for (const e of this.enemies.list) {
       if (e.dead || e.state === 'intro') continue;
       const dx = e.pos.x - pl.pos.x, dz = e.pos.z - pl.pos.z, d = Math.hypot(dx, dz) || 0.001;
@@ -499,7 +550,9 @@ class Game {
       this.effects.sparks(at, color, a.skill ? 14 : 8);
       this.ui.damageNumber(at, dmg, crit ? 'crit' : a.skill ? 'skill' : '');
       hits++;
+      dealt += dmg;
     }
+    if (dealt && st.leech) { const p = this.state.player; p.hp = Math.min(st.maxHp, p.hp + dealt * st.leech); }
     if (hits) {
       Sfx.hit(anyCrit);
       this.hitstop = Math.max(this.hitstop, a.skill ? 0.05 : 0.03);
@@ -568,6 +621,8 @@ class Game {
 
   restartHardcore() {
     this.pets.despawn();
+    this.party.despawn();
+    this.loot.clear();
     const name = this.hardcoreDead?.name || this.state?.player.name || 'Kirito';
     this.ui.hideDeath();
     this.hardcoreDead = null;
@@ -659,8 +714,9 @@ class Game {
     p.kills++;
     const diff = p.level - e.level;
     const k = diff > 5 ? Math.max(0.1, 1 - (diff - 5) * 0.15) : 1;
-    const exp = Math.round((10 + 9 * e.level) * k * this.state.settings.xpRate);
-    const col = Math.round((5 + 3 * e.level) * (0.8 + Math.random() * 0.4));
+    const st = this.stats();
+    const exp = Math.round((10 + 9 * e.level) * k * this.state.settings.xpRate * st.expMul);
+    const col = Math.round((5 + 3 * e.level) * (0.8 + Math.random() * 0.4) * st.colMul);
     p.col += col;
     let msg = `+${exp} EXP · +${col} Col`;
     if (Math.random() < 0.4) {
@@ -725,7 +781,15 @@ class Game {
     const p = this.state.player, d = ITEMS[id];
     if (!d || !(p.items[id] > 0)) return false;
     if (id === 'teleport_crystal') { this.ui.setPanel('map'); return true; }
-    if (d.tool) { this.ui.toast('Use perto de um monstro dócil (♥) com a tecla E.'); return false; }
+    if (d.pet) {
+      if (!this.state.pet) { this.ui.toast('Você não tem um mascote.', 'warn'); return false; }
+      p.items[id]--;
+      this.pets.gainExp(120);
+      this.ui.toast(`${this.state.pet.name} adorou o biscoito! (+120 EXP)`);
+      Sfx.menuOpen();
+      return true;
+    }
+    if (d.tool) { this.ui.toast(id === 'fishing_rod' ? 'Perto da água, aperte F para pescar.' : 'Use perto de um monstro dócil (♥) com a tecla E.'); return false; }
     const max = this.stats().maxHp;
     if (p.hp >= max) { this.ui.toast('Seu HP já está cheio.'); return false; }
     p.items[id]--;
@@ -764,10 +828,18 @@ class Game {
     };
   }
 
+  newDay() {
+    const w = this.state.world;
+    w.day = (w.day || 0) + 1;
+    this.quests.onNewDay();
+    this.loot?.onNewDay();
+  }
+
   sleep(tod, msg) {
     this.ui.closeDialog(false);
     Sfx.menuClose();
     this.ui.fade(() => {
+      if (tod < this.tod) this.newDay();
       this.tod = tod;
       this.state.player.hp = this.stats().maxHp;
       this.player.hot = null;
@@ -784,16 +856,97 @@ class Game {
     this.ui.toast('Sem Cristal de Teletransporte. Compre com o Agil (250 Col) ou use o Portal da cidade.', 'warn');
   }
 
+  // Preço final com o desconto da Guilda (2% por posto)
+  priceOf(kind, id) {
+    const n = this.floor.n;
+    let base;
+    if (kind === 'item') base = ITEMS[id].price;
+    else if (kind === 'weapon') base = weaponDef(id).price;
+    else if (kind === 'armor') base = armorDef(id).price;
+    else if (kind === 'rune') base = runeDef(id).price;
+    else if (kind === 'food') base = Math.round(FOODS[id].price * (1 + (n - 1) * 0.3));
+    else if (kind === 'adopt') base = adoptPrice(id);
+    else if (kind === 'merc') base = mercPrice(n);
+    return Math.max(1, Math.round(base * (1 - guildDiscount(this.state))));
+  }
+
   buy(kind, id, q = 1) {
     const p = this.state.player;
-    const d = kind === 'item' ? ITEMS[id] : kind === 'weapon' ? weaponDef(id) : armorDef(id);
-    const cost = d.price * q;
-    if (p.col < cost) { this.ui.toast('Col insuficiente.', 'warn'); Sfx.error(); return; }
+    const cost = this.priceOf(kind, id) * q;
+    if (p.col < cost) { this.ui.toast('Col insuficiente.', 'warn'); Sfx.error(); return false; }
+    let name;
+    if (kind === 'food') {
+      const f = FOODS[id];
+      p.food = { id, until: this.state.playTime + f.mins * 60 };
+      name = f.name;
+      this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#ffd27a', 1.3, 0.8, 1.5);
+      this.ui.toast(`${f.name}: ${f.desc} por ${f.mins} min.`, 'skill');
+    } else if (kind === 'adopt') {
+      if (this.state.pet) this.ui.toast(`${this.state.pet.name} foi morar na Toca dos Mascotes. Até mais!`);
+      this.state.pet = { mon: id, name: ADOPT_NAMES[id] || MONSTERS[id].name.split(' ').pop(), level: 1, exp: 0 };
+      this.pets.spawn();
+      name = `filhote de ${MONSTERS[id].name}`;
+      this.ui.banner('Novo mascote!', `${this.state.pet.name} agora é seu companheiro. Dê um nome em Menu → Status.`, 3.5);
+    } else if (kind === 'merc') {
+      const m = MERCS[id], r = Math.random;
+      const names = { sword: ['Daren', 'Thoren', 'Kael', 'Rowan'], lance: ['Mirela', 'Sayu', 'Lyra', 'Vanya'], cleric: ['Eliane', 'Noa', 'Seren', 'Iris'], tank: ['Borin', 'Gustav', 'Hallvard', 'Tor'] }[id];
+      if (!this.party.add({ kind: 'merc', cls: id, name: `${names[Math.floor(r() * names.length)]} (${m.name})`, seed: Math.floor(r() * 1e6) })) return false;
+      name = m.name;
+    } else {
+      if (kind === 'item') p.items[id] = (p.items[id] || 0) + q;
+      else if (kind === 'rune') { p.runes ||= {}; p.runes[id] = (p.runes[id] || 0) + q; }
+      else (kind === 'weapon' ? p.weapons : p.armors).push(id);
+      name = kind === 'item' ? ITEMS[id].name : kind === 'rune' ? runeDef(id).name : kind === 'weapon' ? weaponDef(id).name : armorDef(id).name;
+      this.ui.toast(`Comprou ${q > 1 ? `${q}× ` : ''}${name}.`);
+    }
     p.col -= cost;
-    if (kind === 'item') p.items[id] = (p.items[id] || 0) + q;
-    else (kind === 'weapon' ? p.weapons : p.armors).push(id);
     Sfx.coin();
-    this.ui.toast(`Comprou ${q > 1 ? `${q}× ` : ''}${d.name}.`);
+    this.save();
+    return true;
+  }
+
+  // Runas: equipar num encaixe livre / tirar de volta para a mochila
+  equipRune(id) {
+    const p = this.state.player, r = runeDef(id);
+    p.runeSlots ||= [null, null, null];
+    const slots = runeSlotsFor(p.level);
+    if (!(p.runes?.[id] > 0)) return;
+    if (p.runeSlots.slice(0, slots).some((x) => x && runeDef(x)?.key === r.key)) { Sfx.error(); this.ui.toast('Você já tem uma runa desse tipo equipada.', 'warn'); return; }
+    const i = p.runeSlots.findIndex((x, k) => k < slots && !x);
+    if (i < 0) { Sfx.error(); this.ui.toast(`Todos os ${slots} encaixes estão ocupados. (Novos encaixes no nível 10 e 20.)`, 'warn'); return; }
+    p.runes[id]--;
+    p.runeSlots[i] = id;
+    this.clampHp();
+    Sfx.levelUp();
+  }
+
+  unequipRune(i) {
+    const p = this.state.player, id = p.runeSlots?.[i];
+    if (!id) return;
+    p.runeSlots[i] = null;
+    p.runes[id] = (p.runes[id] || 0) + 1;
+    this.clampHp();
+  }
+
+  // Teletransporte para um ponto da cidade (grátis na cidade ou no Portal; no campo gasta 1 cristal)
+  townTeleport(id) {
+    const pt = this.world.townPoints().find((x) => x.id === id);
+    if (!pt) return;
+    const p = this.state.player, free = this.world.inSafeZone(this.player.pos) || this.nearGate();
+    if (!free) {
+      if (!(p.items.teleport_crystal > 0)) { Sfx.error(); this.ui.toast('Fora da cidade, o teletransporte local gasta 1 Cristal de Teletransporte.', 'warn'); return; }
+      p.items.teleport_crystal--;
+    }
+    this.ui.closeMenu(false);
+    Sfx.teleport();
+    this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#6fd0ff', 1.6, 0.6, 2);
+    this.ui.fade(() => {
+      this.player.place(pt.pos.x, pt.pos.z, Math.atan2(-(pt.look.x - pt.pos.x), -(pt.look.z - pt.pos.z)));
+      for (const m of this.party.members) m.pos.copy(this.player.pos).add(new THREE.Vector3(1, 0, 1));
+      if (this.pets.pet) this.pets.pet.pos.copy(this.player.pos).add(new THREE.Vector3(-1, 0, 1));
+      this.ui.toast(`Teletransportado: ${pt.name}`);
+      this.input.lock();
+    });
   }
 
   async reloadModels() {
@@ -857,8 +1010,12 @@ class Game {
       hint = own ? '[E] Entrar em casa' : '[E] Ler a placa: Casa à venda';
       act = () => (own ? this.housing.enter() : this.ui.openDialog({ name: 'Casa à venda', title: 'Imobiliária de Aincrad', def: {}, talking: false, dialog: () => this.housing.plaqueDialog() }));
     }
+    const lootT = !hint && !this.world.inSafeZone(pl) ? this.loot.nearest(pl) : null;
     if (hint) {
       // placa da casa
+    } else if (lootT) {
+      hint = lootT.label;
+      act = () => this.loot.interact(lootT);
     } else if (this.nearGate()) {
       hint = '[E] Portal de Teletransporte';
       act = () => this.ui.openMenu('map');
@@ -938,8 +1095,10 @@ class Game {
 
     if (this.mode === 'play') {
       this.handleKeys();
-      const paused = this.ui.menuOpen || this.ui.dialogOpen || !this.input.isLocked;
-      this.ui.setClickToPlay(!this.ui.menuOpen && !this.ui.dialogOpen && !this.input.isLocked);
+      const paused = this.ui.menuOpen || this.ui.dialogOpen || !this.input.isLocked || this.loading;
+      // o aviso só aparece se o mouse continuar solto por um tempo (evita piscar depois de diálogos e menus)
+      this.unlockedT = !this.ui.menuOpen && !this.ui.dialogOpen && !this.input.isLocked && !this.loading ? (this.unlockedT || 0) + real : 0;
+      this.ui.setClickToPlay(this.unlockedT > 0.9);
       if (!paused) {
         this.player.update(dt);
         this.combat.update(dt);
@@ -949,6 +1108,8 @@ class Game {
         this.pets.update(dt);
         this.fishing.update(dt);
         this.housing.update(dt);
+        this.party.update(dt);
+        this.loot.update(dt);
         this.updateInteract();
         // guardar a espada sozinho ao entrar na cidade (opção em Sistema)
         const safe = this.world.inSafeZone(this.player.pos);

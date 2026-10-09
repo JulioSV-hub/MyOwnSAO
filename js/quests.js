@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { MONSTERS, weaponDef, armorDef, laReward } from './data.js';
 import { mulberry32 } from './rng.js';
+import { guildRank } from './guild.js';
 import { Sfx } from './audio.js';
 
 const pickMon = (floor, i) => floor.monsters[i % floor.monsters.length];
@@ -14,23 +15,44 @@ export function questsForFloor(floor) {
   const k = 1 + (n - 1) * 0.6;
   const col = (v) => Math.round(v * k);
   const Q = [];
+  const vary = (list, off = 0) => list[(n + off) % list.length];
   Q.push({ id: `main_${n}`, giver: null, main: true, title: `Libertar o Andar ${n}`, desc: `Derrote ${floor.boss.name}, o chefe do andar, na arena diante do Labirinto.`, type: 'boss', count: 1, reward: { col: col(400), exp: 0 } });
-  Q.push({ id: `agil_${n}`, giver: 'agil', title: 'Estoque da Agil\'s Store', desc: `"Os aventureiros estão comprando tudo! Me traga 5 ${dropOf(m0)} — pago bem."`, type: 'deliver', target: dropOf(m0), count: 5, reward: { col: col(260), items: { potion: 3 } } });
-  Q.push({ id: `klein_${n}`, giver: 'klein', title: 'Caçada do Fuurinkazan', desc: `"Bora mostrar do que a gente é capaz! Derrote 8 ${MONSTERS[m1].name} comigo... quer dizer, por mim!"`, type: 'kill', target: m1, count: 8, reward: { col: col(180), exp: Math.round(120 * k * 1.6) } });
-  Q.push({ id: `argo_${n}`, giver: 'argo', title: 'Mapear o andar', desc: '"Preciso de alguém pra checar 3 lugares nos campos. Marquei com pilares de luz no seu mapa. Nyahaha~"', type: 'explore', count: 3, reward: { col: col(150), items: { teleport_crystal: 2 } } });
-  Q.push({ id: `lisbeth_${n}`, giver: 'lisbeth', title: 'Metal para a forja', desc: `"Estou sem material! Traga 4 ${dropOf(m2)} e eu fortaleço sua arma de graça."`, type: 'deliver', target: dropOf(m2), count: 4, reward: { upgrade: 1, col: col(60) } });
-  Q.push({ id: `asuna_${n}`, giver: 'asuna', title: 'Ingredientes do jantar', desc: `"Quero testar uma receita nova! Pode me trazer 3 ${dropOf(m1)}?"`, type: 'deliver', target: dropOf(m1), count: 3, reward: { items: { hipotion: 2 }, col: col(120), heal: true } });
+  // as missões dos personagens mudam de andar para andar
+  Q.push({ id: `agil_${n}`, giver: 'agil', reward: { col: col(260), items: { potion: 3 } }, ...vary([
+    { title: 'Estoque da Agil\'s Store', desc: `"Os aventureiros estão comprando tudo! Me traga 5 ${dropOf(m0)} — pago bem."`, type: 'deliver', target: dropOf(m0), count: 5 },
+    { title: 'Minério para revenda', desc: '"Os ferreiros da cidade querem minério. Colete 4 Minério de Ferro nos campos — brilham entre as pedras."', type: 'deliver', target: 'Minério de Ferro', count: 4 },
+    { title: 'Peixe fresco na loja', desc: '"Peixe vende que é uma beleza! Pesque 3 peixes quaisquer no lago e eu compro todos."', type: 'fish', count: 3 },
+  ]) });
+  Q.push({ id: `klein_${n}`, giver: 'klein', reward: { col: col(180), exp: Math.round(120 * k * 1.6) }, ...vary([
+    { title: 'Caçada do Fuurinkazan', desc: `"Bora mostrar do que a gente é capaz! Derrote 8 ${MONSTERS[m1].name} comigo... quer dizer, por mim!"`, type: 'kill', target: m1, count: 8 },
+    { title: 'Ronda noturna', desc: '"Samurai de verdade caça sob a lua! Derrote 8 monstros quaisquer durante a noite."', type: 'kill', target: '*', night: true, count: 8 },
+    { title: `Duelo contra ${MONSTERS[m2].name}`, desc: `"Os ${MONSTERS[m2].name} acham que mandam neste andar. Derrote 7 e mostre quem manda!"`, type: 'kill', target: m2, count: 7 },
+  ], 1) });
+  Q.push({ id: `argo_${n}`, giver: 'argo', reward: { col: col(150), items: { teleport_crystal: 2 } }, ...vary([
+    { title: 'Mapear o andar', desc: '"Preciso de alguém pra checar 3 lugares nos campos. Marquei com pilares de luz no seu mapa. Nyahaha~"', type: 'explore', count: 3 },
+    { title: 'Caça ao tesouro', desc: '"Dizem que há baús escondidos pelos campos deste andar. Abra 2 e me conte o que tinha dentro~"', type: 'chest', count: 2 },
+    { title: 'Rotas seguras', desc: '"Os novatos precisam de rotas seguras. Visite 4 pontos marcados e eu vendo o mapa... digo, publico de graça!"', type: 'explore', count: 4 },
+  ], 2) });
+  Q.push({ id: `lisbeth_${n}`, giver: 'lisbeth', reward: { upgrade: 1, col: col(60) }, ...vary([
+    { title: 'Metal para a forja', desc: `"Estou sem material! Traga 4 ${dropOf(m2)} e eu fortaleço sua arma de graça."`, type: 'deliver', target: dropOf(m2), count: 4 },
+    { title: 'Minério da montanha', desc: '"Preciso de 5 Minério de Ferro para uma encomenda grande. Em troca, fortaleço sua arma de graça!"', type: 'deliver', target: 'Minério de Ferro', count: 5 },
+    { title: 'O cristal perfeito', desc: '"Quero testar uma liga nova com cristal. Traga 2 Cristal Bruto — eles brilham roxo entre as pedras."', type: 'deliver', target: 'Cristal Bruto', count: 2 },
+  ], 1) });
+  Q.push({ id: `asuna_${n}`, giver: 'asuna', reward: { items: { hipotion: 2 }, col: col(120), heal: true }, ...vary([
+    { title: 'Ingredientes do jantar', desc: `"Quero testar uma receita nova! Pode me trazer 3 ${dropOf(m1)}?"`, type: 'deliver', target: dropOf(m1), count: 3 },
+    { title: 'Ervas para o tempero', desc: '"Meu molho especial precisa de ervas frescas. Colete 5 Erva Medicinal nos campos, por favor!"', type: 'deliver', target: 'Erva Medicinal', count: 5 },
+    { title: 'Aula de culinária', desc: '"Quero aprender um prato com peixe. Pesque 2 peixes para mim? O lago fica pertinho da cidade."', type: 'fish', count: 2 },
+  ], 2) });
   const kiritoTasks = [
     { title: 'Treino de Sword Skills', desc: '"Sword Skills vencem lutas. Use 12 Sword Skills em combate e me conte como foi."', type: 'skill', count: 12 },
     { title: 'A arte de aparar', desc: '"Segure a defesa (botão direito) no instante do golpe inimigo. Apare 3 ataques."', type: 'parry', count: 3 },
     { title: 'Caçador solo', desc: '"Derrote 15 monstros neste andar. Sem pressa, sem morrer."', type: 'kill', target: '*', count: 15 },
   ];
   Q.push({ id: `kirito_${n}`, giver: 'kirito', ...kiritoTasks[(n - 1) % kiritoTasks.length], reward: { points: 2, col: col(100) } });
-  Q.push({ id: `silica_${n}`, giver: 'silica', title: 'A Flor de Pneuma', desc: '"Dizem que uma flor brilhante nasce em algum lugar deste andar... ela tem um poder especial! Me ajuda a achar?"', type: 'explore', flower: true, count: 1, reward: { items: { heal_crystal: 1 }, col: col(140) } });
+  Q.push({ id: `silica_${n}`, giver: 'silica', reward: { items: { heal_crystal: 1 }, col: col(140) }, ...(n % 2
+    ? { title: 'A Flor de Pneuma', desc: '"Dizem que uma flor brilhante nasce em algum lugar deste andar... ela tem um poder especial! Me ajuda a achar?"', type: 'explore', flower: true, count: 1 }
+    : { title: 'Petisco da Pina', desc: '"A Pina adora Cogumelo Luminoso! Eles brilham azul nos campos. Pode colher 3 para ela?"', type: 'deliver', target: 'Cogumelo Luminoso', count: 3 }) });
   if (n === 1) Q.push({ id: 'yui_1', giver: 'yui', title: 'Papai e mamãe', desc: '"Eu queria conversar com o moço de preto e a moça de branco... você me ajuda? Fala com eles por mim?"', type: 'talk', targets: ['kirito', 'asuna'], count: 2, reward: { items: { potion: 2 }, col: 80 } });
-  Q.push({ id: `board_a_${n}`, giver: 'board', title: 'Caçada: limpar os campos', desc: 'Pedido da cidade: derrote 12 monstros quaisquer nos arredores.', type: 'kill', target: '*', count: 12, reward: { col: col(200), exp: Math.round(80 * k) } });
-  Q.push({ id: `board_b_${n}`, giver: 'board', title: `Caçada: ${MONSTERS[m2].name}`, desc: `Pedido da cidade: os ${MONSTERS[m2].name} estão atacando viajantes. Derrote 6.`, type: 'kill', target: m2, count: 6, reward: { col: col(170), items: { potion: 2 } } });
-  Q.push({ id: `board_c_${n}`, giver: 'board', title: `Encomenda: ${dropOf(m0)}`, desc: `Pedido da cidade: entregue 6 ${dropOf(m0)} no quadro.`, type: 'deliver', target: dropOf(m0), count: 6, reward: { col: col(240) } });
   const ch = chainForFloor(floor);
   let prev = null;
   for (const st of ch.steps) {
@@ -89,7 +111,48 @@ export function chainForFloor(floor) {
   };
 }
 
-const GIVER_NAMES = { chain: 'NPC da história', inn: 'Hana', agil: 'Agil', klein: 'Klein', argo: 'Argo', lisbeth: 'Lisbeth', asuna: 'Asuna', kirito: 'Kirito', silica: 'Silica', yui: 'Yui', board: 'Quadro de Missões' };
+// ─────────── Pedidos do dia (Quadro de Missões) e contratos da Guilda ───────────
+// Sorteados a partir de muitos modelos; mudam a cada dia do jogo. Ids: bd_/gd_<andar>_<dia>_<i>.
+const REQUESTERS = ['um fazendeiro', 'a guarda da cidade', 'uma comerciante', 'o padeiro da praça', 'um viajante ferido', 'a enfermaria', 'um colecionador excêntrico', 'a escola de espadachins', 'uma velha senhora', 'os mineiros'];
+export function dailyQuests(floor, day, giver) {
+  const n = floor.n, k = 1 + (n - 1) * 0.6, col = (v) => Math.round(v * k);
+  const r = mulberry32(floor.seed * 3 + day * 7919 + (giver === 'guild' ? 4111 : 0));
+  const ri = (a, b) => a + Math.floor(r() * (b - a + 1));
+  const pick = (arr) => arr[Math.floor(r() * arr.length)];
+  const mons = floor.monsters;
+  const who = () => pick(REQUESTERS);
+  const T = [
+    () => { const m = pick(mons), c = ri(6, 10); return { title: `Caçada: ${MONSTERS[m].name}`, desc: `Pedido de ${who()}: ${c} ${MONSTERS[m].name} estão rondando as estradas. Derrote-os.`, type: 'kill', target: m, count: c, rw: 170 }; },
+    () => { const c = ri(12, 18); return { title: 'Limpar os campos', desc: `Pedido de ${who()}: derrote ${c} monstros quaisquer nos arredores da cidade.`, type: 'kill', target: '*', count: c, rw: 210 }; },
+    () => { const m = pick(mons), c = ri(4, 7); return { title: `Encomenda: ${dropOf(m)}`, desc: `Pedido de ${who()}: precisa de ${c} ${dropOf(m)}. Pagam bem!`, type: 'deliver', target: dropOf(m), count: c, rw: 200 }; },
+    () => { const g = pick(['Erva Medicinal', 'Erva Medicinal', 'Cogumelo Luminoso', 'Minério de Ferro', 'Cristal Bruto']), c = g === 'Cristal Bruto' ? 2 : ri(3, 6); return { title: `Coleta: ${g}`, desc: `Pedido de ${who()}: colete ${c} ${g} pelos campos (pontos brilhantes no chão).`, type: 'deliver', target: g, count: c, rw: g === 'Cristal Bruto' ? 230 : 150 }; },
+    () => { const c = ri(2, 4); return { title: 'Pescaria encomendada', desc: `Pedido de ${who()}: pesque ${c} peixes no Lago de Pesca.`, type: 'fish', count: c, rw: 160 }; },
+    () => { const c = ri(1, 2); return { title: 'Tesouros perdidos', desc: `Pedido de ${who()}: dizem que há baús escondidos nos campos. Abra ${c}.`, type: 'chest', count: c, rw: 190 }; },
+    () => { const c = ri(2, 3); return { title: 'Patrulha', desc: `Pedido de ${who()}: verifique ${c} pontos marcados com pilares de luz azul.`, type: 'explore', count: c, rw: 150 }; },
+    () => { const c = ri(6, 10); return { title: 'Caçada noturna', desc: `Pedido de ${who()}: os monstros ficam ousados à noite. Derrote ${c} depois do pôr do sol.`, type: 'kill', target: '*', night: true, count: c, rw: 240 }; },
+    () => { const c = ri(8, 14); return { title: 'Demonstração de técnica', desc: `Pedido de ${who()}: mostre aos aprendizes ${c} Sword Skills em combate.`, type: 'skill', count: c, rw: 140 }; },
+    () => { const c = ri(2, 4); return { title: 'Aula de defesa', desc: `Pedido de ${who()}: apare (parry) ${c} ataques de monstros.`, type: 'parry', count: c, rw: 170 }; },
+    () => ({ title: 'Remédios para a enfermaria', desc: 'Pedido da enfermaria: doe 3 Poções de Cura para os feridos.', type: 'deliverItem', target: 'potion', count: 3, rw: 260 }),
+    () => {
+      const m = pick(mons), adj = pick(['Caolho', 'Furioso', 'Gigante', 'Ancião', 'Faminto', 'das Cinzas']);
+      return { title: `Recompensa: ${MONSTERS[m].name} ${adj}`, desc: `Cartaz de procurado: um ${MONSTERS[m].name} ${adj} foi visto nos campos (pilar vermelho no mapa). Derrote-o.`, type: 'elite', count: 1, rw: 420,
+        elite: { base: m, name: `${MONSTERS[m].name} ${adj}`, color: null, hp: 4, scale: 1.45, drop: null } };
+    },
+  ];
+  const order = Array.from(T.keys());
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  const out = [];
+  for (let i = 0; i < 3; i++) {
+    const q = T[order[i]]();
+    const pts = giver === 'guild' ? Math.round(30 + q.rw / 6) : 0;
+    const reward = { col: col(q.rw * (giver === 'guild' ? 0.8 : 1)), ...(q.type === 'kill' || q.type === 'elite' ? { exp: Math.round(q.rw * 0.5 * k) } : {}), ...(pts ? { guild: pts } : {}) };
+    delete q.rw;
+    out.push({ ...q, id: `${giver === 'guild' ? 'gd' : 'bd'}_${n}_${day}_${i}`, giver, daily: true, reward });
+  }
+  return out;
+}
+
+const GIVER_NAMES = { chain: 'NPC da história', inn: 'Hana', agil: 'Agil', klein: 'Klein', argo: 'Argo', lisbeth: 'Lisbeth', asuna: 'Asuna', kirito: 'Kirito', silica: 'Silica', yui: 'Yui', board: 'Quadro de Missões', guild: 'Guilda dos Aventureiros' };
 
 export class Quests {
   constructor(game) {
@@ -106,15 +169,44 @@ export class Quests {
 
   setFloor(floor) {
     this.clearMarkers();
-    this.list = questsForFloor(floor);
-    this.points = this.makePoints(floor);
+    this.floor = floor;
+    this.rebuild();
     const main = this.list.find((q) => q.main);
     if (!this.game.state.progress.cleared[floor.n] && !this.st.done[main.id] && !this.st.active[main.id]) this.st.active[main.id] = { p: 0 };
     this.refreshMarkers();
   }
 
+  get day() { return this.game.state.world.day || 0; }
+
+  // lista do andar = missões fixas + pedidos do dia + pedidos antigos que você ainda está fazendo
+  rebuild() {
+    const floor = this.floor, n = floor.n, day = this.day;
+    const list = questsForFloor(floor);
+    list.push(...dailyQuests(floor, day, 'board'));
+    if (this.game.state.guild) list.push(...dailyQuests(floor, day, 'guild'));
+    for (const id of Object.keys(this.st.active)) {
+      const m = /^(bd|gd)_(\d+)_(\d+)_(\d)$/.exec(id);
+      if (!m || +m[2] !== n || +m[3] === day) continue;
+      const q = dailyQuests(floor, +m[3], m[1] === 'gd' ? 'guild' : 'board')[+m[4]];
+      if (q) list.push(q);
+    }
+    for (const id of Object.keys(this.st.done)) { const m = /^(bd|gd)_\d+_(\d+)_/.exec(id); if (m && +m[2] < day - 2) delete this.st.done[id]; }
+    for (const q of list) q.floor ??= n;
+    this.list = list;
+    this.points = this.makePoints(floor);
+  }
+
+  // novo dia: o quadro e a guilda trocam os pedidos
+  onNewDay() {
+    if (!this.floor) return;
+    this.rebuild();
+    this.refreshMarkers();
+    this.game.ui.toast('Um novo dia em Aincrad: há pedidos novos no Quadro de Missões' + (this.game.state.guild ? ' e na Guilda.' : '.'), 'skill');
+  }
+
   makePoints(floor) {
-    const w = this.game.world, r = mulberry32(floor.seed + 4242), out = {};
+    const w = this.game.world, out = {};
+    let r = null;
     const spot = (minR, maxR) => {
       for (let i = 0; i < 60; i++) {
         const a = r() * Math.PI * 2, d = minR + r() * (maxR - minR);
@@ -123,7 +215,9 @@ export class Quests {
       }
       return new THREE.Vector3(90, w.groundAt(90, 0), 0);
     };
-    for (const q of this.list) if (q.type === 'explore' || q.type === 'elite') out[q.id] = Array.from({ length: q.count }, () => spot(q.flower ? 110 : q.type === 'elite' ? 95 : 75, q.flower ? 205 : 195));
+    // cada missão tem sua própria semente: os pontos não mudam quando os pedidos do dia mudam
+    const hash = (s) => { let h = 7; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
+    for (const q of this.list) if (q.type === 'explore' || q.type === 'elite') (r = mulberry32(floor.seed + hash(q.id))), out[q.id] = Array.from({ length: q.count }, () => spot(q.flower ? 110 : q.type === 'elite' ? 95 : 75, q.flower ? 205 : 195));
     return out;
   }
 
@@ -135,6 +229,7 @@ export class Quests {
     const a = this.st.active[q.id];
     if (!a) return 0;
     if (q.type === 'deliver') return Math.min(q.count, this.game.state.player.mats[q.target]?.qty || 0);
+    if (q.type === 'deliverItem') return Math.min(q.count, this.game.state.player.items[q.target] || 0);
     if (q.type === 'upgrade') return Math.min(q.count, this.game.upgradeLevel(this.game.state.player.weapon));
     if (q.type === 'boss') return this.game.state.progress.cleared[q.floor] ? 1 : 0;
     return Math.min(q.count, a.p || 0);
@@ -171,6 +266,7 @@ export class Quests {
     if (r.upgrade) parts.push('arma +1 de graça');
     if (r.gear) parts.push((r.gear.kind === 'weapon' ? weaponDef(r.gear.id) : armorDef(r.gear.id)).name);
     if (r.heal) parts.push('HP restaurado');
+    if (r.guild) parts.push(`${r.guild} pontos de guilda`);
     const names = { potion: 'Poção', hipotion: 'Poção Superior', heal_crystal: 'Cristal de Cura', teleport_crystal: 'Cristal de Teletransporte' };
     for (const [id, qn] of Object.entries(r.items || {})) parts.push(`${qn}× ${names[id] || id}`);
     return parts.join(' · ');
@@ -183,6 +279,14 @@ export class Quests {
       const m = p.mats[q.target];
       m.qty -= q.count;
       if (m.qty <= 0) delete p.mats[q.target];
+    }
+    if (q.type === 'deliverItem') p.items[q.target] -= q.count;
+    if (r.guild && g.state.guild) {
+      const before = guildRank(g.state.guild).letter;
+      g.state.guild.pts += r.guild;
+      g.state.guild.done = (g.state.guild.done || 0) + 1;
+      const after = guildRank(g.state.guild).letter;
+      if (after !== before) setTimeout(() => g.ui.banner(`Posto ${after} na Guilda!`, 'Mais EXP, descontos nas lojas e novos companheiros', 4), 1800);
     }
     delete this.st.active[q.id];
     this.st.done[q.id] = true;
@@ -216,7 +320,8 @@ export class Quests {
   }
 
   onKill(e) {
-    this.bump((q) => q.type === 'kill' && (q.target === '*' || MONSTERS[q.target] === e.def));
+    const night = this.game.night > 0.5;
+    this.bump((q) => q.type === 'kill' && (!q.night || night) && (q.target === '*' || MONSTERS[q.target] === e.def));
     if (e.questId) {
       this.bump((q) => q.id === e.questId);
       const q = this.def(e.questId);
@@ -225,6 +330,8 @@ export class Quests {
     }
   }
   onSkill() { this.bump((q) => q.type === 'skill'); }
+  onFish() { this.bump((q) => q.type === 'fish'); }
+  onChest() { this.bump((q) => q.type === 'chest'); }
   onParry() { this.bump((q) => q.type === 'parry'); }
   onDrop(name) {
     for (const q of this.activeList()) if (q.type === 'deliver' && q.target === name && this.progress(q) === q.count) this.game.ui.toast(`✔ ${q.title}: você já tem ${q.count} ${name}!`, 'skill');

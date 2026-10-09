@@ -273,7 +273,63 @@ export const ITEMS = {
   fishing_rod: { name: 'Vara de Pesca', desc: 'Perto da água, aperte F para lançar a linha. Quando a boia afundar, F de novo!', price: 150, tool: true },
   grilled_fish: { name: 'Peixe Grelhado', desc: 'Prato da Asuna. Recupera 60% do HP na hora.', price: 0, heal: 0.6, over: 0, noShop: true },
   tame_treat: { name: 'Petisco de Domador', desc: 'Ofereça a um monstro dócil (♥) para tentar domá-lo. Cada tentativa aumenta a chance.', price: 120, tool: true },
+  pet_snack: { name: 'Biscoito de Mascote', desc: 'Seu mascote ganha 120 EXP na hora. Vendido na Toca dos Mascotes.', price: 90, pet: true, noShop: true },
 };
+
+// ───────────────────────────── Runas ─────────────────────────────
+// Equipadas nos encaixes de runa (1 no início, 2 no nível 10, 3 no nível 20). Não dá para repetir o mesmo tipo.
+export const RUNES = {
+  fire: { name: 'Runa de Fogo', color: '#ff6a3a', vals: [0.05, 0.09, 0.14], fmt: (v) => `+${Math.round(v * 100)}% de ataque` },
+  stone: { name: 'Runa de Pedra', color: '#b8a88a', vals: [4, 9, 16], fmt: (v) => `+${v} de defesa` },
+  life: { name: 'Runa da Vida', color: '#5aff8a', vals: [0.06, 0.11, 0.17], fmt: (v) => `+${Math.round(v * 100)}% de HP máximo` },
+  wind: { name: 'Runa do Vento', color: '#9ae8ff', vals: [0.04, 0.07, 0.1], fmt: (v) => `+${Math.round(v * 100)}% de velocidade` },
+  eagle: { name: 'Runa da Águia', color: '#ffd84a', vals: [0.03, 0.05, 0.08], fmt: (v) => `+${Math.round(v * 100)}% de crítico` },
+  leech: { name: 'Runa Vampírica', color: '#d0304a', vals: [0.03, 0.05, 0.08], fmt: (v) => `cura ${Math.round(v * 100)}% do dano causado` },
+  fortune: { name: 'Runa da Fortuna', color: '#f0c040', vals: [0.1, 0.18, 0.28], fmt: (v) => `+${Math.round(v * 100)}% de Col dos monstros` },
+  sage: { name: 'Runa do Sábio', color: '#b08aff', vals: [0.08, 0.14, 0.22], fmt: (v) => `+${Math.round(v * 100)}% de EXP` },
+};
+const ROMAN = ['I', 'II', 'III'];
+export const RUNE_TIER_FLOOR = [1, 3, 7];
+export function runeDef(id) {
+  const m = /^rune_([a-z]+)_(\d)$/.exec(id || '');
+  if (!m || !RUNES[m[1]]) return null;
+  const r = RUNES[m[1]], t = Math.min(3, Math.max(1, +m[2])), v = r.vals[t - 1];
+  return { id, key: m[1], tier: t, name: `${r.name} ${ROMAN[t - 1]}`, color: r.color, value: v, desc: r.fmt(v), price: [450, 1800, 5200][t - 1], rarity: t === 3 ? 2 : 1 };
+}
+export const runeSlotsFor = (level) => 1 + (level >= 10 ? 1 : 0) + (level >= 20 ? 1 : 0);
+
+// ───────────────────────────── Taverna: comidas com bônus temporário ─────────────────────────────
+export const FOODS = {
+  stew: { name: 'Ensopado de Javali', desc: '+12% de ataque', price: 60, mins: 8, buff: { atk: 0.12 } },
+  tea: { name: 'Chá de Ervas da Montanha', desc: '+15% de defesa', price: 50, mins: 8, buff: { def: 0.15 } },
+  mead: { name: 'Hidromel Dourado', desc: '+6% de crítico', price: 70, mins: 8, buff: { crit: 0.06 } },
+  pie: { name: 'Torta de Mel', desc: 'HP se regenera 3× mais rápido', price: 55, mins: 8, buff: { regen: 2 } },
+  bread: { name: 'Pão Preto com Creme', desc: '+10% de EXP', price: 45, mins: 10, buff: { exp: 0.1 } },
+  feast: { name: 'Banquete do Taverneiro', desc: '+8% ataque, +10% defesa e +10% EXP', price: 220, mins: 12, buff: { atk: 0.08, def: 0.1, exp: 0.1 } },
+};
+
+// ───────────────────────────── Coleta: itens espalhados pelos campos ─────────────────────────────
+export const GATHER = [
+  { name: 'Erva Medicinal', value: 6, color: '#5ac83a', w: 40 },
+  { name: 'Cogumelo Luminoso', value: 10, color: '#7ad8ff', w: 22 },
+  { name: 'Minério de Ferro', value: 12, color: '#8a8a94', w: 26 },
+  { name: 'Cristal Bruto', value: 26, color: '#c8a0ff', w: 12 },
+];
+
+// ───────────────────────────── Companheiros de time ─────────────────────────────
+export const MERCS = {
+  sword: { name: 'Espadachim', role: 'Ataque equilibrado', dmg: 1, hp: 1, reach: 2.4, look: { hair: 'short', hairColor: '#4a3020', top: '#5a6a8a', pants: '#3a3028', accent: '#c8a050', sword: '#c8d0d8' } },
+  lance: { name: 'Lanceira', role: 'Golpes longos e fortes', dmg: 1.2, hp: 0.9, reach: 3.2, look: { female: true, hair: 'ponytail', hairColor: '#a85a2a', top: '#8a3a3a', skirt: '#4a3a3a', accent: '#d8c070', sword: '#d8dce4' } },
+  cleric: { name: 'Clériga', role: 'Cura você durante a luta', dmg: 0.55, hp: 0.85, reach: 2.2, heals: true, look: { female: true, hair: 'long', hairColor: '#e8d8a8', top: '#f0f0f4', skirt: '#f0f0f4', accent: '#4a8ad8', sword: '#f0e8c0' } },
+  tank: { name: 'Guardião', role: 'Muito HP; atrai os monstros', dmg: 0.8, hp: 1.8, reach: 2.3, taunt: true, look: { hair: 'bald', top: '#6a6e78', pants: '#3a3a40', accent: '#b8bcc4', beard: true, big: true, sword: '#b8bcc4' } },
+};
+export const CAST_PARTY = {
+  kirito: { dmg: 1.5, hp: 1.3, reach: 2.6, line: 'Tudo bem. Mas não vá morrer, ouviu?' },
+  asuna: { dmg: 1.35, hp: 1.15, reach: 2.6, fast: true, heals: true, line: 'Claro! Vamos limpar esse andar juntos.' },
+  klein: { dmg: 1.2, hp: 1.25, reach: 2.6, line: 'Agora sim! O Fuurinkazan nunca abandona um amigo!' },
+  silica: { dmg: 0.9, hp: 0.95, reach: 2.2, heals: true, line: 'A Pina e eu vamos te ajudar! Né, Pina? "Kyuu!"' },
+};
+export const mercPrice = (n) => 180 + n * 70;
 
 const GEN_W = ['Espada Longa de Ferro', 'Espada de Aço', 'Lâmina de Bronze Polido', 'Espada de Mithril', 'Lâmina Cristalina',
   'Espada Rúnica', 'Lâmina Obsidiana', 'Espada do Vento', 'Lâmina Celeste', 'Espada Dracônica'];
@@ -285,8 +341,25 @@ const RARE_W = {
 const RARE_POOL = [['Blue Rose Sword', '#a8c8ff'], ['Lambent Light', '#f4f4ff'], ['Fragrant Olive Sword', '#ffd27a'], ['Excalibur', '#ffe08a'],
   ['Silver Wolf Fang', '#e0e4ea'], ['Crimson Longsword', '#ff5a5a'], ['Moonlit Edge', '#c0d0ff'], ['Gilded Edge', '#f0c060'], ['Verdant Fang', '#7aff9a']];
 
+// Armas forjadas pela Lisbeth: o estilo muda o ataque e o crítico.
+const FORGE_STYLES = {
+  rapier: { base: 'Rapieira', atk: 0.92, crit: 0.06, note: 'leve e precisa (+6% crítico)' },
+  katana: { base: 'Katana', atk: 1.0, crit: 0.03, note: 'equilibrada (+3% crítico)' },
+  broad: { base: 'Montante', atk: 1.12, crit: -0.02, note: 'pesada e brutal (−2% crítico)' },
+};
+const FORGE_MAT = [['de Ferro', '#c8d0d8'], ['de Aço', '#dde2e8'], ['de Bronze', '#d8b080'], ['de Mithril', '#c0e8ff'], ['de Cristal', '#a8f0ff'],
+  ['Rúnica', '#d0c0ff'], ['Obsidiana', '#3a3a48'], ['do Vento', '#c8ffe8'], ['Celeste', '#e8f4ff'], ['Dracônica', '#ff9a7a']];
+export const FORGE_KEYS = Object.keys(FORGE_STYLES);
+export const forgeNote = (style) => FORGE_STYLES[style]?.note || '';
+
 function baseWeaponDef(id) {
   if (!id || id === 'small_sword') return { id: 'small_sword', name: 'Small Sword', atk: 14, price: 30, rarity: 0, blade: '#c8d0d8' };
+  const f = /^lw_([a-z]+)_(\d+)$/.exec(id);
+  if (f && FORGE_STYLES[f[1]]) {
+    const st = FORGE_STYLES[f[1]], n = +f[2], [mat, blade] = FORGE_MAT[(n - 1) % FORGE_MAT.length], tier = Math.floor((n - 1) / FORGE_MAT.length);
+    return { id, name: `${st.base} ${mat}${tier ? ` +${tier}` : ''}`, atk: Math.round((14 + n * 8.5) * 1.08 * st.atk), crit: st.crit, price: Math.round(150 * Math.pow(n, 1.35)), rarity: 1, blade, floor: n,
+      style: f[1] === 'broad' ? 'broad' : f[1], guard: f[1] === 'katana' ? '#2a2a30' : '#b08040', grip: f[1] === 'rapier' ? '#8a2a2a' : '#3a2a20', forged: true };
+  }
   const m = /^(gen|rare)_(\d+)$/.exec(id);
   if (!m) return baseWeaponDef('small_sword');
   const n = +m[2], rare = m[1] === 'rare';
@@ -303,8 +376,20 @@ const GEN_A = ['Gibão de Couro Reforçado', 'Cota de Malha', 'Armadura de Escam
 const RARE_A = { 1: 'Coat of Midnight', 50: 'Blackwyrm Coat', 25: 'Armadura dos Cavaleiros do Sangue' };
 const RARE_A_POOL = ['Manto Celeste', 'Armadura do Dragão', 'Manto das Sombras', 'Couraça Divina', 'Manto do Guardião'];
 
+// Variações da loja de armaduras: leve (mais rápida) e pesada (mais defesa, mais lenta).
+const LIGHT_A = ['Jaqueta de Couro de Lobo', 'Gibão do Batedor', 'Casaco do Andarilho', 'Túnica Élfica', 'Manto de Seda', 'Jaqueta do Vento'];
+const HEAVY_A = ['Couraça de Ferro', 'Armadura de Placas', 'Peitoral do Guardião', 'Armadura do Cavaleiro', 'Couraça de Mithril', 'Armadura Bastião'];
+export const armorWeight = (d) => (d.spd > 0 ? 'Leve' : d.spd < 0 ? 'Pesada' : 'Média');
+
 function baseArmorDef(id) {
   if (!id || id === 'leather') return { id: 'leather', name: 'Roupas de Couro', def: 2, hp: 0, price: 20, rarity: 0 };
+  const v = /^(larm|harm)_(\d+)$/.exec(id);
+  if (v) {
+    const n = +v[2], light = v[1] === 'larm', list = light ? LIGHT_A : HEAVY_A;
+    const i = (n - 1) % list.length, tier = Math.floor((n - 1) / list.length);
+    return { id, name: list[i] + (tier ? ` +${tier}` : ''), def: Math.round((3 + n * 2.4) * (light ? 0.72 : 1.35)), hp: Math.round(18 * n * (light ? 0.8 : 1.3)),
+      price: Math.round(100 * Math.pow(n, 1.3) * (light ? 1.05 : 1.2)), rarity: 1, floor: n, spd: light ? 0.06 : -0.06 };
+  }
   const m = /^(arm|rarm)_(\d+)$/.exec(id);
   if (!m) return baseArmorDef('leather');
   const n = +m[2], rare = m[1] === 'rarm';
@@ -374,12 +459,24 @@ const A_LOOK = {
   'Manto das Sombras': { type: 'coat', color: '#2a2a3a', trim: '#8a5aff' },
   'Couraça Divina': { type: 'plate', color: '#f0e8c8', trim: '#e0b040' },
   'Manto do Guardião': { type: 'cloak', color: '#3a6a4a', trim: '#e0c070' },
+  'Jaqueta de Couro de Lobo': { type: 'vest', color: '#5a5e66', trim: '#2a2d33' },
+  'Gibão do Batedor': { type: 'vest', color: '#4a6a3a', trim: '#c8a860' },
+  'Casaco do Andarilho': { type: 'coat', color: '#6a4a2a', trim: '#d8b070' },
+  'Túnica Élfica': { type: 'cloak', color: '#355c3a', trim: '#e0d8a0' },
+  'Manto de Seda': { type: 'cloak', color: '#e8e0f0', trim: '#8a6ac8' },
+  'Jaqueta do Vento': { type: 'coat', color: '#3a8a8a', trim: '#e8fff8' },
+  'Couraça de Ferro': { type: 'plate', color: '#8a8e96', trim: '#4a4a52' },
+  'Armadura de Placas': { type: 'plate', color: '#c0c4cc', trim: '#7a5a2a' },
+  'Peitoral do Guardião': { type: 'plate', color: '#6a7a9a', trim: '#e0c070' },
+  'Armadura do Cavaleiro': { type: 'plate', color: '#d8d8e0', trim: '#2a4a8a' },
+  'Couraça de Mithril': { type: 'mail', color: '#b8e0f0', trim: '#5a8ab0' },
+  'Armadura Bastião': { type: 'plate', color: '#4a4a52', trim: '#c84a2a' },
 };
 const baseName = (n) => n.replace(/ \+\d+$/, '');
 
 export function weaponDef(id) {
   const d = baseWeaponDef(id);
-  return { ...d, ...(W_LOOK[baseName(d.name)] || { style: 'long', guard: '#7a7a82', grip: '#3a2a20' }) };
+  return { ...(W_LOOK[baseName(d.name)] || { style: 'long', guard: '#7a7a82', grip: '#3a2a20' }), ...d };
 }
 
 export function armorDef(id) {

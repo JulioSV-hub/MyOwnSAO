@@ -178,6 +178,15 @@ button { font-family: inherit; cursor: pointer; }
 #fade.on { opacity: 1; }
 #linkstart { position: fixed; inset: 0; width: 100%; height: 100%; background: #000; transition: opacity 0.8s; }
 #linkstart.out { opacity: 0; }
+#loading { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, #1c2c44 0%, #0a0f1a 70%); transition: opacity 0.45s; }
+#loading.out { opacity: 0; pointer-events: none; }
+.ld-box { width: min(520px, 86vw); text-align: center; color: #e8eef6; }
+.ld-kicker { font-size: 12px; letter-spacing: 6px; color: #8fb8e8; margin-bottom: 10px; }
+.ld-title { font-size: 34px; font-weight: 800; }
+.ld-sub { font-size: 15px; color: #b8c8dc; margin: 4px 0 22px; }
+.ld-bar { height: 6px; background: rgba(255, 255, 255, 0.12); border-radius: 3px; overflow: hidden; }
+.ld-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4fc3ff, #f39c12); transition: width 0.2s; }
+.ld-tip { margin-top: 18px; font-size: 13px; color: #8a9ab0; min-height: 2.6em; }
 
 /* ─────────── Menu SAO ─────────── */
 #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; gap: 22px; background: rgba(10, 16, 26, 0.35); }
@@ -367,3 +376,53 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .dtitle { font-size: 18px; font-weight: 800; color: #2a2c32; }
 .withicon { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ico { width: 34px; height: 34px; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25)); }
+
+/* ─────────── Lojas (cartões) ─────────── */
+.shopgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 8px; margin: 6px 0 4px; }
+.scard { display: grid; grid-template-columns: 64px 1fr; grid-template-rows: 1fr auto; gap: 4px 10px; padding: 8px; background: #fff; border: 1px solid var(--ui-line); border-radius: 6px; border-top: 3px solid #c8ccd4; }
+.scard.r1 { border-top-color: #4f9ff7; } .scard.r2 { border-top-color: #f39c12; background: linear-gradient(180deg, #fff8ea, #fff 40%); }
+.scard img { width: 64px; height: 64px; object-fit: contain; background: radial-gradient(circle, #eef2f8 0%, #dfe4ec 100%); border-radius: 6px; grid-row: 1 / 3; }
+.sc-name { font-weight: 800; font-size: 13px; line-height: 1.2; }
+.sc-line { font-size: 12px; margin-top: 2px; }
+.sc-desc { font-size: 11px; color: var(--ui-muted); margin-top: 3px; line-height: 1.3; }
+.sc-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sc-foot .price { min-width: 0; text-align: left; }
+.sc-foot .price.no { color: #c04a3a; }
+.sc-foot .owned { font-size: 11px; color: var(--ui-muted); }
+.sc-btns { margin-left: auto; display: flex; gap: 4px; }
+
+/* ─────────── Runas ─────────── */
+.rslots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0; }
+.rslot { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 84px; padding: 6px; border: 2px dashed #c8ccd4; border-radius: 8px; background: #fff; text-align: center; font-size: 12px; }
+.rslot span { font-size: 20px; color: #a0a4ac; }
+.rslot small { color: var(--ui-muted); font-size: 11px; }
+.rslot.on { border: 2px solid var(--rc); box-shadow: 0 0 12px color-mix(in srgb, var(--rc) 45%, transparent); }
+.rslot.on img { width: 40px; height: 40px; }
+.rslot.locked { background: #eceef2; }
+.rslot .x { position: absolute; top: 4px; right: 4px; }
+.rinv { display: flex; flex-wrap: wrap; gap: 6px; }
+.rchip { display: flex; align-items: center; gap: 4px; padding: 3px 10px 3px 4px; border-radius: 16px; border: 1px solid var(--rc); background: #fff; font: inherit; font-size: 12px; cursor: pointer; }
+.rchip img { width: 24px; height: 24px; }
+.rchip:hover { background: color-mix(in srgb, var(--rc) 15%, #fff); }
+
+/* ─────────── Mapa do andar e teletransporte na cidade ─────────── */
+.mapwrap { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+#floormap { width: 300px; height: 300px; border-radius: 50%; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); }
+.maplegend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; }
+.maplegend span::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--c); margin-right: 6px; vertical-align: -1px; }
+.tpgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 6px; }
+.tpbtn { padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: 5px; background: #fff; font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
+.tpbtn::before { content: '✦ '; color: #4fc3ff; }
+.tpbtn:hover:not(:disabled) { border-color: #4fc3ff; background: #eef8ff; }
+.tpbtn:disabled { opacity: 0.5; cursor: default; }
+
+/* ─────────── Time ─────────── */
+.nlabel.ally .cursor { color: #7ad8ff; text-shadow: 0 0 8px #4fc3ff; }
+.nlabel.ally .nname { color: #dff4ff; }
+.nlabel.ally .ehp { width: 70px; height: 4px; margin: 2px auto 0; background: rgba(0, 0, 0, 0.45); border-radius: 2px; overflow: hidden; }
+.nlabel.ally .ehp i { display: block; height: 100%; background: #5ad27a; }
+.pbar.hp { flex: none; width: 140px; height: 6px; }
+.pbar.hp i { background: #5ad27a; }
+.dmgn.ally { color: #bfe8ff; font-size: 18px; }
+.dmgn.allycrit { color: #ffe08a; font-size: 22px; }
+.dmgn.allyhurt { color: #ff8a7a; font-size: 15px; }

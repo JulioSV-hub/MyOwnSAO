@@ -7,6 +7,7 @@ import { MAX_FLOOR } from './data.js';
 import { Grass } from './grass.js';
 import { worldMat, ashlarTexture, slateTexture, cobbleTexture } from './stone.js';
 import { toonMat } from './toon.js';
+import { buildShops } from './shops.js';
 
 export const FLOOR_R = 230;
 export const TOWN_R = 58;
@@ -1292,6 +1293,22 @@ export class World {
     this.grid.add({ x: fp.x, z: fp.z, r: 0.9 });
     this.grid.add({ x: ap.x, z: ap.z, r: 0.5 });
     this.labels.push({ text: "Lisbeth's Smith Shop", pos: new THREE.Vector3(this.smithPos.x, this.townH + 3.7, this.smithPos.z), cls: 'npc' });
+    buildShops(this);
+  }
+
+  // Pontos de teletransporte dentro da cidade (Portal → qualquer lugar da cidade)
+  townPoints() {
+    const pts = [{ id: 'gate', name: 'Portal da praça', pos: new THREE.Vector3(0, this.townH, 6.5), look: this.gatePos }];
+    const front = (p, k = 2.6) => { const d = Math.hypot(p.x, p.z) || 1; return new THREE.Vector3(p.x - (p.x / d) * k, this.townH, p.z - (p.z / d) * k); };
+    pts.push({ id: 'agil', name: "Agil's Store", pos: front(this.npcPos, 2.8), look: this.npcPos });
+    pts.push({ id: 'lisbeth', name: "Lisbeth's Smith Shop", pos: front(this.smithPos, 2.8), look: this.smithPos });
+    pts.push({ id: 'inn', name: 'Pousada do Sino Dourado', pos: front(this.innPos, 2.8), look: this.innPos });
+    pts.push({ id: 'board', name: 'Quadro de Missões', pos: new THREE.Vector3(this.boardPos.x, this.townH, this.boardPos.z + 2.2), look: this.boardPos });
+    for (const [k, s] of Object.entries(this.shopSpots || {})) pts.push({ id: k, name: s.title, pos: s.front.clone(), look: s.pos });
+    if (this.monumentPos) pts.push({ id: 'monument', name: 'Monumento da Vida', pos: front(this.monumentPos, 3.5), look: this.monumentPos });
+    pts.push({ id: 'house', name: 'Placa: Casa', pos: front(this.housePlaque, 1.6), look: this.housePlaque });
+    if (this.pond) { const d = Math.hypot(this.pond.x, this.pond.z); pts.push({ id: 'pond', name: 'Lago de Pesca', pos: new THREE.Vector3(this.pond.x * (1 - (this.pond.r + 3) / d), 0, this.pond.z * (1 - (this.pond.r + 3) / d)), look: new THREE.Vector3(this.pond.x, 0, this.pond.z), field: true }); }
+    return pts;
   }
 
   // ─────────── Arena do chefe e Labirinto ───────────

@@ -136,7 +136,12 @@ export class Enemy {
   }
 
   updateNormal(dt, dx, dz, dist, pSafe) {
-    const g = this.game, pl = g.player, d = this.def;
+    const g = this.game, d = this.def;
+    // alvo: o jogador ou um companheiro do time que chamou a atenção do monstro
+    if (this.tgtC && !this.tgtC.alive) this.tgtC = null;
+    const tc = this.tgtC;
+    const tp = tc ? tc.pos : g.player.pos;
+    if (tc) { dx = tp.x - this.pos.x; dz = tp.z - this.pos.z; dist = Math.hypot(dx, dz); pSafe = false; }
     switch (this.state) {
       case 'idle':
         this.timer -= dt;
@@ -156,13 +161,14 @@ export class Enemy {
         break;
       case 'chase': {
         if (pSafe || Math.hypot(this.pos.x - this.home.x, this.pos.z - this.home.z) > 70) {
+          this.tgtC = null;
           this.state = 'return';
           this.aggro = false;
           break;
         }
         const reach = d.range + 0.35;
-        this.face(pl.pos.x, pl.pos.z, 8, dt);
-        if (dist > reach) this.moveTo(pl.pos.x, pl.pos.z, this.speed, dt, reach);
+        this.face(tp.x, tp.z, 8, dt);
+        if (dist > reach) this.moveTo(tp.x, tp.z, this.speed, dt, reach);
         this.cool -= dt;
         if (dist <= reach + 0.4 && this.cool <= 0) { this.state = 'windup'; this.t = 0; }
         break;
@@ -171,13 +177,13 @@ export class Enemy {
         this.t += dt;
         this.atkProg = Math.min(1, this.t / d.windup);
         this.glow = this.atkProg;
-        this.face(pl.pos.x, pl.pos.z, 3, dt);
+        this.face(tp.x, tp.z, 3, dt);
         if (this.t >= d.windup) {
           this.glow = 0;
           this.atkProg = 0;
           const facing = Math.abs(angleTo(this.yaw, Math.atan2(-dx, -dz))) < 1.2;
-          const dy = Math.abs(pl.pos.y - (this.pos.y - this.flyH));
-          if (!pSafe && facing && dist <= d.range + 1.3 && dy < 2.2) g.damagePlayer(this.atk, this);
+          const dy = Math.abs(tp.y - (this.pos.y - this.flyH));
+          if (!pSafe && facing && dist <= d.range + 1.3 && dy < 2.2) { if (tc) tc.takeHit(this.atk, this); else g.damagePlayer(this.atk, this); }
           if (d.arch === 'quad' || d.arch === 'slime' || d.arch === 'spider') {
             this.knock.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)).multiplyScalar(4);
           }
