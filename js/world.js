@@ -904,10 +904,10 @@ export class World {
     if (stone) for (const sa of spokeAngles) {
       // arco do portão da cidade entre as duas torres
       const s = new THREE.Shape();
-      s.moveTo(-5.4, 0); s.lineTo(5.4, 0); s.lineTo(5.4, 7.6); s.lineTo(-5.4, 7.6); s.lineTo(-5.4, 0);
-      const hole = new THREE.Path();
-      hole.moveTo(-3.3, -0.01); hole.lineTo(3.3, -0.01); hole.lineTo(3.3, 3.2); hole.absarc(0, 3.2, 3.3, 0, Math.PI, false); hole.lineTo(-3.3, -0.01);
-      s.holes.push(hole);
+      // contorno em "U" invertido (o vão do arco faz parte do contorno; um furo encostado na base era preenchido)
+      s.moveTo(-5.4, 0); s.lineTo(-3.3, 0); s.lineTo(-3.3, 3.2);
+      s.absarc(0, 3.2, 3.3, Math.PI, 0, true);
+      s.lineTo(3.3, 0); s.lineTo(5.4, 0); s.lineTo(5.4, 7.6); s.lineTo(-5.4, 7.6); s.lineTo(-5.4, 0);
       const gate = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 1.6, bevelEnabled: false, curveSegments: 16 }).translate(0, 0, -0.8), this.stoneMat);
       gate.position.set(Math.cos(sa) * wallR, this.townH, Math.sin(sa) * wallR);
       gate.rotation.y = Math.atan2(-Math.cos(sa), -Math.sin(sa));
