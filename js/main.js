@@ -17,6 +17,7 @@ import { Quests } from './quests.js';
 import { Ambient } from './ambient.js';
 import { Pets } from './pets.js';
 import { Fishing } from './fishing.js';
+import { Housing } from './housing.js';
 import { loadModels } from './models.js';
 import { Effects } from './effects.js';
 import { UI } from './ui.js';
@@ -102,6 +103,8 @@ class Game {
     this.ambient = new Ambient(this);
     this.pets = new Pets(this);
     this.fishing = new Fishing(this);
+    this.housing = new Housing(this);
+    this.indoor = null;
     this.effects = new Effects(this);
 
     this.mode = 'title';
@@ -332,6 +335,9 @@ class Game {
     this.player.place(0, 9, 0);
     this.player.dead = false;
     this.enemies.populate();
+    this.indoor = null;
+    this.housing.setDecorate(false);
+    if (this.housing.room) this.housing.room.visible = false;
     this.npcs.populate();
     this.quests.setFloor(this.floor);
     this.pets.spawn();
@@ -840,7 +846,20 @@ class Game {
   updateInteract() {
     const pl = this.player.pos, w = this.world, n = this.floor.n, pr = this.state.progress;
     let hint = null, act = null;
-    if (this.nearGate()) {
+    if (this.indoor) {
+      const r = this.housing.interact();
+      this.ui.hint(r.hint);
+      if (r.act && this.input.pressed('KeyE')) r.act();
+      return;
+    }
+    if (Math.hypot(pl.x - w.housePlaque.x, pl.z - w.housePlaque.z) < 2.6) {
+      const own = this.state.house && this.state.house.floor === n;
+      hint = own ? '[E] Entrar em casa' : '[E] Ler a placa: Casa à venda';
+      act = () => (own ? this.housing.enter() : this.ui.openDialog({ name: 'Casa à venda', title: 'Imobiliária de Aincrad', def: {}, talking: false, dialog: () => this.housing.plaqueDialog() }));
+    }
+    if (hint) {
+      // placa da casa
+    } else if (this.nearGate()) {
       hint = '[E] Portal de Teletransporte';
       act = () => this.ui.openMenu('map');
     } else if (this.enemies.list.some((e) => e.docile && !e.dead && e.dist < 3.2)) {
@@ -884,6 +903,7 @@ class Game {
     }
     if (inp.pressed('Tab') || inp.pressed('KeyM')) { this.ui.openMenu('status'); return; }
     if (!inp.isLocked) return;
+    if (this.indoor && this.housing.handleKeys(inp)) return;
     if (inp.mouse.clicked.has(0)) this.combat.basic();
     for (let i = 0; i < 4; i++) if (inp.pressed(`Digit${i + 1}`)) this.combat.skill(i);
     if (inp.pressed('KeyR')) this.quickPotion();
@@ -928,6 +948,7 @@ class Game {
         this.quests.update(dt);
         this.pets.update(dt);
         this.fishing.update(dt);
+        this.housing.update(dt);
         this.updateInteract();
         // guardar a espada sozinho ao entrar na cidade (opção em Sistema)
         const safe = this.world.inSafeZone(this.player.pos);

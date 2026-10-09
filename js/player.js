@@ -28,6 +28,7 @@ export class Player {
   }
 
   place(x, z, yaw = 0) {
+    this.game.indoor = null;
     this.pos.set(x, 0, z);
     this.game.world.resolve(this.pos, this.radius);
     this.pos.y = this.game.world.groundAt(this.pos.x, this.pos.z);
@@ -100,14 +101,21 @@ export class Player {
     const wasGround = this.onGround;
     this.pos.addScaledVector(this.vel, dt);
 
-    w.resolve(this.pos, this.radius);
-    const d = Math.hypot(this.pos.x, this.pos.z);
-    if (d > FLOOR_R - 4) { const k = (FLOOR_R - 4) / d; this.pos.x *= k; this.pos.z *= k; }
+    const ind = g.indoor;
+    if (ind) {
+      g.housing.resolve(this.pos, this.radius);
+      this.pos.x = Math.max(ind.minX, Math.min(ind.maxX, this.pos.x));
+      this.pos.z = Math.max(ind.minZ, Math.min(ind.maxZ, this.pos.z));
+    } else {
+      w.resolve(this.pos, this.radius);
+      const d = Math.hypot(this.pos.x, this.pos.z);
+      if (d > FLOOR_R - 4) { const k = (FLOOR_R - 4) / d; this.pos.x *= k; this.pos.z *= k; }
+    }
     if (g.bossFight) {
       const ax = this.pos.x - w.arenaPos.x, az = this.pos.z - w.arenaPos.z, da = Math.hypot(ax, az);
       if (da > ARENA_R - 1) { const k = (ARENA_R - 1) / da; this.pos.x = w.arenaPos.x + ax * k; this.pos.z = w.arenaPos.z + az * k; }
     }
-    const gy = w.groundAt(this.pos.x, this.pos.z);
+    const gy = ind ? ind.y : w.groundAt(this.pos.x, this.pos.z);
     if (this.pos.y <= gy || (wasGround && this.vel.y <= 0 && this.pos.y - gy < 0.45)) {
       this.pos.y = gy;
       this.vel.y = 0;

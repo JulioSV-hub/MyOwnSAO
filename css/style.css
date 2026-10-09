@@ -305,6 +305,17 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .title-row .tbtn { flex: 1; }
 .title-foot { font-size: 12px; opacity: 0.7; text-shadow: 0 1px 3px #000; }
 
+/* ─────────── Decoração da casa ─────────── */
+#decorbar { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(1100px, 96vw); background: rgba(244, 245, 247, 0.94); color: #3a3c42; border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); border-top: 3px solid var(--accent); }
+.db-title { font-weight: 800; font-size: 13px; margin-bottom: 6px; }
+.db-title span { font-weight: 400; color: var(--ui-muted); margin-left: 8px; }
+.db-items { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; }
+.db-it { position: relative; padding: 14px 4px 4px; border: 1px solid var(--ui-line); border-radius: 4px; background: #fff; text-align: center; font-size: 11px; }
+.db-it.on { border-color: var(--accent); background: #fff4dc; }
+.db-it .key { position: absolute; top: 2px; left: 4px; font-size: 10px; font-weight: 800; color: var(--accent); }
+.db-it b { display: block; line-height: 1.1; }
+.db-it .pr { color: #b07a10; font-weight: 700; }
+
 /* ─────────── Missões ─────────── */
 #hud-col { margin: 6px 0 0 120px; font-size: 13px; font-weight: 800; color: #ffe08a; text-shadow: 0 1px 3px #000; }
 #tracker { margin: 10px 0 0 0; display: flex; flex-direction: column; gap: 4px; width: 300px; }

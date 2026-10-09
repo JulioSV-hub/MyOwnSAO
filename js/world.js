@@ -114,6 +114,7 @@ export class World {
     this.boardPos = new THREE.Vector3(0, this.townH, -10.5);
     this.innPos = new THREE.Vector3(-11, this.townH, -6);
     this.chainPos = new THREE.Vector3(-4, this.townH, 11);
+    { const ha = a - Math.PI / 4; this.housePlaque = new THREE.Vector3(Math.cos(ha) * 31, this.townH, Math.sin(ha) * 31); }
     this.spokes = [0, 0.5, 1, 1.5].map((k, i) => ({
       dx: Math.cos(a + k * Math.PI), dz: Math.sin(a + k * Math.PI),
       len: i === 0 ? ARENA_DIST - ARENA_R + 2 : 70 + this.rand() * 70,
@@ -1241,6 +1242,23 @@ export class World {
 
   buildNpc() {
     this.buildBoard();
+    // placa da casa à venda (casa própria)
+    {
+      const hp = this.housePlaque, sg = new THREE.Group();
+      sg.position.copy(hp);
+      sg.rotation.y = Math.atan2(-hp.x, -hp.z);
+      sg.add(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 1.8, 8), std('#6a4428')));
+      sg.children[0].position.y = 0.9;
+      const board = new THREE.Mesh(rbox(1.3, 0.75, 0.08, 0.03), std('#e8dcc0'));
+      board.position.y = 1.65;
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.25, 4).rotateY(Math.PI / 4), std('#b8482e'));
+      roof.position.set(0, 0.6, 0);
+      sg.add(board);
+      sg.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+      this.group.add(sg);
+      this.grid.add({ x: hp.x, z: hp.z, r: 0.3 });
+      this.labels.push({ text: 'Placa: Casa', pos: new THREE.Vector3(hp.x, this.townH + 2.5, hp.z), cls: 'npc' });
+    }
     const inn = this.buildStall(this.innPos, ['#3a6aa8', '#f0e8d8']);
     this.innSpot = { pos: new THREE.Vector3(this.innPos.x - Math.sin(inn.rotation.y) * 0.35, this.townH, this.innPos.z - Math.cos(inn.rotation.y) * 0.35), yaw: inn.rotation.y + Math.PI };
     this.labels.push({ text: 'Pousada do Sino Dourado', pos: new THREE.Vector3(this.innPos.x, this.townH + 3.7, this.innPos.z), cls: 'npc' });

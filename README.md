@@ -29,6 +29,8 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 | R | Poção |
 | T | Cristal de Teletransporte (abre a lista de andares) |
 | H | Guardar / sacar a espada |
+| F | Pescar (perto da água, com Vara de Pesca) |
+| G | Decorar a casa (dentro de casa) |
 | E | Interagir (Portal, loja do Agil, porta do Labirinto) |
 | Tab / Esc | Menu |
 
@@ -40,6 +42,15 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 - **Dual Blades** no nível 25: Starburst Stream (16 golpes) e The Eclipse (27 golpes).
 - Níveis, atributos (STR/AGI/VIT), Col, loja, equipamentos, materiais e *Last Attack Bonus*.
 - Ciclo dia/noite, Portal de Teletransporte, Link Start e monstros que se desfazem em polígonos.
+
+## Vida em Aincrad
+
+- **Missões:** principal (chefe do andar), secundárias dos personagens (❗/❓ na cabeça), Quadro de Missões na praça e uma **missão em cadeia** com história por andar (no andar 1: *A Joia da Floresta* → Anneal Blade).
+- **Pousada do Sino Dourado:** dormir até de manhã/noite, recupera HP e salva.
+- **Mascotes:** monstros dóceis (♥) podem ser domados com Petisco de Domador; seguem, lutam e curam.
+- **Pesca:** lago perto da cidade em todo andar; a Asuna grelha seus peixes.
+- **Casa própria:** compre pela placa na cidade e decore com 12 móveis (G).
+- **Town of Beginnings** no estilo do anime: Black Iron Palace, Monumento da Vida e torre do relógio.
 
 ## Modelos 3D (VRM) e música
 

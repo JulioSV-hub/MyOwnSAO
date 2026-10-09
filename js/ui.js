@@ -7,6 +7,7 @@ import { icon } from './icons.js';
 import { TOWN_R } from './world.js';
 import { registry, displayName } from './models.js';
 import { CAST } from './characters.js';
+import { FURNITURE } from './housing.js';
 import { getNpcConfig, setNpc, setGlobal, resetNpc, npcHeight, presence, PRESENCE_IDS, DEFAULT_H } from './npcconfig.js';
 import { assignLocal, removeLocal, getLocalMap, setLocalCredit } from './localmodels.js';
 
@@ -358,6 +359,16 @@ export class UI {
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
+  }
+
+  showDecorBar(on, sel) {
+    let bar = $('decorbar');
+    if (!bar) { bar = document.createElement('div'); bar.id = 'decorbar'; $('hud').appendChild(bar); }
+    bar.classList.toggle('hidden', !on);
+    $('skillbar').classList.toggle('hidden', on);
+    if (!on) return;
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
+    bar.innerHTML = `<div class="db-title">Modo decoração <span>Clique: colocar · R: girar · Botão direito/X: remover (+50%) · G: sair</span></div><div class="db-items">${FURNITURE.map((f, i) => `<div class="db-it ${i === sel ? 'on' : ''}"><span class="key">${keys[i]}</span><b>${f.name}</b><span class="pr">${f.price} Col</span></div>`).join('')}</div>`;
   }
 
   setClickToPlay(v) { $('clicktoplay').classList.toggle('hidden', !v); }
