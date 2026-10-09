@@ -40,7 +40,7 @@ class NPC {
     // se existir um modelo 3D (VRM/GLB) para este personagem, troca o boneco assim que carregar
     const file = (def.id && registry.cast[def.id]) || opts.modelFile;
     if (file) {
-      const h = def.kid ? 1.25 : def.small ? 1.5 : def.big ? 1.9 : def.female ? 1.62 : 1.72;
+      const h = (def.kid ? 1.25 : def.small ? 1.5 : def.big ? 1.9 : def.female ? 1.62 : 1.72) * (opts.modelFile ? 0.93 + Math.random() * 0.12 : 1);
       createModelCharacter(file, h).then((mc) => {
         if (this.dead) { disposeModel(mc); return; }
         this.game.scene.remove(this.mesh);
@@ -263,16 +263,20 @@ export class NPCManager {
     // O elenco principal aparece pela cidade (cada andar sorteia quem está lá)
     const cast = [['kirito', 'kirito'], ['asuna', 'cook'], ['klein', 'klein'], ['silica', 'silica'], ['yui', 'yui']];
     for (const [id, role] of cast) {
-      if (n > 1 && rand() < 0.35) continue;
+      if (n > 1 && id !== 'kirito' && id !== 'asuna' && rand() < 0.35) continue; // Kirito e Asuna estão em todo andar
       const ang = rand() * Math.PI * 2, rad = 7 + rand() * 9;
       add(CAST[id], Math.cos(ang) * rad, Math.sin(ang) * rad, { role, follow: id === 'yui' && this.byName('Asuna') ? 'Asuna' : null });
     }
     // Moradores e crianças
-    for (let i = 0; i < 18; i++) {
+    // modelos 3D em rodízio: adultos usam a lista "moradores", crianças a lista "criancas"
+    let fi = Math.floor(rand() * 97), ki = Math.floor(rand() * 97);
+    for (let i = 0; i < 19; i++) {
       const kid = i >= 15;
-      const ang = rand() * Math.PI * 2, rad = [8, 33, 51][i % 3] + (rand() - 0.5) * 4;
-      const folkFile = registry.folk.length && rand() < 0.7 ? registry.folk[Math.floor(rand() * registry.folk.length)] : null;
-      add(randomTownsfolk(rand, kid), Math.cos(ang) * rad, Math.sin(ang) * rad, { modelFile: folkFile });
+      const ang = rand() * Math.PI * 2, rad = (kid ? [8, 14, 33, 10] : [8, 33, 51])[i % (kid ? 4 : 3)] + (rand() - 0.5) * 4;
+      let file = null;
+      if (kid && registry.kids.length) file = registry.kids[ki++ % registry.kids.length];
+      else if (!kid && registry.folk.length && rand() < 0.75) file = registry.folk[fi++ % registry.folk.length];
+      add(randomTownsfolk(rand, kid), Math.cos(ang) * rad, Math.sin(ang) * rad, { modelFile: file });
     }
   }
 

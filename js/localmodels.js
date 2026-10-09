@@ -1,5 +1,6 @@
 // Modelos 3D guardados só no navegador do jogador (IndexedDB). Os arquivos nunca saem do computador,
 // então dá para usar no site online sem redistribuir os modelos.
+const LISTS = ['moradores', 'criancas'];
 const DB = 'sao-meu-mundo-modelos', STORE = 'files', MAP_KEY = 'sao-meu-mundo-modelos-map';
 
 function open() {
@@ -22,7 +23,7 @@ async function tx(mode, fn) {
 }
 
 export function getLocalMap() {
-  try { return { personagens: {}, moradores: [], creditos: {}, ...JSON.parse(localStorage.getItem(MAP_KEY) || '{}') }; } catch { return { personagens: {}, moradores: [], creditos: {} }; }
+  try { return { personagens: {}, moradores: [], criancas: [], creditos: {}, ...JSON.parse(localStorage.getItem(MAP_KEY) || '{}') }; } catch { return { personagens: {}, moradores: [], criancas: [], creditos: {} }; }
 }
 function setLocalMap(m) { localStorage.setItem(MAP_KEY, JSON.stringify(m)); }
 
@@ -41,7 +42,7 @@ export async function saveLocalFile(file) {
 export async function assignLocal(slot, file) {
   const key = await saveLocalFile(file);
   const m = getLocalMap();
-  if (slot === 'moradores') { if (!m.moradores.includes(key)) m.moradores.push(key); }
+  if (LISTS.includes(slot)) { if (!m[slot].includes(key)) m[slot].push(key); }
   else m.personagens[slot] = key;
   setLocalMap(m);
   return key;
@@ -49,9 +50,9 @@ export async function assignLocal(slot, file) {
 
 export async function removeLocal(slot, key) {
   const m = getLocalMap();
-  if (slot === 'moradores') m.moradores = m.moradores.filter((k) => k !== key);
+  if (LISTS.includes(slot)) m[slot] = m[slot].filter((k) => k !== key);
   else delete m.personagens[slot];
-  const still = Object.values(m.personagens).includes(key) || m.moradores.includes(key);
+  const still = Object.values(m.personagens).includes(key) || LISTS.some((l) => m[l].includes(key));
   if (!still) { await tx('readwrite', (st) => st.delete(key)); delete m.creditos[key]; }
   setLocalMap(m);
 }

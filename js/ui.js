@@ -622,9 +622,10 @@ export class UI {
       const src = key ? `<span class="tag ok">${esc(displayName(key))}</span>` : file ? `<span class="tag">pasta: ${esc(file)}</span>` : '<span class="muted">boneco padrão</span>';
       return `<div class="row"><div><b>${esc(label)}</b> ${src}</div><div class="row-r"><button class="btn sm" data-act="modelPick" data-slot="${slot}">Escolher .vrm</button>${key ? `<button class="btn sm" data-act="modelRemove" data-slot="${slot}" data-key="${esc(key)}">Remover</button>` : ''}</div></div>`;
     };
-    const folk = local.moradores.map((k) => `<span class="tag ok">${esc(displayName(k))} <button class="x" data-act="modelRemove" data-slot="moradores" data-key="${esc(k)}">✕</button></span>`).join(' ');
+    const list = (slot) => local[slot].map((k) => `<span class="tag ok">${esc(displayName(k))} <button class="x" data-act="modelRemove" data-slot="${slot}" data-key="${esc(k)}">✕</button></span>`).join(' ');
     return Object.entries(CAST).map(([id, c]) => row(id, c.name)).join('')
-      + `<div class="row"><div><b>Moradores</b> ${folk || '<span class="muted">bonecos padrão</span>'}</div><button class="btn sm" data-act="modelPick" data-slot="moradores">Adicionar .vrm</button></div>`;
+      + `<div class="row"><div><b>Moradores</b> ${list('moradores') || '<span class="muted">bonecos padrão</span>'}<div class="muted">Distribuídos em rodízio: quanto mais arquivos, mais variados.</div></div><button class="btn sm" data-act="modelPick" data-slot="moradores">Adicionar .vrm</button></div>`
+      + `<div class="row"><div><b>Crianças</b> ${list('criancas') || '<span class="muted">bonecos padrão</span>'}<div class="muted">Cada criança usa um modelo diferente desta lista.</div></div><button class="btn sm" data-act="modelPick" data-slot="criancas">Adicionar .vrm</button></div>`;
   }
 
   pShop() {
@@ -699,7 +700,7 @@ export class UI {
           const inp = document.createElement('input');
           inp.type = 'file';
           inp.accept = '.vrm,.glb';
-          inp.multiple = d.slot === 'moradores';
+          inp.multiple = d.slot === 'moradores' || d.slot === 'criancas';
           inp.onchange = async () => {
             try {
               for (const f of inp.files) await assignLocal(d.slot, f);

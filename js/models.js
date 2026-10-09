@@ -9,7 +9,7 @@ const loader = new GLTFLoader();
 loader.register((parser) => new VRMLoaderPlugin(parser));
 
 const buffers = new Map();   // arquivo -> ArrayBuffer (para criar várias instâncias do mesmo modelo)
-export const registry = { cast: {}, folk: [], loaded: false, errors: [], credits: {} };
+export const registry = { cast: {}, folk: [], kids: [], loaded: false, errors: [], credits: {} };
 
 async function fetchBuffer(file) {
   if (buffers.has(file)) return buffers.get(file);
@@ -23,6 +23,7 @@ async function fetchBuffer(file) {
 export async function loadModels() {
   registry.cast = {};
   registry.folk = [];
+  registry.kids = [];
   registry.errors = [];
   registry.credits = {};
   registry.manualCredits = {};
@@ -41,6 +42,9 @@ export async function loadModels() {
     for (const file of cfg.moradores || []) {
       jobs.push(fetchBuffer(file).then(() => { registry.folk.push(file); }).catch((e) => registry.errors.push(e.message)));
     }
+    for (const file of cfg.criancas || []) {
+      jobs.push(fetchBuffer(file).then(() => { registry.kids.push(file); }).catch((e) => registry.errors.push(e.message)));
+    }
     Object.assign(registry.manualCredits, cfg.creditos || {});
   }
   await Promise.all(jobs);
@@ -56,6 +60,7 @@ export async function loadModels() {
     };
     for (const [id, key] of Object.entries(local.personagens)) if (await load(key)) registry.cast[id] = key;
     for (const key of local.moradores) if (await load(key)) registry.folk.push(key);
+    for (const key of local.criancas || []) if (await load(key)) registry.kids.push(key);
     Object.assign(registry.manualCredits, local.creditos || {});
   } catch (e) {
     registry.errors.push(`navegador: ${e.message}`);

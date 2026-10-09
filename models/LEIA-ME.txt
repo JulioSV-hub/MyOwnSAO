@@ -9,10 +9,12 @@ em modelos.json, no personagem correspondente. Exemplo:
     "asuna": "asuna.vrm",
     ...
   },
-  "moradores": ["morador1.vrm", "morador2.vrm"]
+  "moradores": ["morador1.vrm", "morador2.vrm"],
+  "criancas": ["crianca1.vrm", "crianca2.vrm"]
 
 - "personagens": Kirito, Asuna, Klein, Agil, Lisbeth, Silica, Argo, Yui.
-- "moradores": modelos sorteados para os moradores da cidade (podem se repetir).
+- "moradores": modelos dos moradores adultos, distribuídos em rodízio (mais arquivos = mais variedade).
+- "criancas": modelos das crianças da cidade (cada criança usa um diferente, se houver mais de um).
 - Personagem sem arquivo continua com o boneco feito pelo jogo.
 
 Onde conseguir modelos VRM de anime:
