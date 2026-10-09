@@ -83,7 +83,9 @@ export function animateModel(c, dt, t, speed, lookYaw, talking) {
   if (!vrm) { c.mixer?.update(dt); return; }
   c.walk = (c.walk || Math.random() * 10) + dt * speed * 6;
   const s = Math.sin(c.walk), amp = Math.min(1, speed / 1.4) * 0.55;
-  const set = (n, x = 0, y = 0, z = 0) => { const b = bone(vrm, n); if (b) b.rotation.set(x, y, z); };
+  // VRM 0.x fica girado 180° (rotateVRM0): os eixos X e Z dos ossos normalizados se invertem
+  const k = vrm.meta?.metaVersion === '0' ? -1 : 1;
+  const set = (n, x = 0, y = 0, z = 0) => { const b = bone(vrm, n); if (b) b.rotation.set(x * k, y, z * k); };
   set('leftUpperLeg', s * amp);
   set('rightUpperLeg', -s * amp);
   set('leftLowerLeg', Math.max(0, -s) * amp * 0.9);

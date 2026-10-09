@@ -1,0 +1,4 @@
+# Modelos 3D ficam só no PC (licenças do VRoid Hub geralmente proíbem redistribuição)
+models/*.vrm
+models/*.glb
+models/*.gltf
