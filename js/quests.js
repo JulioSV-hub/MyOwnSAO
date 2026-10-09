@@ -2,7 +2,7 @@
 // Tipos: kill (derrotar monstros) · deliver (entregar materiais) · explore (visitar pontos marcados)
 //        skill (usar Sword Skills) · parry (aparar ataques) · upgrade (fortalecer arma) · talk (conversar) · boss
 import * as THREE from 'three';
-import { MONSTERS, weaponDef } from './data.js';
+import { MONSTERS, weaponDef, armorDef, laReward } from './data.js';
 import { mulberry32 } from './rng.js';
 import { Sfx } from './audio.js';
 
@@ -31,11 +31,65 @@ export function questsForFloor(floor) {
   Q.push({ id: `board_a_${n}`, giver: 'board', title: 'Caçada: limpar os campos', desc: 'Pedido da cidade: derrote 12 monstros quaisquer nos arredores.', type: 'kill', target: '*', count: 12, reward: { col: col(200), exp: Math.round(80 * k) } });
   Q.push({ id: `board_b_${n}`, giver: 'board', title: `Caçada: ${MONSTERS[m2].name}`, desc: `Pedido da cidade: os ${MONSTERS[m2].name} estão atacando viajantes. Derrote 6.`, type: 'kill', target: m2, count: 6, reward: { col: col(170), items: { potion: 2 } } });
   Q.push({ id: `board_c_${n}`, giver: 'board', title: `Encomenda: ${dropOf(m0)}`, desc: `Pedido da cidade: entregue 6 ${dropOf(m0)} no quadro.`, type: 'deliver', target: dropOf(m0), count: 6, reward: { col: col(240) } });
+  const ch = chainForFloor(floor);
+  let prev = null;
+  for (const st of ch.steps) {
+    const id = `chain_${n}_${st.key}`;
+    Q.push({ ...st, id, giver: 'chain', chain: true, requires: prev });
+    prev = id;
+  }
   for (const q of Q) q.floor = n;
   return Q;
 }
 
-const GIVER_NAMES = { agil: 'Agil', klein: 'Klein', argo: 'Argo', lisbeth: 'Lisbeth', asuna: 'Asuna', kirito: 'Kirito', silica: 'Silica', yui: 'Yui', board: 'Quadro de Missões' };
+// ─────────── Missões em cadeia: uma pequena história por andar ───────────
+export function chainForFloor(floor) {
+  const n = floor.n, m0 = floor.monsters[0];
+  const la = laReward(n);
+  const gear = la.kind === 'weapon' ? { kind: 'armor', id: `rarm_${n}` } : { kind: 'weapon', id: `rare_${n}` };
+  const k = 1 + (n - 1) * 0.6;
+  if (n === 1) {
+    return {
+      npc: 'Mãe de Agatha', title: 'Moradora de Horunka', look: { female: true, hair: 'long', hairColor: '#6a4a2a', top: '#7a6a50', apron: '#f0e8d8', skirt: '#5a4a3a' },
+      greet: 'Minha filhinha Agatha está com febre há dias... O curandeiro disse que só um remédio feito com o Óvulo da Nepenthes pode salvá-la.',
+      steps: [
+        { key: 'a', title: 'Rastros na floresta', desc: '"As Nepenthes florescem longe da cidade, perto das árvores. Você poderia procurar onde elas estão?"', type: 'explore', count: 1, reward: { col: 60 } },
+        { key: 'b', title: 'O Óvulo da Nepenthes', desc: '"Uma Little Nepenthes com flor carrega o óvulo. Ela é perigosa... por favor, tome cuidado!"', type: 'elite', count: 1,
+          elite: { base: 'sapling', name: 'Little Nepenthes (florida)', color: '#4f9a3a', color2: '#ff7ab8', hp: 5, scale: 1.25, drop: 'Óvulo da Nepenthes' },
+          reward: { gear: { kind: 'weapon', id: 'rare_1' }, col: 300, exp: 220 }, thanks: '"Agatha vai ficar bem! Meu marido era espadachim... por favor, aceite a espada dele: a Anneal Blade."' },
+      ],
+    };
+  }
+  if (n === 2) {
+    return {
+      npc: 'Fazendeiro de Taran', title: 'Criador de touros', look: { hair: 'short', hairColor: '#4a3020', top: '#8a6a3a', hat: '#c8a050', beard: true },
+      greet: 'Um touro gigante dourado está destruindo minhas plantações! Os aventureiros chamam ele de Bullbous Bow.',
+      steps: [
+        { key: 'a', title: 'Marcas de cascos', desc: '"Ele deixou rastros enormes pelos campos. Descubra para onde foi."', type: 'explore', count: 1, reward: { col: 80 } },
+        { key: 'b', title: 'Bullbous Bow', desc: '"Ele está pastando lá. Derrote-o antes que ele volte para a fazenda!"', type: 'elite', count: 1,
+          elite: { base: 'ox', name: 'Bullbous Bow', color: '#c8a040', color2: '#fff0c0', hp: 8, scale: 1.9, drop: 'Chifre Dourado' },
+          reward: { gear, col: 520, exp: 420 }, thanks: '"Você conseguiu! Tome, encontrei isto nas ruínas perto da fazenda. Deve servir mais a você do que a mim."' },
+      ],
+    };
+  }
+  const r = mulberry32(floor.seed + 77);
+  const npcs = [['Caçador veterano', { hair: 'short', hairColor: '#5a5a62', top: '#4a5a3a', beard: true }], ['Guarda da cidade', { hair: 'short', hairColor: '#2a1e16', top: '#6a7080' }], ['Velha sábia', { female: true, hair: 'bob', hairColor: '#d8d4cc', top: '#5a3a6a' }], ['Mercadora viajante', { female: true, hair: 'ponytail', hairColor: '#a85a2a', top: '#3a6a5a', hat: '#6a4a2a' }]];
+  const [npc, look] = npcs[Math.floor(r() * npcs.length)];
+  const adj = ['Alfa', 'Ancião', 'Sanguinário', 'Colosso', 'Fantasma', 'Rei'][Math.floor(r() * 6)];
+  const ename = `${adj} ${MONSTERS[m0].name}`;
+  return {
+    npc, title: `${floor.town}`, look,
+    greet: `Viajante! Um ${ename} anda atacando quem sai de ${floor.town}. Ninguém voltou para contar onde ele se esconde.`,
+    steps: [
+      { key: 'a', title: 'Investigar os rastros', desc: '"Encontramos sinais da fera nos campos. Vá até lá e veja o que descobre."', type: 'explore', count: 1, reward: { col: Math.round(70 * k) } },
+      { key: 'b', title: `A Fera de ${floor.town}`, desc: `"É o ${ename}! Derrote-o e traga paz para a cidade."`, type: 'elite', count: 1,
+        elite: { base: m0, name: ename, color: null, hp: 7, scale: 1.7, drop: `Troféu: ${ename}` },
+        reward: { gear, col: Math.round(380 * k), exp: Math.round(260 * k) }, thanks: `"${floor.town} está a salvo! Aceite isto como agradecimento de todos nós."` },
+    ],
+  };
+}
+
+const GIVER_NAMES = { chain: 'NPC da história', inn: 'Hana', agil: 'Agil', klein: 'Klein', argo: 'Argo', lisbeth: 'Lisbeth', asuna: 'Asuna', kirito: 'Kirito', silica: 'Silica', yui: 'Yui', board: 'Quadro de Missões' };
 
 export class Quests {
   constructor(game) {
@@ -69,7 +123,7 @@ export class Quests {
       }
       return new THREE.Vector3(90, w.groundAt(90, 0), 0);
     };
-    for (const q of this.list) if (q.type === 'explore') out[q.id] = Array.from({ length: q.count }, () => spot(q.flower ? 110 : 75, q.flower ? 205 : 190));
+    for (const q of this.list) if (q.type === 'explore' || q.type === 'elite') out[q.id] = Array.from({ length: q.count }, () => spot(q.flower ? 110 : q.type === 'elite' ? 95 : 75, q.flower ? 205 : 195));
     return out;
   }
 
@@ -88,7 +142,9 @@ export class Quests {
 
   ready(q) { return this.isActive(q.id) && this.progress(q) >= q.count; }
 
-  forGiver(giver) { return this.list.filter((q) => q.giver === giver && !this.isDone(q.id)); }
+  forGiver(giver) { return this.list.filter((q) => q.giver === giver && !this.isDone(q.id) && (!q.requires || this.isDone(q.requires))); }
+
+  chainInfo() { return this.game.floor ? chainForFloor(this.game.floor) : null; }
 
   marker(giver) {
     const qs = this.forGiver(giver);
@@ -113,6 +169,7 @@ export class Quests {
     if (r.exp) parts.push(`${r.exp} EXP`);
     if (r.points) parts.push(`+${r.points} pontos de atributo`);
     if (r.upgrade) parts.push('arma +1 de graça');
+    if (r.gear) parts.push((r.gear.kind === 'weapon' ? weaponDef(r.gear.id) : armorDef(r.gear.id)).name);
     if (r.heal) parts.push('HP restaurado');
     const names = { potion: 'Poção', hipotion: 'Poção Superior', heal_crystal: 'Cristal de Cura', teleport_crystal: 'Cristal de Teletransporte' };
     for (const [id, qn] of Object.entries(r.items || {})) parts.push(`${qn}× ${names[id] || id}`);
@@ -134,6 +191,7 @@ export class Quests {
     if (r.points) p.points += r.points;
     if (r.heal) p.hp = g.stats().maxHp;
     if (r.upgrade) { (p.upgrades ||= {})[p.weapon] = Math.min(10, g.upgradeLevel(p.weapon) + r.upgrade); g.combat.refresh(); }
+    if (r.gear) { (r.gear.kind === 'weapon' ? p.weapons : p.armors).push(r.gear.id); }
     if (r.exp) g.gainExp(r.exp);
     Sfx.victory();
     g.effects.ring(g.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#ffd54f', 1.6, 1.2, 1.8);
@@ -157,7 +215,15 @@ export class Quests {
     return changed;
   }
 
-  onKill(e) { this.bump((q) => q.type === 'kill' && (q.target === '*' || MONSTERS[q.target] === e.def)); }
+  onKill(e) {
+    this.bump((q) => q.type === 'kill' && (q.target === '*' || MONSTERS[q.target] === e.def));
+    if (e.questId) {
+      this.bump((q) => q.id === e.questId);
+      const q = this.def(e.questId);
+      if (q?.elite?.drop) this.game.ui.toast(`Você obteve: ${q.elite.drop}`, 'skill');
+      this.refreshMarkers();
+    }
+  }
   onSkill() { this.bump((q) => q.type === 'skill'); }
   onParry() { this.bump((q) => q.type === 'parry'); }
   onDrop(name) {
@@ -192,6 +258,14 @@ export class Quests {
     this.clearMarkers();
     if (!this.points) return;
     for (const q of this.activeList()) {
+      if (q.type === 'elite' && this.progress(q) < q.count) {
+        const pos = this.points[q.id][0];
+        const obj = this.pillarMesh('#ff5a4a');
+        obj.position.copy(pos);
+        this.game.scene.add(obj);
+        this.markers.push({ obj, q, i: 0, pos, elite: true });
+        continue;
+      }
       if (q.type !== 'explore') continue;
       const visited = this.st.active[q.id].visited || [];
       this.points[q.id].forEach((pos, i) => {
@@ -204,11 +278,11 @@ export class Quests {
     }
   }
 
-  pillarMesh() {
+  pillarMesh(col = '#7ad0ff') {
     const g = new THREE.Group();
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, 40, 16, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color('#7ad0ff').multiplyScalar(1.4), transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, 40, 16, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(1.4), transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
     beam.position.y = 20;
-    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color('#bfe8ff').multiplyScalar(2.2) }));
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).lerp(new THREE.Color('#ffffff'), 0.5).multiplyScalar(2.2) }));
     gem.position.y = 2.2;
     g.add(beam, gem);
     g.userData.spin = gem;
@@ -240,8 +314,24 @@ export class Quests {
 
   update(dt) {
     const pl = this.game.player.pos, t = this.game.time;
+    // inimigos de elite das missões em cadeia aparecem quando você chega perto do pilar vermelho
+    this.elites ||= {};
+    for (const q of this.activeList()) {
+      if (q.type !== 'elite' || this.progress(q) >= q.count) continue;
+      const pos = this.points[q.id][0], ref = this.elites[q.id];
+      if (ref && !ref.dead && this.game.enemies.list.includes(ref)) continue;
+      if (Math.hypot(pl.x - pos.x, pl.z - pos.z) > 75) continue;
+      const base = MONSTERS[q.elite.base];
+      const def = { ...base, name: q.elite.name, hp: base.hp * q.elite.hp, atk: (base.atk || 1) * 1.35, scale: (base.scale || 1) * q.elite.scale, aggro: 24, ...(q.elite.color ? { color: q.elite.color } : {}), ...(q.elite.color2 ? { color2: q.elite.color2 } : {}) };
+      const e = this.game.enemies.spawnAt(def, this.game.floor.level + 3, pos.x, pos.z, {});
+      e.questId = q.id;
+      e.elite = true;
+      e.label?.el.classList.add('elite');
+      this.elites[q.id] = e;
+    }
     for (let i = this.markers.length - 1; i >= 0; i--) {
       const m = this.markers[i];
+      if (m.elite) { const s = m.obj.userData.spin; if (s) { s.rotation.y += dt * 1.5; s.position.y = 2.2 + Math.sin(t * 2) * 0.25; } continue; }
       const s = m.obj.userData.spin;
       if (s) { s.rotation.y += dt * 1.5; if (!m.flower) s.position.y = 2.2 + Math.sin(t * 2 + i) * 0.25; else s.scale.setScalar(1 + Math.sin(t * 3) * 0.12); }
       if (Math.hypot(pl.x - m.pos.x, pl.z - m.pos.z) < (m.flower ? 2.2 : 4)) {
@@ -252,7 +342,7 @@ export class Quests {
         this.game.effects.sparks(m.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), m.flower ? '#ffffff' : '#7ad0ff', 24, 0.8);
         Sfx.coin();
         this.game.ui.toast(m.flower ? '✿ Você encontrou a Flor de Pneuma! Leve para a Silica.' : `${m.q.title}: ${a.p}/${m.q.count} lugares`, 'skill');
-        if (a.p >= m.q.count && !m.flower) this.game.ui.toast(`✔ ${m.q.title}: volte para a Argo!`, 'skill');
+        if (a.p >= m.q.count && !m.flower) this.game.ui.toast(`✔ ${m.q.title}: volte para ${this.giverName(m.q.giver)}!`, 'skill');
         this.game.scene.remove(m.obj);
         this.markers.splice(i, 1);
         this.game.save();
@@ -265,7 +355,7 @@ export class Quests {
     const opts = [];
     for (const q of this.forGiver(giver)) {
       if (this.ready(q)) {
-        opts.push({ label: `✔ Entregar: ${q.title}`, run: () => { this.turnIn(q); return { text: `Obrigado! Aqui está sua recompensa: ${this.rewardText(q)}.`, options: [{ label: 'Continuar', run: back }, { label: 'Até mais', run: () => null }] }; } });
+        opts.push({ label: `✔ Entregar: ${q.title}`, run: () => { this.turnIn(q); return { text: `${q.thanks ? `${q.thanks}\n\n` : 'Obrigado! '}Recompensa: ${this.rewardText(q)}.`, options: [{ label: 'Continuar', run: back }, { label: 'Até mais', run: () => null }] }; } });
       } else if (this.isActive(q.id)) {
         opts.push({ label: `… ${q.title} (${this.progress(q)}/${q.count})`, run: () => ({ text: `${q.desc}\n\nProgresso: ${this.progress(q)}/${q.count}.`, options: [{ label: 'Voltar', run: back }] }) });
       } else {
@@ -278,5 +368,5 @@ export class Quests {
     return opts;
   }
 
-  giverName(g) { return g ? GIVER_NAMES[g] : 'Missão principal'; }
+  giverName(g) { return g === 'chain' ? (this.chainInfo()?.npc || 'NPC da história') : g ? GIVER_NAMES[g] : 'Missão principal'; }
 }

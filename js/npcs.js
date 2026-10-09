@@ -268,6 +268,23 @@ class NPC {
           { label: 'Fazer carinho na Pina', run: () => { Sfx.click(); p.hp = Math.min(g.stats().maxHp, p.hp + g.stats().maxHp * 0.3); return say('"Kyuuu~!" A Pina gostou de você! Ela soprou bolhas de cura... (você se sente melhor)'); } },
           close,
         ]);
+      case 'inn': {
+        const price = 30 + n * 10;
+        const sleep = (tod, label) => () => {
+          if (p.col < price) { Sfx.error(); return say('Ah... a diária é ' + price + ' Col. Volte quando puder!'); }
+          p.col -= price;
+          g.sleep(tod, label);
+          return null;
+        };
+        return say(`Bem-vindo à Pousada do Sino Dourado! Uma noite aqui recupera todo o seu HP — e salva seu progresso. A diária é ${price} Col.`, [
+          { label: `Dormir até de manhã (${price} Col)`, run: sleep(0.27, 'Você acorda descansado com o sol nascendo.') },
+          { label: `Descansar até a noite (${price} Col)`, run: sleep(0.8, 'O céu já está estrelado quando você acorda.') },
+          { label: 'Conversar', run: () => say(nextLine(['Os aventureiros da linha de frente quase não dormem. Não seja como eles!', 'O sino do telhado toca quando alguém conquista um andar. Foi lindo da última vez.', 'Tem sopa quente lá dentro. É por conta da casa — só não conta pro Agil.'])) },
+          close,
+        ]);
+      }
+      case 'chain':
+        return say(g.quests.chainInfo()?.greet || 'Olá, viajante.');
       case 'yui':
         return say('Papai...? Ah, desculpa! Você parece alguém que eu conheço...', [{ label: 'Você está perdida?', run: () => say('Não... eu acho que estou procurando alguém. Obrigada por perguntar!') }, close]);
       case 'kid':
@@ -304,6 +321,13 @@ export class NPCManager {
     add(CAST.agil, a.pos.x, a.pos.z, { role: 'shop', fixed: true, yaw: a.yaw });
     add(CAST.lisbeth, l.pos.x, l.pos.z, { role: 'smith', fixed: true, yaw: l.yaw });
     add(CAST.argo, 4, -9, { role: 'info' });
+    const innDef = { ...randomTownsfolk(mulberry32(77), false), id: 'inn', name: 'Hana', title: 'Pousada do Sino Dourado', female: true, hair: 'bob', hairColor: '#8a4a2a', apron: '#f4efe6', top: '#5a7aa8', skirt: '#3a4a6a' };
+    add(innDef, w.innSpot.pos.x, w.innSpot.pos.z, { role: 'inn', fixed: true, yaw: w.innSpot.yaw });
+    const ch = g.quests.chainInfo?.();
+    if (ch) {
+      const cdef = { ...randomTownsfolk(mulberry32(g.floor.seed + 5), false), ...ch.look, id: 'chain', name: ch.npc, title: ch.title };
+      add(cdef, w.chainPos.x, w.chainPos.z, { role: 'chain', fixed: true, yaw: Math.atan2(w.chainPos.x, w.chainPos.z) });
+    }
     // O elenco principal aparece pela cidade (cada andar sorteia quem está lá)
     const cast = [['kirito', 'kirito'], ['asuna', 'cook'], ['klein', 'klein'], ['silica', 'silica'], ['yui', 'yui']];
     for (const [id, role] of cast) {

@@ -749,6 +749,19 @@ class Game {
     };
   }
 
+  sleep(tod, msg) {
+    this.ui.closeDialog(false);
+    Sfx.menuClose();
+    this.ui.fade(() => {
+      this.tod = tod;
+      this.state.player.hp = this.stats().maxHp;
+      this.player.hot = null;
+      this.save();
+      this.ui.toast(`${msg} HP restaurado e jogo salvo.`, 'skill');
+      this.input.lock();
+    });
+  }
+
   quickTeleport() {
     const p = this.state.player;
     if (this.nearGate() || (p.items.teleport_crystal || 0) > 0) { this.ui.openMenu('map'); return; }

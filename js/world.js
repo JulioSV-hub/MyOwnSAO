@@ -112,6 +112,8 @@ export class World {
     this.npcPos = new THREE.Vector3(10, this.townH, 6);
     this.smithPos = new THREE.Vector3(-10, this.townH, 6);
     this.boardPos = new THREE.Vector3(0, this.townH, -10.5);
+    this.innPos = new THREE.Vector3(-11, this.townH, -6);
+    this.chainPos = new THREE.Vector3(-4, this.townH, 11);
     this.spokes = [0, 0.5, 1, 1.5].map((k, i) => ({
       dx: Math.cos(a + k * Math.PI), dz: Math.sin(a + k * Math.PI),
       len: i === 0 ? ARENA_DIST - ARENA_R + 2 : 70 + this.rand() * 70,
@@ -767,6 +769,7 @@ export class World {
       const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
       if (onRoad(a, 13, 2.5)) continue;
       const x = Math.cos(a) * 13, z = Math.sin(a) * 13, rot = Math.atan2(-Math.cos(a), -Math.sin(a));
+      if (Math.hypot(x - this.innPos.x, z - this.innPos.z) < 4.5) continue;
       const b = new THREE.Group();
       b.position.set(x, this.townH, z);
       b.rotation.y = rot;
@@ -898,7 +901,7 @@ export class World {
       const a = (i / 12) * Math.PI * 2 + 0.2, rad = 16;
       if (onRoad(a, rad, 4)) continue;
       const pos = new THREE.Vector3(Math.cos(a) * rad, this.townH, Math.sin(a) * rad);
-      if (pos.distanceTo(this.npcPos) < 6 || pos.distanceTo(this.smithPos) < 7) continue;
+      if (pos.distanceTo(this.npcPos) < 6 || pos.distanceTo(this.smithPos) < 7 || pos.distanceTo(this.innPos) < 6) continue;
       this.buildStall(pos, cloths[placed % cloths.length]);
       placed++;
     }
@@ -1200,6 +1203,9 @@ export class World {
 
   buildNpc() {
     this.buildBoard();
+    const inn = this.buildStall(this.innPos, ['#3a6aa8', '#f0e8d8']);
+    this.innSpot = { pos: new THREE.Vector3(this.innPos.x - Math.sin(inn.rotation.y) * 0.35, this.townH, this.innPos.z - Math.cos(inn.rotation.y) * 0.35), yaw: inn.rotation.y + Math.PI };
+    this.labels.push({ text: 'Pousada do Sino Dourado', pos: new THREE.Vector3(this.innPos.x, this.townH + 3.7, this.innPos.z), cls: 'npc' });
     // Os personagens (Agil, Lisbeth...) são NPCs animados; aqui ficam só as barracas e a forja.
     const behind = (p, rot) => new THREE.Vector3(p.x - Math.sin(rot) * 0.35, p.y, p.z - Math.cos(rot) * 0.35);
     const shop = this.buildStall(this.npcPos, ['#c0392b', '#f0e8d8']);

@@ -414,7 +414,7 @@ export class UI {
     for (const n of g.npcs.list) { const [nx2, ny2] = tr(n.pos.x, n.pos.z); c.fillStyle = n.role === 'folk' || n.role === 'kid' ? '#7adf8a' : '#ffd54f'; c.beginPath(); c.arc(nx2, ny2, n.role === 'folk' || n.role === 'kid' ? 1.8 : 2.8, 0, Math.PI * 2); c.fill(); }
     dot(w.gatePos.x, w.gatePos.z, '#4fc3ff', 4, true);
     if (w.boardPos) dot(w.boardPos.x, w.boardPos.z, '#ffd54f', 2.6);
-    for (const m of g.quests.markers) dot(m.pos.x, m.pos.z, m.flower ? '#ffffff' : '#7ad0ff', 3.5, true);
+    for (const m of g.quests.markers) dot(m.pos.x, m.pos.z, m.elite ? '#ff5a4a' : m.flower ? '#ffffff' : '#7ad0ff', 3.5, true);
     dot(w.doorPos.x, w.doorPos.z, cleared ? '#4fc3ff' : '#b07aff', 4, true);
     const [nx, ny] = clampEdge(tr(p.x, p.z - 500), 10);
     c.fillStyle = '#fff';
@@ -634,7 +634,7 @@ export class UI {
   }
 
   pQuests() {
-    const q = this.g.quests, active = q.activeList(), avail = q.list.filter((x) => !q.isActive(x.id) && !q.isDone(x.id));
+    const q = this.g.quests, active = q.activeList(), avail = q.list.filter((x) => !q.isActive(x.id) && !q.isDone(x.id) && (!x.requires || q.isDone(x.requires)));
     const done = q.list.filter((x) => q.isDone(x.id)).length;
     const row = (x) => {
       const pr = q.progress(x), ready = q.ready(x);
