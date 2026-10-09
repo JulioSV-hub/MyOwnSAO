@@ -18,6 +18,7 @@ import { Effects } from './effects.js';
 import { UI } from './ui.js';
 import { Sfx } from './audio.js';
 import { windTime } from './toon.js';
+import { Music } from './music.js';
 import { smoothstep } from './rng.js';
 import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward } from './data.js';
 import { loadSave, writeSave, deleteSave, newSave } from './save.js';
@@ -413,6 +414,7 @@ class Game {
     this.camera.fov = s.fov;
     this.camera.updateProjectionMatrix();
     Sfx.setVolume(s.volume);
+    Music.setVolume(s.music ?? 0.45);
     this.sun.castShadow = s.shadows;
     if (this.world?.grass) this.world.grass.mesh.visible = s.grass !== false;
   }
@@ -429,13 +431,15 @@ class Game {
     const p = this.state.player, w = weaponDef(p.weapon), a = armorDef(p.armor);
     const o = p.dualBlades && p.offhand ? weaponDef(p.offhand) : null;
     const base = p.str * 2 + p.level * 1.5;
-    const up = (id) => 1 + 0.08 * ((p.upgrades && p.upgrades[id]) || 0);
+    const up = (id) => (1 + 0.08 * ((p.upgrades && p.upgrades[id]) || 0)) * (1 + 0.03 * p.str);
+    const flat = p.str + p.level * 1.5;
     return {
-      maxHp: Math.round(180 + 25 * (p.level - 1) + p.vit * 15 + a.hp),
-      atkR: w.atk * up(p.weapon) + base,
-      atkL: (o ? o.atk * up(p.offhand) : w.atk * up(p.weapon)) + base,
+      maxHp: Math.round((180 + 25 * (p.level - 1) + a.hp) * (1 + 0.02 * p.vit) + p.vit * 10),
+      atkR: w.atk * up(p.weapon) + flat,
+      atkL: (o ? o.atk * up(p.offhand) : w.atk * up(p.weapon)) + flat,
       dual: !!o,
-      def: a.def + p.vit * 0.5 + p.level * 0.5,
+      def: a.def + p.vit * 0.8 + p.level * 0.5,
+      cdMul: 1 - Math.min(0.35, p.agi * 0.01),
       crit: Math.min(0.6, 0.05 + p.agi * 0.008),
       speedMul: 1 + Math.min(0.5, p.agi * 0.006),
     };
@@ -707,6 +711,12 @@ class Game {
     this.ui.toast(`Comprou ${q > 1 ? `${q}× ` : ''}${d.name}.`);
   }
 
+  async reloadModels() {
+    const reg = await loadModels();
+    if (this.mode === 'play') this.npcs.populate();
+    return reg;
+  }
+
   upgradeCost(id) {
     const lv = (this.state.player.upgrades?.[id]) || 0;
     return Math.round((60 + weaponDef(id).atk * 6) * Math.pow(lv + 1, 1.5));
@@ -781,6 +791,21 @@ class Game {
     if (inp.pressed('KeyR')) this.quickPotion();
   }
 
+  updateMusic(dt) {
+    let z;
+    if (this.mode === 'title') z = 'title';
+    else if (this.mode === 'dead') z = null;
+    else if (this.bossFight) z = 'boss';
+    else {
+      const threat = this.enemies.list.some((e) => !e.dead && e.dist < 32 && (e.state === 'chase' || e.state === 'windup' || e.state === 'recover'));
+      this.battleHold = threat ? 5 : (this.battleHold || 0) - dt;
+      if (this.battleHold > 0) z = 'battle';
+      else if (this.world.inSafeZone(this.player.pos)) z = this.night > 0.6 ? 'townNight' : 'town';
+      else z = ['forest', 'dark', 'ruins', 'volcanic'].includes(this.floor.biomeKey) ? 'forest' : 'field';
+    }
+    Music.setZone(z);
+  }
+
   // ─────────── Loop ───────────
   frame(now) {
     requestAnimationFrame(this.frame);
@@ -822,6 +847,7 @@ class Game {
       this.updateSky(dt, true);
     }
     this.world.update(dt, this.time, this.night);
+    this.updateMusic(real);
 
     if (this.state?.settings.bloom !== false) this.composer.render();
     else this.renderer.render(this.scene, this.camera);

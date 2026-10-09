@@ -4,7 +4,9 @@ import { SKILLS, ITEMS, weaponDef, armorDef, getFloor, expNeed, skillById, shopS
 import { Sfx } from './audio.js';
 import { exportSave, importSave, newSave } from './save.js';
 import { TOWN_R } from './world.js';
-import { registry } from './models.js';
+import { registry, displayName } from './models.js';
+import { CAST } from './characters.js';
+import { assignLocal, removeLocal, getLocalMap, setLocalCredit } from './localmodels.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -24,7 +26,7 @@ const MENU = [['status', 'Status'], ['items', 'Itens'], ['equip', 'Equipamento']
 const TITLES = { status: 'Status', items: 'Itens', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja do Agil' };
 const SET_FMT = {
   sens: (v) => (+v).toFixed(2), fov: (v) => `${v}°`, volume: (v) => `${Math.round(v * 100)}%`,
-  xpRate: (v) => `${v}×`, dayMinutes: (v) => `${v} min`,
+  xpRate: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`,
 };
 
 export class UI {
@@ -452,7 +454,7 @@ export class UI {
         <span>Tempo de jogo</span><b>${fmtTime(g.state.playTime)}</b>
       </div>
       <div class="section">Pontos de atributo: <b class="accent">${p.points}</b></div>
-      ${statRow('str', 'STR', '+2 de ataque')}${statRow('agi', 'AGI', '+crítico e velocidade')}${statRow('vit', 'VIT', '+15 HP e defesa')}
+      ${statRow('str', 'STR', '+3% de dano da arma por ponto')}${statRow('agi', 'AGI', '+0,8% crítico, +0,6% velocidade, −1% recarga das skills')}${statRow('vit', 'VIT', '+2% HP máximo, +10 HP e defesa')}
       ${p.dualBlades ? '<div class="unique">Habilidade Única: <b>Dual Blades</b></div>' : ''}`;
   }
 
@@ -528,7 +530,8 @@ export class UI {
     return `<div class="section">Configurações</div>
       ${range('sens', 'Sensibilidade do mouse', 0.2, 3, 0.05)}
       ${range('fov', 'Campo de visão', 60, 100, 1)}
-      ${range('volume', 'Volume', 0, 1, 0.05)}
+      ${range('volume', 'Volume dos efeitos', 0, 1, 0.05)}
+      ${range('music', 'Volume da música', 0, 1, 0.05)}
       ${range('xpRate', 'Taxa de EXP (seu mundo, suas regras)', 1, 10, 1)}
       ${range('dayMinutes', 'Duração do dia', 2, 60, 1)}
       ${check('invertY', 'Inverter eixo Y')}${check('bloom', 'Brilho (bloom)')}${check('shadows', 'Sombras')}${check('grass', 'Grama (desligue se o PC estiver lento)')}
@@ -536,9 +539,24 @@ export class UI {
       <div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="export">Exportar mundo (.json)</button><button class="btn" data-act="import">Importar mundo</button></div>
       <div class="btns"><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Apagar save</button></div>
       <div class="muted pad">O jogo salva sozinho a cada 30s e em momentos importantes. Exporte de vez em quando como backup.</div>
-      ${Object.keys(registry.credits).length ? `<div class="section">Créditos dos modelos 3D</div>${Object.entries(registry.credits).map(([f, c]) => `<div class="row"><div><b>${esc(c.title)}</b> <span class="muted">por</span> <b>${esc(c.author)}</b>${c.contact ? `<div class="muted">${/^https?:\/\//.test(c.contact) ? `<a href="${esc(c.contact)}" target="_blank" rel="noopener">${esc(c.contact)}</a>` : esc(c.contact)}</div>` : ''}</div><span class="muted">${esc(f)} · VRoid Hub</span></div>`).join('')}<div class="muted pad">Modelos usados conforme as condições de uso de cada autor: sem redistribuição, sem alterações e sem atos violentos.</div>` : ''}
+      <div class="section">Modelos 3D (guardados só neste navegador)</div>
+      <div class="muted pad">Escolha arquivos .vrm do seu PC. Eles ficam salvos apenas neste navegador e nunca são enviados para a internet — por isso funcionam no site online sem redistribuir os modelos.</div>
+      ${this.modelRows()}
+      ${Object.keys(registry.credits).length ? `<div class="section">Créditos dos modelos 3D</div>${Object.entries(registry.credits).map(([f, c]) => `<div class="row"><div><b>${esc(c.title)}</b> <span class="muted">por</span> <b>${esc(c.author)}</b>${c.contact ? `<div class="muted">${/^https?:\/\//.test(c.contact) ? `<a href="${esc(c.contact)}" target="_blank" rel="noopener">${esc(c.contact)}</a>` : esc(c.contact)}</div>` : ''}</div><div class="row-r"><span class="muted">${esc(displayName(f))}</span>${f.startsWith('local:') ? `<button class="btn sm" data-act="creditEdit" data-key="${esc(f)}">Editar</button>` : ''}</div></div>`).join('')}<div class="muted pad">Modelos usados conforme as condições de uso de cada autor: sem redistribuição, sem alterações e sem atos violentos.</div>` : ''}
       <div class="section">Controles</div>
       <div class="keys"><b>WASD</b> mover · <b>Shift</b> correr · <b>Espaço</b> pular · <b>Q</b> esquiva · <b>Clique</b> atacar (combo) · <b>Botão direito</b> defender (no tempo certo = <i>parry</i>) · <b>1–4</b> Sword Skills · <b>R</b> poção · <b>E</b> interagir · <b>Tab/Esc</b> menu</div>`;
+  }
+
+  modelRows() {
+    const local = getLocalMap();
+    const row = (slot, label) => {
+      const key = local.personagens[slot], file = registry.cast[slot];
+      const src = key ? `<span class="tag ok">${esc(displayName(key))}</span>` : file ? `<span class="tag">pasta: ${esc(file)}</span>` : '<span class="muted">boneco padrão</span>';
+      return `<div class="row"><div><b>${esc(label)}</b> ${src}</div><div class="row-r"><button class="btn sm" data-act="modelPick" data-slot="${slot}">Escolher .vrm</button>${key ? `<button class="btn sm" data-act="modelRemove" data-slot="${slot}" data-key="${esc(key)}">Remover</button>` : ''}</div></div>`;
+    };
+    const folk = local.moradores.map((k) => `<span class="tag ok">${esc(displayName(k))} <button class="x" data-act="modelRemove" data-slot="moradores" data-key="${esc(k)}">✕</button></span>`).join(' ');
+    return Object.entries(CAST).map(([id, c]) => row(id, c.name)).join('')
+      + `<div class="row"><div><b>Moradores</b> ${folk || '<span class="muted">bonecos padrão</span>'}</div><button class="btn sm" data-act="modelPick" data-slot="moradores">Adicionar .vrm</button></div>`;
   }
 
   pShop() {
@@ -609,6 +627,34 @@ export class UI {
         case 'wipe':
           if (confirm('Apagar seu mundo para sempre? (Exporte antes se quiser um backup.)')) g.wipe();
           return;
+        case 'modelPick': {
+          const inp = document.createElement('input');
+          inp.type = 'file';
+          inp.accept = '.vrm,.glb';
+          inp.multiple = d.slot === 'moradores';
+          inp.onchange = async () => {
+            try {
+              for (const f of inp.files) await assignLocal(d.slot, f);
+              this.toast('Modelo guardado neste navegador. Carregando...');
+              await g.reloadModels();
+            } catch (err) { this.toast(`Não foi possível usar o arquivo: ${err.message}`, 'warn'); }
+            this.renderPanel();
+          };
+          inp.click();
+          return;
+        }
+        case 'modelRemove':
+          removeLocal(d.slot, d.key).then(() => g.reloadModels()).then(() => this.renderPanel());
+          return;
+        case 'creditEdit': {
+          const cur = registry.credits[d.key] || {};
+          const author = prompt('Autor do modelo:', cur.author && cur.author !== 'autor não informado' ? cur.author : '');
+          if (author === null) return;
+          const link = prompt('Link da página do modelo (opcional):', cur.contact || '') ?? '';
+          setLocalCredit(d.key, { autor: author, link });
+          g.reloadModels().then(() => this.renderPanel());
+          return;
+        }
         case 'tab': this.shopTab = d.t; break;
         case 'buy': g.buy(d.kind, d.id, +(d.q || 1)); break;
         case 'sellMat': g.sellMat(d.id); break;

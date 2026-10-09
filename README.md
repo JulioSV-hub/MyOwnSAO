@@ -39,6 +39,11 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 - Níveis, atributos (STR/AGI/VIT), Col, loja, equipamentos, materiais e *Last Attack Bonus*.
 - Ciclo dia/noite, Portal de Teletransporte, Link Start e monstros que se desfazem em polígonos.
 
+## Modelos 3D (VRM) e música
+
+- **Modelos 3D:** em *Menu → Sistema → Modelos 3D*, escolha arquivos `.vrm` do seu PC para cada personagem. Eles ficam guardados **só no seu navegador** (nada é enviado para a internet), então funcionam também no site online. Pelo `jogar.bat` também dá para usar a pasta `models/` (veja `models/LEIA-ME.txt`). Os créditos dos autores aparecem em *Sistema*.
+- **Música:** gerada em tempo real e diferente em cada área (cidade, noite, campo com vento, floresta sombria, batalha e chefe). O volume fica em *Sistema*.
+
 ## Criando o seu mundo
 
 Quase todo o conteúdo fica em **`js/data.js`**:

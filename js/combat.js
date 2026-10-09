@@ -188,7 +188,7 @@ export class Combat {
     if (def.dual && !this.dual) { g.ui.toast('Requer Dual Blades com uma arma secundária equipada.', 'warn'); Sfx.error(); return; }
     if ((this.cd[id] || 0) > 0) { Sfx.error(); return; }
     this.guard = false;
-    this.cd[id] = def.cd;
+    this.cd[id] = def.cd * (g.stats().cdMul ?? 1);
     this.start(def.moves, def.color, def);
     Sfx.skillStart();
     g.ui.skillName(def);

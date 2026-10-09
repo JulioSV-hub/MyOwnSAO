@@ -46,6 +46,8 @@ function noise(dur, { vol = 0.25, freq = 1000, q = 1, to = 0, type = 'bandpass',
   s.stop(t + dur + 0.05);
 }
 
+export function getAudio() { ensure(); return { ctx, noise: noiseBuf }; }
+
 export const Sfx = {
   unlock() { ensure(); },
   setVolume(v) { volume = v; if (master) master.gain.value = v; },

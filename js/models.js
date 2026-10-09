@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { getLocalMap, readLocalFile } from './localmodels.js';
 
 const loader = new GLTFLoader();
 loader.register((parser) => new VRMLoaderPlugin(parser));
@@ -20,28 +21,50 @@ async function fetchBuffer(file) {
 }
 
 export async function loadModels() {
-  let cfg;
+  registry.cast = {};
+  registry.folk = [];
+  registry.errors = [];
+  registry.credits = {};
+  registry.manualCredits = {};
+  // 1) modelos da pasta models/ (funciona pelo jogar.bat)
+  let cfg = null;
   try {
     const res = await fetch('models/modelos.json', { cache: 'no-cache' });
-    if (!res.ok) { registry.loaded = true; return registry; }
-    cfg = await res.json();
-  } catch {
-    registry.loaded = true;
-    return registry;
-  }
+    if (res.ok) cfg = await res.json();
+  } catch { /* sem pasta de modelos */ }
   const jobs = [];
-  for (const [id, file] of Object.entries(cfg.personagens || {})) {
-    if (!file) continue;
-    jobs.push(fetchBuffer(file).then(() => { registry.cast[id] = file; }).catch((e) => registry.errors.push(e.message)));
-  }
-  for (const file of cfg.moradores || []) {
-    jobs.push(fetchBuffer(file).then(() => { registry.folk.push(file); }).catch((e) => registry.errors.push(e.message)));
+  if (cfg) {
+    for (const [id, file] of Object.entries(cfg.personagens || {})) {
+      if (!file) continue;
+      jobs.push(fetchBuffer(file).then(() => { registry.cast[id] ||= file; }).catch((e) => registry.errors.push(e.message)));
+    }
+    for (const file of cfg.moradores || []) {
+      jobs.push(fetchBuffer(file).then(() => { registry.folk.push(file); }).catch((e) => registry.errors.push(e.message)));
+    }
+    Object.assign(registry.manualCredits, cfg.creditos || {});
   }
   await Promise.all(jobs);
-  registry.manualCredits = cfg.creditos || {};
+  // 2) modelos guardados neste navegador (têm prioridade; funcionam também no site online)
+  try {
+    const local = getLocalMap();
+    const load = async (key) => {
+      if (buffers.has(key)) return true;
+      const buf = await readLocalFile(key);
+      if (!buf) return false;
+      buffers.set(key, buf);
+      return true;
+    };
+    for (const [id, key] of Object.entries(local.personagens)) if (await load(key)) registry.cast[id] = key;
+    for (const key of local.moradores) if (await load(key)) registry.folk.push(key);
+    Object.assign(registry.manualCredits, local.creditos || {});
+  } catch (e) {
+    registry.errors.push(`navegador: ${e.message}`);
+  }
   registry.loaded = true;
   return registry;
 }
+
+export const displayName = (file) => file.replace(/^local:/, '');
 
 export function hasModel(id) { return !!registry.cast[id]; }
 
@@ -54,14 +77,14 @@ export async function createModelCharacter(file, height = 1.7) {
   if (vrm?.meta && !registry.credits[file]) {
     const m = vrm.meta;
     registry.credits[file] = {
-      title: m.name || m.title || file,
+      title: m.name || m.title || displayName(file),
       author: (m.authors && m.authors.join(', ')) || m.author || 'autor não informado',
       contact: m.contactInformation || '',
       ref: m.references?.join(', ') || m.reference || '',
     };
   }
   const mc = registry.manualCredits?.[file];
-  if (mc) Object.assign(registry.credits[file] ||= { title: file, author: '' }, { ...(mc.nome && { title: mc.nome }), ...(mc.autor && { author: mc.autor }), ...(mc.link && { contact: mc.link }) });
+  if (mc) Object.assign(registry.credits[file] ||= { title: displayName(file), author: '' }, { ...(mc.nome && { title: mc.nome }), ...(mc.autor && { author: mc.autor }), ...(mc.link && { contact: mc.link }) });
   const scene = vrm ? vrm.scene : gltf.scene;
   if (vrm) {
     VRMUtils.removeUnnecessaryVertices(scene);
