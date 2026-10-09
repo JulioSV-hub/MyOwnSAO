@@ -296,6 +296,25 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .title-row .tbtn { flex: 1; }
 .title-foot { font-size: 12px; opacity: 0.7; text-shadow: 0 1px 3px #000; }
 
+/* ─────────── Missões ─────────── */
+#hud-col { margin: 6px 0 0 120px; font-size: 13px; font-weight: 800; color: #ffe08a; text-shadow: 0 1px 3px #000; }
+#tracker { margin: 10px 0 0 0; display: flex; flex-direction: column; gap: 4px; width: 300px; }
+#tracker .tq { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 4px 8px; border-radius: 3px; background: rgba(20, 24, 32, 0.45); border-left: 3px solid #4fc3f7; text-shadow: 0 1px 2px #000; }
+#tracker .tq span { opacity: 0.9; white-space: nowrap; }
+#tracker .tq.ok { border-left-color: #ffd54f; }
+#tracker .tq.ok span { color: #ffe08a; font-weight: 800; }
+.qrow { padding: 10px; margin: 6px 0; border: 1px solid var(--ui-line); border-radius: 6px; background: #fff; display: flex; flex-direction: column; gap: 4px; }
+.qrow.main { border-left: 4px solid #c0262c; }
+.qrow.ready { background: #fff8e6; border-color: #e8c27a; }
+.qt { display: flex; justify-content: space-between; gap: 10px; }
+.nlabel.quest .cursor { font-size: 18px; text-shadow: 0 0 8px #ffd54f; animation: bob 1s ease-in-out infinite alternate; }
+@keyframes bob { to { transform: translateY(-4px); } }
+#dlg-text { white-space: pre-line; }
+.colcard { display: flex; align-items: center; gap: 12px; padding: 8px 12px; margin: 8px 0 4px; border-radius: 8px; background: linear-gradient(90deg, #fff6dc, #ffffff); border: 1px solid #e8c27a; }
+.colcard img { width: 56px; height: 56px; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.25)); }
+.colcard div { display: flex; flex-direction: column; }
+.colcard b { font-size: 22px; color: #b07a10; }
+
 /* ─────────── Aba NPCs ─────────── */
 .npcgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin: 6px 0 10px; }
 .npccard { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--ui-line); border-radius: 6px; background: #fff; }

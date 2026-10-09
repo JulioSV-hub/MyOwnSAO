@@ -22,11 +22,12 @@ const ICONS = {
   equip: '<svg viewBox="0 0 24 24"><path d="M20 2l2 2-11.5 11.5-2-2z"/><path d="M6.5 13.5l4 4-1.5 1.5-1.2-1.2L4 21.6 2.4 20l3.8-3.8L5 15z"/></svg>',
   skills: '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
   map: '<svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/></svg>',
+  quests: '<svg viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6z"/><path d="M9 10h7M9 14h7M9 18h4" stroke="#fff" stroke-width="1.6"/></svg>',
   npcs: '<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.2"/><circle cx="16.5" cy="9" r="2.7"/><path d="M2 20c0-3.6 2.7-6 6-6s6 2.4 6 6z"/><path d="M13.5 20c.2-2.4-.6-4.3-1.9-5.4 1.2-.7 2.6-1 4-.9 3 .2 5.4 2.4 5.4 6.3z"/></svg>',
   system: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="3.4 2.1"/><circle cx="12" cy="12" r="2.6"/></svg>',
 };
-const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['map', 'Mapa'], ['npcs', 'NPCs'], ['system', 'Sistema']];
-const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja do Agil', npcs: 'NPCs da cidade' };
+const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['quests', 'Missões'], ['map', 'Mapa'], ['npcs', 'NPCs'], ['system', 'Sistema']];
+const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja do Agil', npcs: 'NPCs da cidade', quests: 'Missões' };
 const SET_FMT = {
   sens: (v) => (+v).toFixed(2), fov: (v) => `${v}°`, volume: (v) => `${Math.round(v * 100)}%`,
   xpRate: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`,
@@ -90,6 +91,13 @@ export class UI {
     $('lv-text').textContent = `Lv ${p.level}`;
     $('exp-bar').style.width = `${Math.min(100, (p.exp / expNeed(p.level)) * 100).toFixed(1)}%`;
     $('st-bar').style.width = `${pl.stamina.toFixed(1)}%`;
+    $('hud-col').textContent = `${nf(p.col)} Col`;
+    this.trackT = (this.trackT || 0) - dt;
+    if (this.trackT <= 0) {
+      this.trackT = 0.4;
+      const act = g.quests.activeList().slice(0, 4);
+      $('tracker').innerHTML = act.map((x) => { const pr = g.quests.progress(x), ok = pr >= x.count; return `<div class="tq ${ok ? 'ok' : ''}"><b>${x.main ? '★ ' : ''}${esc(x.title)}</b><span>${ok ? (x.giver ? `entregar: ${esc(g.quests.giverName(x.giver))}` : 'concluída') : `${pr}/${x.count}`}</span></div>`; }).join('');
+    }
     $('hp-panel').classList.toggle('danger', r < 0.25);
 
     for (let i = 0; i < 4; i++) {
@@ -168,6 +176,7 @@ export class UI {
     this.dialogOpen = true;
     this.dlgNpc = npc;
     npc.talking = true;
+    if (npc.def?.id) this.g.quests.onTalk(npc.def.id);
     this.g.input.unlock();
     Sfx.menuOpen();
     $('dialog').classList.remove('hidden');
@@ -257,6 +266,8 @@ export class UI {
       l.el.style.display = '';
       l.el.style.transform = `translate(${p[0].toFixed(1)}px, ${p[1].toFixed(1)}px) translate(-50%, -100%) scale(${Math.max(0.6, 1 - d / 40).toFixed(3)})`;
       l.el.classList.toggle('near', d < 2.8);
+      const mk = n.def.id ? this.g.quests.marker(n.def.id) : '';
+      if (l.mk !== mk) { l.mk = mk; l.el.querySelector('.cursor').textContent = mk === '?' ? '❓' : mk === '!' ? '❗' : (n.role === 'folk' || n.role === 'kid' ? '▼' : '◆'); l.el.classList.toggle('quest', !!mk); }
     }
     for (const l of this.worldLabels) {
       const d = cam.distanceTo(l.pos);
@@ -402,6 +413,8 @@ export class UI {
     };
     for (const n of g.npcs.list) { const [nx2, ny2] = tr(n.pos.x, n.pos.z); c.fillStyle = n.role === 'folk' || n.role === 'kid' ? '#7adf8a' : '#ffd54f'; c.beginPath(); c.arc(nx2, ny2, n.role === 'folk' || n.role === 'kid' ? 1.8 : 2.8, 0, Math.PI * 2); c.fill(); }
     dot(w.gatePos.x, w.gatePos.z, '#4fc3ff', 4, true);
+    if (w.boardPos) dot(w.boardPos.x, w.boardPos.z, '#ffd54f', 2.6);
+    for (const m of g.quests.markers) dot(m.pos.x, m.pos.z, m.flower ? '#ffffff' : '#7ad0ff', 3.5, true);
     dot(w.doorPos.x, w.doorPos.z, cleared ? '#4fc3ff' : '#b07aff', 4, true);
     const [nx, ny] = clampEdge(tr(p.x, p.z - 500), 10);
     c.fillStyle = '#fff';
@@ -454,7 +467,7 @@ export class UI {
 
   renderPanel() {
     if (!this.menuOpen) return;
-    const fn = { status: this.pStatus, items: this.pItems, equip: this.pEquip, skills: this.pSkills, map: this.pMap, system: this.pSystem, shop: this.pShop, npcs: this.pNpcs }[this.panel];
+    const fn = { status: this.pStatus, items: this.pItems, equip: this.pEquip, skills: this.pSkills, map: this.pMap, system: this.pSystem, shop: this.pShop, npcs: this.pNpcs, quests: this.pQuests }[this.panel];
     const body = $('mp-body');
     const scroll = body.scrollTop;
     body.innerHTML = fn ? fn.call(this) : '';
@@ -504,7 +517,7 @@ export class UI {
     for (const [name, m] of Object.entries(p.mats)) if (m.qty > 0) tiles.push({ cat: 'mat', kind: 'mat', id: name, name, rarity: 0, qty: m.qty });
     const shown = tiles.filter((t) => cat === 'all' || t.cat === cat);
     const tab = (k, l) => `<button class="tab ${cat === k ? 'on' : ''}" data-act="bagCat" data-c="${k}">${l}</button>`;
-    let html = `<div class="tabs">${tab('all', 'Tudo')}${tab('weapon', 'Armas')}${tab('armor', 'Armaduras')}${tab('item', 'Consumíveis')}${tab('mat', 'Materiais')}<span class="col">${nf(p.col)} Col</span></div>`;
+    let html = `<div class="colcard"><img src="${icon('mat', 'Moedas de Col')}" alt=""><div><span class="muted">Seu dinheiro</span><b>${nf(p.col)} Col</b></div></div><div class="tabs">${tab('all', 'Tudo')}${tab('weapon', 'Armas')}${tab('armor', 'Armaduras')}${tab('item', 'Consumíveis')}${tab('mat', 'Materiais')}<span class="col">${nf(p.col)} Col</span></div>`;
     if (this.detail) html += this.detailCard(this.detail, st);
     html += shown.length
       ? `<div class="bag">${shown.map((t) => `<button class="tile r${t.rarity} ${this.detail && this.detail.id === t.id && this.detail.kind === t.kind ? 'sel' : ''}" data-act="detail" data-kind="${t.kind}" data-id="${esc(t.id)}" title="${esc(t.name)}">
@@ -618,6 +631,22 @@ export class UI {
       ${Object.keys(registry.credits).length ? `<div class="section">Créditos dos modelos 3D</div>${Object.entries(registry.credits).map(([f, c]) => `<div class="row"><div><b>${esc(c.title)}</b> <span class="muted">por</span> <b>${esc(c.author)}</b>${c.contact ? `<div class="muted">${/^https?:\/\//.test(c.contact) ? `<a href="${esc(c.contact)}" target="_blank" rel="noopener">${esc(c.contact)}</a>` : esc(c.contact)}</div>` : ''}</div><div class="row-r"><span class="muted">${esc(displayName(f))}</span>${f.startsWith('local:') ? `<button class="btn sm" data-act="creditEdit" data-key="${esc(f)}">Editar</button>` : ''}</div></div>`).join('')}<div class="muted pad">Modelos usados conforme as condições de uso de cada autor: sem redistribuição, sem alterações e sem atos violentos.</div>` : ''}
       <div class="section">Controles</div>
       <div class="keys"><b>WASD</b> mover · <b>Shift</b> correr · <b>Espaço</b> pular · <b>Q</b> esquiva · <b>Clique</b> atacar (combo) · <b>Botão direito</b> defender (no tempo certo = <i>parry</i>) · <b>1–4</b> Sword Skills · <b>R</b> poção · <b>T</b> Cristal de Teletransporte · <b>H</b> guardar/sacar espada · <b>E</b> interagir · <b>Tab/Esc</b> menu</div>`;
+  }
+
+  pQuests() {
+    const q = this.g.quests, active = q.activeList(), avail = q.list.filter((x) => !q.isActive(x.id) && !q.isDone(x.id));
+    const done = q.list.filter((x) => q.isDone(x.id)).length;
+    const row = (x) => {
+      const pr = q.progress(x), ready = q.ready(x);
+      return `<div class="qrow ${x.main ? 'main' : ''} ${ready ? 'ready' : ''}"><div class="qt"><b>${x.main ? '★ ' : ''}${esc(x.title)}</b><span class="muted">${esc(q.giverName(x.giver))}</span></div>
+        <div class="muted">${esc(x.desc)}</div>
+        <div class="bar-line"><div class="pbar"><i style="width:${(pr / x.count) * 100}%"></i></div><span>${pr}/${x.count}</span></div>
+        <div class="muted">${ready ? (x.giver ? `<b class="accent">Pronta! Entregue para ${esc(q.giverName(x.giver))}.</b>` : '<b class="accent">Concluída!</b>') : `Recompensa: ${esc(q.rewardText(x))}`}</div></div>`;
+    };
+    return `<div class="section">Em andamento (${active.length})</div>${active.length ? active.map(row).join('') : '<div class="muted pad">Nenhuma missão ativa. Procure NPCs com ❗ ou o Quadro de Missões na praça.</div>'}
+      <div class="section">Disponíveis neste andar (${avail.length})</div>
+      ${avail.map((x) => `<div class="row"><div><b>❗ ${esc(x.title)}</b> <span class="muted">— fale com ${esc(q.giverName(x.giver))}</span></div><span class="muted">${esc(q.rewardText(x))}</span></div>`).join('') || '<div class="muted pad">Você já pegou todas as missões deste andar!</div>'}
+      <div class="muted pad">Concluídas neste andar: ${done}/${q.list.length}. Pilares de luz azul e a Flor de Pneuma aparecem no minimapa.</div>`;
   }
 
   pNpcs() {

@@ -188,6 +188,13 @@ class NPC {
 
   // ─────────── Diálogos ───────────
   dialog() {
+    const node = this.baseDialog();
+    if (!this.def.id) return node;
+    const qopts = this.game.quests.dialogOptions(this.def.id, () => this.dialog());
+    return { ...node, options: [...qopts, ...node.options] };
+  }
+
+  baseDialog() {
     const g = this.game, p = g.state.player, n = g.floor.n;
     const close = { label: 'Até mais', run: () => null };
     const say = (text, options = [close]) => ({ text, options });

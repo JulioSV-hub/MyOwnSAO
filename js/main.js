@@ -13,6 +13,8 @@ import { Player } from './player.js';
 import { Combat } from './combat.js';
 import { EnemyManager } from './enemies.js';
 import { NPCManager } from './npcs.js';
+import { Quests } from './quests.js';
+import { Ambient } from './ambient.js';
 import { loadModels } from './models.js';
 import { Effects } from './effects.js';
 import { UI } from './ui.js';
@@ -94,6 +96,8 @@ class Game {
     this.combat = new Combat(this);
     this.enemies = new EnemyManager(this);
     this.npcs = new NPCManager(this);
+    this.quests = new Quests(this);
+    this.ambient = new Ambient(this);
     this.effects = new Effects(this);
 
     this.mode = 'title';
@@ -307,6 +311,7 @@ class Game {
     this.floor = getFloor(n);
     this.world = new World(this, this.floor);
     this.scene.add(this.world.group);
+    this.ambient?.setWorld(this.world);
     const [near, far] = this.floor.biome.fog;
     this.scene.fog.near = near;
     this.scene.fog.far = far;
@@ -324,6 +329,7 @@ class Game {
     this.player.dead = false;
     this.enemies.populate();
     this.npcs.populate();
+    this.quests.setFloor(this.floor);
     this.combat.reset();
     this.combat.setSheathed(!!this.state.settings.autoSheath, true);
     this.wasSafe = true;
@@ -501,6 +507,7 @@ class Game {
       if ((dx * f.x + dz * f.z) / d > 0.2) {
         if (this.combat.guardT < 0.28) {
           src.stunFor?.(1.6);
+          this.quests.onParry();
           Sfx.parry();
           this.effects.ring(front, '#ffffff', 1.4, 0.35);
           this.effects.sparks(front, '#ffffff', 16, 1.2);
@@ -612,6 +619,7 @@ class Game {
     this.endBossFight(true);
     for (const o of this.enemies.list) if (o.aggroInArena && !o.dead) o.takeDamage(o.hp + 1);
     pr.cleared[n] = true;
+    this.quests.onBoss();
     pr.highest = Math.max(pr.highest, Math.min(MAX_FLOOR, n + 1));
     const exp = (10 + 9 * e.level) * 25 * this.state.settings.xpRate;
     const col = Math.round((5 + 3 * e.level) * 30);
@@ -632,6 +640,7 @@ class Game {
 
   onEnemyKilled(e) {
     if (e.boss) { this.bossDefeated(e); return; }
+    this.quests.onKill(e);
     const p = this.state.player;
     p.kills++;
     const diff = p.level - e.level;
@@ -645,6 +654,7 @@ class Game {
       const m = (p.mats[name] ||= { qty: 0, value: Math.round(value * (1 + e.level * 0.15)) });
       m.qty++;
       msg += ` · ${name}`;
+      this.quests.onDrop(name);
     }
     if (Math.random() < 0.07) { p.items.potion = (p.items.potion || 0) + 1; msg += ' · Poção'; }
     this.ui.toast(msg);
@@ -719,6 +729,17 @@ class Game {
     else this.ui.toast('Sem poções! Compre mais com o Agil na cidade.', 'warn');
   }
 
+  boardNpc() {
+    const back = () => this.boardNpc().dialog();
+    return {
+      name: 'Quadro de Missões', title: 'Pedidos da cidade', def: { id: 'board' }, talking: false,
+      dialog: () => {
+        const opts = this.quests.dialogOptions('board', back);
+        return { text: opts.length ? 'Pedidos fixados no quadro pelos moradores deste andar. Recompensas pagas na hora!' : 'Nenhum pedido novo neste andar. Volte no próximo!', options: [...opts, { label: 'Fechar', run: () => null }] };
+      },
+    };
+  }
+
   quickTeleport() {
     const p = this.state.player;
     if (this.nearGate() || (p.items.teleport_crystal || 0) > 0) { this.ui.openMenu('map'); return; }
@@ -791,6 +812,9 @@ class Game {
     if (this.nearGate()) {
       hint = '[E] Portal de Teletransporte';
       act = () => this.ui.openMenu('map');
+    } else if (Math.hypot(pl.x - w.boardPos.x, pl.z - w.boardPos.z) < 3) {
+      hint = '[E] Quadro de Missões';
+      act = () => this.ui.openDialog(this.boardNpc());
     } else if (this.npcs.nearest(pl, 2.8)) {
       const npc = this.npcs.nearest(pl, 2.8);
       hint = `[E] Falar com ${npc.name}`;
@@ -858,6 +882,7 @@ class Game {
         this.combat.update(dt);
         this.enemies.update(dt);
         this.npcs.update(dt);
+        this.quests.update(dt);
         this.updateInteract();
         // guardar a espada sozinho ao entrar na cidade (opção em Sistema)
         const safe = this.world.inSafeZone(this.player.pos);
@@ -885,6 +910,7 @@ class Game {
       this.updateSky(dt, true);
     }
     this.world.update(dt, this.time, this.night);
+    this.ambient.update(dt, this.time, this.night);
     this.updateMusic(real);
 
     if (this.state?.settings.bloom !== false) this.composer.render();

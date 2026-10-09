@@ -231,6 +231,19 @@ function hashColor(str, s = 0.45, l = 0.55) {
 export function buildMaterial(name) {
   const n = name.toLowerCase(), group = new THREE.Group();
   const col = hashColor(name);
+  if (/moedas de col/.test(n)) {
+    const gold = std('#e8c050', { metalness: 0.9, roughness: 0.25 });
+    for (let i = 0; i < 6; i++) {
+      const c = M(new THREE.CylinderGeometry(0.16, 0.16, 0.035, 28), gold, (i % 3 - 1) * 0.12, -0.12 + Math.floor(i / 3) * 0.05 + i * 0.03, (i % 2) * 0.05);
+      c.rotation.set(0.25 + i * 0.1, 0, 0.15 * (i % 3 - 1));
+      group.add(c);
+    }
+    const big = M(new THREE.CylinderGeometry(0.2, 0.2, 0.04, 32), gold, 0, 0.12, 0.05);
+    big.rotation.x = PI / 2 - 0.3;
+    group.add(big, M(new THREE.TorusGeometry(0.15, 0.012, 6, 28), std('#b08a2a', { metalness: 0.9 }), 0, 0.12, 0.075));
+    group.children[group.children.length - 1].rotation.x = -0.3;
+    return { group };
+  }
   if (/carne/.test(n)) {
     const meat = M(new THREE.SphereGeometry(0.2, 18, 14), std('#b04a3a', { roughness: 0.7 }));
     meat.scale.set(1.2, 0.85, 0.9);

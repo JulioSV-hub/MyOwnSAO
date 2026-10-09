@@ -221,6 +221,7 @@ export class Combat {
     this.start(def.moves, def.color, def);
     Sfx.skillStart();
     g.ui.skillName(def);
+    g.quests.onSkill();
   }
 
   start(moves, color, skill) {

@@ -110,6 +110,7 @@ export class World {
     this.gatePos = new THREE.Vector3(0, this.townH, 0);
     this.npcPos = new THREE.Vector3(10, this.townH, 6);
     this.smithPos = new THREE.Vector3(-10, this.townH, 6);
+    this.boardPos = new THREE.Vector3(0, this.townH, -10.5);
     this.spokes = [0, 0.5, 1, 1.5].map((k, i) => ({
       dx: Math.cos(a + k * Math.PI), dz: Math.sin(a + k * Math.PI),
       len: i === 0 ? ARENA_DIST - ARENA_R + 2 : 70 + this.rand() * 70,
@@ -538,6 +539,8 @@ export class World {
     const step = new THREE.Mesh(rbox(1.6, 0.18, 0.7, 0.06), M('#9a948a'));
     step.position.set(0, 0.09, d / 2 + 0.4);
     house.add(walls, ridge, chimney, door, step);
+    house.updateMatrixWorld(true);
+    (this.chimneys ||= []).push(chimney.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.8, 0)));
     for (const sx of [-1, 1]) {
       const frame = new THREE.Mesh(rbox(1.0, 1.1, 0.1, 0.04), doorMat);
       frame.position.set(sx * w * 0.3, hgt * 0.58, d / 2 + 0.06);
@@ -719,6 +722,32 @@ export class World {
     }
   }
 
+  // Quadro de Missões na praça
+  buildBoard() {
+    const p = this.boardPos, g = new THREE.Group();
+    g.position.copy(p);
+    g.rotation.y = Math.atan2(-p.x, -p.z);
+    const wood = std('#7a5232'), paper = std('#f4ecd8');
+    for (const s of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.6, 8), wood); post.position.set(s * 1.1, 1.3, 0); g.add(post); }
+    const board = new THREE.Mesh(rbox(2.4, 1.5, 0.12, 0.05), std('#9a6a42'));
+    board.position.y = 1.7;
+    const roof = new THREE.Mesh(rbox(2.8, 0.12, 0.6, 0.04), std('#b8482e'));
+    roof.position.set(0, 2.6, 0.1);
+    roof.rotation.x = -0.25;
+    g.add(board, roof);
+    const notes = ['#f4ecd8', '#fff4c0', '#e8f0ff', '#ffe0e0'];
+    for (let i = 0; i < 6; i++) {
+      const n = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.5), std(notes[i % 4], { side: THREE.DoubleSide }));
+      n.position.set(-0.8 + (i % 3) * 0.8, 1.98 - Math.floor(i / 3) * 0.6, 0.075);
+      n.rotation.z = (Math.sin(i * 7) * 0.12);
+      g.add(n);
+    }
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.group.add(g);
+    this.grid.add({ x: p.x, z: p.z, hw: 1.3, hd: 0.3, rot: g.rotation.y });
+    this.labels.push({ text: 'Quadro de Missões', pos: new THREE.Vector3(p.x, this.townH + 3.2, p.z), cls: 'npc' });
+  }
+
   buildStall(pos, [c1, c2]) {
     const g = new THREE.Group();
     g.position.copy(pos);
@@ -813,6 +842,7 @@ export class World {
   }
 
   buildNpc() {
+    this.buildBoard();
     // Os personagens (Agil, Lisbeth...) são NPCs animados; aqui ficam só as barracas e a forja.
     const behind = (p, rot) => new THREE.Vector3(p.x - Math.sin(rot) * 0.35, p.y, p.z - Math.cos(rot) * 0.35);
     const shop = this.buildStall(this.npcPos, ['#c0392b', '#f0e8d8']);
