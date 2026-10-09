@@ -53,9 +53,9 @@ class SwordRig {
   }
 
   // troca o modelo 3D da arma (cada estilo tem lâmina, guarda e cabo próprios)
-  setWeapon(def) {
-    if (this.weaponId === def.id) return;
-    this.weaponId = def.id;
+  setWeapon(def, lv = 0) {
+    if (this.weaponId === `${def.id}+${lv}`) return;
+    this.weaponId = `${def.id}+${lv}`;
     if (this.model) {
       this.aim.remove(this.model);
       this.model.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); });
@@ -63,6 +63,8 @@ class SwordRig {
     const w = buildSword(def);
     this.model = w.group;
     this.bladeMat = w.bladeMat;
+    // arma fortalecida pela Lisbeth brilha um pouco mais a cada nível
+    if (lv) w.bladeMat.userData.baseEmissive.add(new THREE.Color(def.gem || def.blade || '#ffffff').multiplyScalar(0.018 * lv));
     this.tipY = w.tipY;
     this.baseY = w.baseY;
     this.model.traverse((o) => { if (o.isMesh) { o.renderOrder = 10; o.frustumCulled = false; o.castShadow = false; } });
@@ -176,8 +178,9 @@ export class Combat {
 
   refresh() {
     const p = this.game.state.player;
-    this.R.setWeapon(weaponDef(p.weapon));
-    if (p.offhand) this.L.setWeapon(weaponDef(p.offhand));
+    const lv = (id) => (p.upgrades && p.upgrades[id]) || 0;
+    this.R.setWeapon(weaponDef(p.weapon), lv(p.weapon));
+    if (p.offhand) this.L.setWeapon(weaponDef(p.offhand), lv(p.offhand));
     this.updateVisibility();
   }
 

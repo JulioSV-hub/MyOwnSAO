@@ -201,20 +201,22 @@ class NPC {
           close,
         ]);
       case 'smith': {
-        const wid = p.weapon, wd = weaponDef(wid), lv = (p.upgrades?.[wid]) || 0;
+        const wid = p.weapon, wd = weaponDef(wid), lv = g.upgradeLevel(wid);
         const cost = g.upgradeCost(wid);
+        const atkNow = g.weaponAtk(wid), atkNext = Math.round(wd.atk * (1 + 0.1 * (lv + 1)));
         const opts = [];
         if (lv < 10) {
-          opts.push({ label: `Fortalecer ${wd.name} +${lv} → +${lv + 1} (${cost.toLocaleString('pt-BR')} Col)`, run: () => {
+          opts.push({ label: `Fortalecer para +${lv + 1}: ATK ${atkNow} → ${atkNext} (${cost.toLocaleString('pt-BR')} Col)`, run: () => {
             if (p.col < cost) { Sfx.error(); return say('Hmm... você não tem Col suficiente. Volte quando tiver juntado mais!'); }
             g.upgradeWeapon(wid);
             Sfx.coin();
-            return say(`*CLANG! CLANG!* ... Prontinho! ${wd.name} agora está +${lv + 1}. Olha esse brilho! Não vai quebrar ela, viu?`, [{ label: 'Fortalecer de novo', run: () => this.dialog() }, close]);
+            g.ui.toast(`${wd.name} +${lv + 1} — ATK ${atkNow} → ${atkNext}`, 'skill');
+            return say(`*CLANG! CLANG!* ... Prontinho! ${wd.name} agora está +${lv + 1} — ATK ${atkNow} → ${atkNext}. Olha esse brilho! Não vai quebrar ela, viu?`, [{ label: 'Fortalecer de novo', run: () => this.dialog() }, close]);
           } });
         } else opts.push({ label: 'Já está no máximo (+10)', run: () => say('Essa lâmina está perfeita. Nem eu consigo melhorar mais!') });
         opts.push({ label: 'Conversar', run: () => say(nextLine(['Uma espada feita com metal de cristal... um dia eu faço uma assim de novo.', 'Meu sonho é ter uma loja com uma roda d\'água no andar 48!', 'Se o fio da sua lâmina gastar, eu dou um jeito. É meu trabalho!'])) });
         opts.push(close);
-        return say(`Bem-vinda à Lisbeth's Smith Shop! Quer dizer... bem-vindo! Posso deixar sua arma mais forte. Atualmente: ${wd.name} +${lv}.`, opts);
+        return say(`Bem-vinda à Lisbeth's Smith Shop! Quer dizer... bem-vindo! Posso deixar sua arma mais forte. Na sua mão: ${wd.name} +${lv} (ATK ${atkNow}). Cada nível dá +10% de ataque à arma — e o nível fica na arma, não em você.`, opts);
       }
       case 'info': {
         const pr = g.state.progress, paid = pr.info?.[n];
@@ -228,7 +230,7 @@ class NPC {
             Sfx.coin();
             return report();
           } },
-          { label: 'Uma dica de graça?', run: () => say(nextLine(['Dica grátis: a esquiva (Q) te deixa invencível por um instante. Use contra golpes grandes.', 'Dica grátis: o post-motion delay depois das Sword Skills te deixa parado. Não gaste skill longa perto de um chefe furioso.', 'Dica grátis: o Last Attack Bonus vai para quem dá o golpe final no chefe.', 'Dica grátis: a Lisbeth fortalece armas. Cada nível dá +8% de ataque.', 'Dica grátis: dizem que quem alcança o nível 25 recebe uma Habilidade Única...'])) },
+          { label: 'Uma dica de graça?', run: () => say(nextLine(['Dica grátis: a esquiva (Q) te deixa invencível por um instante. Use contra golpes grandes.', 'Dica grátis: o post-motion delay depois das Sword Skills te deixa parado. Não gaste skill longa perto de um chefe furioso.', 'Dica grátis: o Last Attack Bonus vai para quem dá o golpe final no chefe.', 'Dica grátis: a Lisbeth fortalece armas. Cada nível dá +10% de ataque à arma.', 'Dica grátis: dizem que quem alcança o nível 25 recebe uma Habilidade Única...'])) },
           close,
         ]);
       }

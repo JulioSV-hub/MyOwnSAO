@@ -470,6 +470,7 @@ export class UI {
       <div class="grid2">
         <span>HP</span><b>${Math.ceil(p.hp)} / ${st.maxHp}</b>
         <span>Ataque</span><b>${Math.round(st.atkR)}${st.dual ? ` / ${Math.round(st.atkL)}` : ''}</b>
+        <span class="muted">↳ ${esc(g.weaponLabel(p.weapon))} ${g.weaponAtk(p.weapon)} × STR +${p.str * 3}% + nível ${Math.round(p.level * 1.5 + p.str)}</span><span></span>
         <span>Defesa</span><b>${st.def.toFixed(1)}</b>
         <span>Crítico</span><b>${(st.crit * 100).toFixed(1)}%</b>
         <span>Velocidade</span><b>${Math.round(st.speedMul * 100)}%</b>
@@ -493,7 +494,7 @@ export class UI {
       if (seen.has(`w${id}`)) continue;
       seen.add(`w${id}`);
       const d = weaponDef(id), count = p.weapons.filter((x) => x === id).length;
-      tiles.push({ cat: 'weapon', kind: 'weapon', id, name: d.name, rarity: d.rarity, qty: count > 1 ? count : 0, eq: id === p.weapon ? 'D' : id === p.offhand ? 'E' : '' });
+      tiles.push({ cat: 'weapon', kind: 'weapon', id, name: g.weaponLabel(id), rarity: d.rarity, qty: count > 1 ? count : 0, eq: id === p.weapon ? 'D' : id === p.offhand ? 'E' : '' });
     }
     for (const id of [...new Set(p.armors)]) {
       const d = armorDef(id);
@@ -520,7 +521,7 @@ export class UI {
       const d = weaponDef(id), up = p.upgrades?.[id] || 0;
       title = `${d.name}${up ? ` +${up}` : ''}`; rar = d.rarity;
       const styles = { basic: 'Espada curta', long: 'Espada longa', broad: 'Espada larga', rapier: 'Rapieira', katana: 'Katana', dark: 'Lâmina sombria', crystal: 'Lâmina de cristal', ornate: 'Espada ornamentada', holy: 'Espada sagrada' };
-      lines = [`${styles[d.style] || 'Espada'} · ATK ${d.atk}${up ? ` (+${up * 8}% pela Lisbeth)` : ''}`, d.floor ? `Origem: Andar ${d.floor}${d.rarity === 2 ? ' — item raro' : ''}` : 'Arma inicial'];
+      lines = [`${styles[d.style] || 'Espada'} · ATK ${this.g.weaponAtk(id)}${up ? ` (base ${d.atk}, +${up * 10}% pela Lisbeth)` : ''}`, d.floor ? `Origem: Andar ${d.floor}${d.rarity === 2 ? ' — item raro' : ''}` : 'Arma inicial'];
       if (id !== p.weapon) acts += `<button class="btn sm" data-act="equipW" data-id="${id}">Equipar (mão direita)</button>`;
       if (p.dualBlades && id !== p.weapon && id !== p.offhand) acts += `<button class="btn sm" data-act="equipL" data-id="${id}">Mão esquerda</button>`;
     } else if (kind === 'armor') {
@@ -549,7 +550,7 @@ export class UI {
       const d = weaponDef(id), eqR = id === p.weapon, eqL = id === p.offhand;
       const main = eqR ? '<span class="tag">Principal</span>' : `<button class="btn sm" data-act="equipW" data-id="${id}">Equipar</button>`;
       const off = p.dualBlades && !eqR ? (eqL ? '<button class="btn sm on" data-act="unequipL">Secundária ✕</button>' : `<button class="btn sm" data-act="equipL" data-id="${id}">Secundária</button>`) : '';
-      return `<div class="row ${eqR || eqL ? 'eq' : ''}"><div class="withicon"><img class="ico" src="${icon('weapon', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">ATK ${d.atk}</span></div><div class="row-r">${main}${off}</div></div>`;
+      return `<div class="row ${eqR || eqL ? 'eq' : ''}"><div class="withicon"><img class="ico" src="${icon('weapon', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(this.g.weaponLabel(id))}</b> <span class="muted">ATK ${this.g.weaponAtk(id)}</span></div><div class="row-r">${main}${off}</div></div>`;
     }).join('');
     seen.clear();
     const armors = p.armors.filter((id) => !seen.has(id) && seen.add(id)).map((id) => {
@@ -557,8 +558,8 @@ export class UI {
       return `<div class="row ${eq ? 'eq' : ''}"><div class="withicon"><img class="ico" src="${icon('armor', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">DEF ${d.def} · HP +${d.hp}</span></div>${eq ? '<span class="tag">Equipada</span>' : `<button class="btn sm" data-act="equipA" data-id="${id}">Equipar</button>`}</div>`;
     }).join('');
     return `<div class="equip-sum">
-        <div><span class="muted">Mão direita</span><b>${esc(w.name)}</b><span>ATK ${w.atk}</span></div>
-        ${p.dualBlades ? `<div><span class="muted">Mão esquerda</span><b>${o ? esc(o.name) : '—'}</b><span>${o ? `ATK ${o.atk}` : 'vazia'}</span></div>` : ''}
+        <div><span class="muted">Mão direita</span><b>${esc(this.g.weaponLabel(p.weapon))}</b><span>ATK ${this.g.weaponAtk(p.weapon)}</span></div>
+        ${p.dualBlades ? `<div><span class="muted">Mão esquerda</span><b>${o ? esc(this.g.weaponLabel(p.offhand)) : '—'}</b><span>${o ? `ATK ${this.g.weaponAtk(p.offhand)}` : 'vazia'}</span></div>` : ''}
         <div><span class="muted">Armadura</span><b>${esc(a.name)}</b><span>DEF ${a.def} · HP +${a.hp}</span></div>
       </div>
       <div class="section">Armas</div>${weapons}
@@ -681,7 +682,7 @@ export class UI {
       html += '<div class="section">Equipamento</div>';
       const cur = weaponDef(p.weapon), curA = armorDef(p.armor);
       for (const id of stock.weapons) {
-        const d = weaponDef(id), diff = d.atk - cur.atk;
+        const d = weaponDef(id), diff = d.atk - g.weaponAtk(p.weapon);
         html += `<div class="row"><div class="withicon"><img class="ico" src="${icon('weapon', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">ATK ${d.atk}</span> <span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '+' : ''}${diff}</span></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="weapon" data-id="${id}">Comprar</button></div></div>`;
       }
       for (const id of stock.armors) {

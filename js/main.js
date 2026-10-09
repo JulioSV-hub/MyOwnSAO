@@ -30,6 +30,7 @@ const MOON = new THREE.Color('#9fb4ff');
 const SUN = new THREE.Color('#fff2dc');
 const WHITE = new THREE.Color('#ffffff');
 const DEFAULT_SETTINGS = newSave('x').settings;
+const UPGRADE_STEP = 0.1; // cada nível na Lisbeth: +10% do ataque da arma
 const CLOUD_SHADE = new THREE.Color('#a9bfe0');
 const CLOUD_SUNSET = new THREE.Color('#ffd2a8');
 const CLOUD_DUSK = new THREE.Color('#9a86b8');
@@ -434,7 +435,7 @@ class Game {
     const p = this.state.player, w = weaponDef(p.weapon), a = armorDef(p.armor);
     const o = p.dualBlades && p.offhand ? weaponDef(p.offhand) : null;
     const base = p.str * 2 + p.level * 1.5;
-    const up = (id) => (1 + 0.08 * ((p.upgrades && p.upgrades[id]) || 0)) * (1 + 0.03 * p.str);
+    const up = (id) => (1 + UPGRADE_STEP * this.upgradeLevel(id)) * (1 + 0.03 * p.str);
     const flat = p.str + p.level * 1.5;
     return {
       maxHp: Math.round((180 + 25 * (p.level - 1) + a.hp) * (1 + 0.02 * p.vit) + p.vit * 10),
@@ -743,9 +744,13 @@ class Game {
     return reg;
   }
 
+  upgradeLevel(id) { return (this.state.player.upgrades && this.state.player.upgrades[id]) || 0; }
+  weaponAtk(id) { return Math.round(weaponDef(id).atk * (1 + UPGRADE_STEP * this.upgradeLevel(id))); }
+  weaponLabel(id) { const lv = this.upgradeLevel(id); return `${weaponDef(id).name}${lv ? ` +${lv}` : ''}`; }
+
   upgradeCost(id) {
     const lv = (this.state.player.upgrades?.[id]) || 0;
-    return Math.round((60 + weaponDef(id).atk * 6) * Math.pow(lv + 1, 1.5));
+    return Math.round((40 + weaponDef(id).atk * 4) * Math.pow(lv + 1, 1.3));
   }
 
   upgradeWeapon(id) {
@@ -753,6 +758,7 @@ class Game {
     if (p.col < cost) return false;
     p.col -= cost;
     (p.upgrades ||= {})[id] = ((p.upgrades[id]) || 0) + 1;
+    this.combat.refresh();
     this.effects.sparks(this.world.lisbethSpot.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), '#ffb84a', 24, 0.8);
     this.save();
     return true;
