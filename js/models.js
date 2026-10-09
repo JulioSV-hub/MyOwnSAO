@@ -8,7 +8,7 @@ const loader = new GLTFLoader();
 loader.register((parser) => new VRMLoaderPlugin(parser));
 
 const buffers = new Map();   // arquivo -> ArrayBuffer (para criar várias instâncias do mesmo modelo)
-export const registry = { cast: {}, folk: [], loaded: false, errors: [] };
+export const registry = { cast: {}, folk: [], loaded: false, errors: [], credits: {} };
 
 async function fetchBuffer(file) {
   if (buffers.has(file)) return buffers.get(file);
@@ -38,6 +38,7 @@ export async function loadModels() {
     jobs.push(fetchBuffer(file).then(() => { registry.folk.push(file); }).catch((e) => registry.errors.push(e.message)));
   }
   await Promise.all(jobs);
+  registry.manualCredits = cfg.creditos || {};
   registry.loaded = true;
   return registry;
 }
@@ -49,6 +50,18 @@ export async function createModelCharacter(file, height = 1.7) {
   const buf = buffers.get(file) || await fetchBuffer(file);
   const gltf = await loader.parseAsync(buf.slice(0), '');
   const vrm = gltf.userData.vrm || null;
+  // crédito exigido pela licença dos modelos (nome + autor lidos dos metadados do arquivo)
+  if (vrm?.meta && !registry.credits[file]) {
+    const m = vrm.meta;
+    registry.credits[file] = {
+      title: m.name || m.title || file,
+      author: (m.authors && m.authors.join(', ')) || m.author || 'autor não informado',
+      contact: m.contactInformation || '',
+      ref: m.references?.join(', ') || m.reference || '',
+    };
+  }
+  const mc = registry.manualCredits?.[file];
+  if (mc) Object.assign(registry.credits[file] ||= { title: file, author: '' }, { ...(mc.nome && { title: mc.nome }), ...(mc.autor && { author: mc.autor }), ...(mc.link && { contact: mc.link }) });
   const scene = vrm ? vrm.scene : gltf.scene;
   if (vrm) {
     VRMUtils.removeUnnecessaryVertices(scene);

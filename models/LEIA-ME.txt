@@ -24,3 +24,14 @@ para você e balançar o cabelo e a roupa. Modelos .glb comuns tocam a primeira
 animação que vierem dentro do arquivo.
 
 Depois de copiar os arquivos, rode jogar.bat (ou suba no GitHub) e recarregue a página.
+
+CRÉDITOS (obrigatório quando a licença pede "Attribution: Required")
+Os créditos aparecem em Menu → Sistema. O jogo lê o autor de dentro do arquivo VRM;
+se o arquivo não trouxer, preencha em modelos.json:
+
+  "creditos": {
+    "asuna.vrm": { "nome": "Asuna", "autor": "nome do autor no VRoid Hub", "link": "https://hub.vroid.com/..." }
+  }
+
+Atenção às condições de uso de cada modelo: se "Violent acts" for "Do not allow",
+o personagem não pode lutar no jogo (fica só como NPC da cidade).

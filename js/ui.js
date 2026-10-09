@@ -4,6 +4,7 @@ import { SKILLS, ITEMS, weaponDef, armorDef, getFloor, expNeed, skillById, shopS
 import { Sfx } from './audio.js';
 import { exportSave, importSave, newSave } from './save.js';
 import { TOWN_R } from './world.js';
+import { registry } from './models.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -535,6 +536,7 @@ export class UI {
       <div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="export">Exportar mundo (.json)</button><button class="btn" data-act="import">Importar mundo</button></div>
       <div class="btns"><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Apagar save</button></div>
       <div class="muted pad">O jogo salva sozinho a cada 30s e em momentos importantes. Exporte de vez em quando como backup.</div>
+      ${Object.keys(registry.credits).length ? `<div class="section">Créditos dos modelos 3D</div>${Object.entries(registry.credits).map(([f, c]) => `<div class="row"><div><b>${esc(c.title)}</b> <span class="muted">por</span> <b>${esc(c.author)}</b>${c.contact ? `<div class="muted">${esc(c.contact)}</div>` : ''}</div><span class="muted">${esc(f)} · VRoid Hub</span></div>`).join('')}<div class="muted pad">Modelos usados conforme as condições de uso de cada autor: sem redistribuição, sem alterações e sem atos violentos.</div>` : ''}
       <div class="section">Controles</div>
       <div class="keys"><b>WASD</b> mover · <b>Shift</b> correr · <b>Espaço</b> pular · <b>Q</b> esquiva · <b>Clique</b> atacar (combo) · <b>Botão direito</b> defender (no tempo certo = <i>parry</i>) · <b>1–4</b> Sword Skills · <b>R</b> poção · <b>E</b> interagir · <b>Tab/Esc</b> menu</div>`;
   }

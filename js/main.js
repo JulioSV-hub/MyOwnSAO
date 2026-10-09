@@ -116,7 +116,8 @@ class Game {
     loadModels().then((reg) => {
       const n = Object.keys(reg.cast).length + reg.folk.length;
       if (reg.errors.length) console.warn('Modelos com erro:', reg.errors);
-      if (n && this.mode === 'play') { this.npcs.populate(); this.ui.toast(`${n} modelo(s) 3D carregado(s).`); }
+      if (n && this.mode === 'play') this.npcs.populate();
+      if (n) setTimeout(() => this.ui.toast(`${n} modelo(s) 3D carregado(s) — créditos em Menu → Sistema.`), 4000);
     });
     const save = loadSave();
     this.setFloor(save ? save.progress.floor : 1);

@@ -9,5 +9,17 @@
     "argo": "",
     "yui": ""
   },
-  "moradores": []
+  "moradores": [],
+  "creditos": {
+    "asuna.vrm": {
+      "nome": "Asuna",
+      "autor": "",
+      "link": ""
+    },
+    "kirito.vrm": {
+      "nome": "Kirito",
+      "autor": "",
+      "link": ""
+    }
+  }
 }
