@@ -103,11 +103,25 @@ export async function createModelCharacter(file, height = 1.7) {
   group.add(inner);
   // VRM olha para +Z depois do rotateVRM0; nossos personagens olham para -Z
   inner.rotation.y = Math.PI;
+  // Altura medida pelo esqueleto (cabeça → pés). O contorno do modelo inteiro engana quando há
+  // chifres, armas flutuando, cabelo longo ou fitas — e o personagem acabava encolhido.
+  group.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(scene);
-  const h = Math.max(0.1, box.max.y - box.min.y);
+  let h = Math.max(0.1, box.max.y - box.min.y), floor = box.min.y;
+  const raw = (n) => vrm?.humanoid?.getRawBoneNode(n);
+  const head = raw('head'), lf = raw('leftFoot'), rf = raw('rightFoot');
+  if (head && (lf || rf)) {
+    const hy = head.getWorldPosition(new THREE.Vector3()).y;
+    const fy = Math.min(lf ? lf.getWorldPosition(new THREE.Vector3()).y : Infinity, rf ? rf.getWorldPosition(new THREE.Vector3()).y : Infinity);
+    const skel = hy - fy;
+    if (skel > 0.05) {
+      h = skel * 1.16;            // topo da cabeça fica ~16% acima do osso da cabeça
+      floor = fy - skel * 0.06;   // sola do pé um pouco abaixo do tornozelo
+    }
+  }
   const k = height / h;
   inner.scale.setScalar(k);
-  inner.position.y = -box.min.y * k;
+  inner.position.y = -floor * k;
   const c = { group, inner, vrm, gltf, height: height + 0.1, external: true, parts: {} };
   if (gltf.animations?.length && !vrm) {
     c.mixer = new THREE.AnimationMixer(scene);

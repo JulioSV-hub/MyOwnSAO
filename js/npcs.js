@@ -101,11 +101,22 @@ class NPC {
           const fd = Math.hypot(fx - this.pos.x, fz - this.pos.z);
           if (fd > 0.4) {
             const sp = Math.min(leader.speed * 1.3, fd * 2);
+            const ox = this.pos.x, oz = this.pos.z;
             this.pos.x += ((fx - this.pos.x) / fd) * sp * dt;
             this.pos.z += ((fz - this.pos.z) / fd) * sp * dt;
+            w.resolve(this.pos, this.radius);
             turn(Math.atan2(-(fx - this.pos.x), -(fz - this.pos.z)), 5);
             moving = sp;
-          } else turn(leader.yaw, 3);
+            // presa num obstáculo ou muito longe: reaparece ao lado do líder (fora da vista do jogador)
+            const moved = Math.hypot(this.pos.x - ox, this.pos.z - oz);
+            this.stuck = moved < sp * dt * 0.3 ? this.stuck + dt : 0;
+            if (this.stuck > 1.5 || fd > 12) {
+              const bx = leader.pos.x - Math.sin(leader.yaw) * 0.9, bz = leader.pos.z - Math.cos(leader.yaw) * 0.9;
+              if (!w.grid.query(bx, bz, 0.5, []).length) { this.pos.x = bx; this.pos.z = bz; }
+              else { this.pos.x = leader.pos.x + 0.6; this.pos.z = leader.pos.z + 0.6; }
+              this.stuck = 0;
+            }
+          } else { turn(leader.yaw, 3); this.stuck = 0; }
         }
       } else if (this.state === 'idle') {
         this.timer -= dt;
