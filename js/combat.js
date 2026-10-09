@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { skillById, weaponDef } from './data.js';
 import { Sfx } from './audio.js';
+import { buildSword } from './gear3d.js';
 
 const PI = Math.PI;
 const IDLE = { tilt: 0, yaw: 0.25, pitch: -0.55, px: 0.42, py: -0.45, pz: -0.62 };
@@ -9,6 +10,7 @@ const GUARD = { tilt: -0.15, yaw: 1.45, pitch: -1.45, px: 0.3, py: -0.2, pz: -0.
 const KEYS = ['tilt', 'yaw', 'pitch', 'px', 'py', 'pz'];
 const mirror = (p) => ({ tilt: -p.tilt, yaw: -p.yaw, pitch: p.pitch, px: -p.px, py: p.py, pz: p.pz });
 const TRAIL_WHITE = new THREE.Color('#dfefff');
+const GLOW_TMP = new THREE.Color();
 
 const BASIC = [
   [{ type: 'slash', tilt: 0.35, from: -1.25, to: 1.15, dur: 0.2, mul: 1, wind: 0.07 }],
@@ -38,25 +40,7 @@ class SwordRig {
     this.tilt.add(this.aim);
     camera.add(this.root);
     this.root.scale.setScalar(0.72);
-    this.bladeMat = new THREE.MeshStandardMaterial({ color: '#d4dbe3', metalness: 0.55, roughness: 0.22, emissive: '#000000' });
-    const hilt = new THREE.MeshStandardMaterial({ color: '#2a2622', roughness: 0.8 });
-    const guard = new THREE.MeshStandardMaterial({ color: '#9a8a62', metalness: 0.8, roughness: 0.3 });
-    const add = (g, m, y) => { const o = new THREE.Mesh(g, m); o.position.y = y; this.aim.add(o); return o; };
-    add(new THREE.CylinderGeometry(0.022, 0.025, 0.24, 14), hilt, 0);
-    for (let i = 0; i < 5; i++) add(new THREE.TorusGeometry(0.025, 0.006, 6, 14).rotateX(PI / 2), hilt, -0.09 + i * 0.045);
-    add(new THREE.SphereGeometry(0.036, 16, 12), guard, -0.135);
-    const cross = add(new THREE.CapsuleGeometry(0.017, 0.2, 4, 10), guard, 0.135);
-    cross.rotation.z = PI / 2;
-    add(new THREE.SphereGeometry(0.03, 14, 10), guard, 0.135);
-    // lâmina: perfil com ponta, extrudado com bisel (fio afiado)
-    const s = new THREE.Shape(), w = 0.027, L = 1.04;
-    s.moveTo(-w, 0); s.lineTo(-w * 0.85, L * 0.86); s.quadraticCurveTo(-w * 0.5, L * 0.96, 0, L);
-    s.quadraticCurveTo(w * 0.5, L * 0.96, w * 0.85, L * 0.86); s.lineTo(w, 0); s.closePath();
-    const blade = new THREE.ExtrudeGeometry(s, { depth: 0.004, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.008, bevelSegments: 2, curveSegments: 8 });
-    blade.translate(0, 0, -0.002);
-    blade.computeVertexNormals();
-    add(blade, this.bladeMat, 0.15);
-    this.aim.traverse((o) => { if (o.isMesh) { o.renderOrder = 10; o.frustumCulled = false; } });
+    this.setWeapon(weaponDef('small_sword'));
     this.pose = side === 'L' ? mirror(IDLE) : { ...IDLE };
     this.apply();
   }
@@ -68,8 +52,25 @@ class SwordRig {
     this.aim.rotation.set(p.pitch, p.yaw, 0);
   }
 
-  tipWorld(v) { this.aim.updateWorldMatrix(true, false); return this.aim.localToWorld(v.set(0, 1.18, 0)); }
-  baseWorld(v) { this.aim.updateWorldMatrix(true, false); return this.aim.localToWorld(v.set(0, 0.3, 0)); }
+  // troca o modelo 3D da arma (cada estilo tem lâmina, guarda e cabo próprios)
+  setWeapon(def) {
+    if (this.weaponId === def.id) return;
+    this.weaponId = def.id;
+    if (this.model) {
+      this.aim.remove(this.model);
+      this.model.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); });
+    }
+    const w = buildSword(def);
+    this.model = w.group;
+    this.bladeMat = w.bladeMat;
+    this.tipY = w.tipY;
+    this.baseY = w.baseY;
+    this.model.traverse((o) => { if (o.isMesh) { o.renderOrder = 10; o.frustumCulled = false; o.castShadow = false; } });
+    this.aim.add(this.model);
+  }
+
+  tipWorld(v) { this.aim.updateWorldMatrix(true, false); return this.aim.localToWorld(v.set(0, this.tipY, 0)); }
+  baseWorld(v) { this.aim.updateWorldMatrix(true, false); return this.aim.localToWorld(v.set(0, this.baseY + 0.15, 0)); }
 }
 
 class Trail {
@@ -152,8 +153,8 @@ export class Combat {
 
   refresh() {
     const p = this.game.state.player;
-    this.R.bladeMat.color.set(weaponDef(p.weapon).blade);
-    if (p.offhand) this.L.bladeMat.color.set(weaponDef(p.offhand).blade);
+    this.R.setWeapon(weaponDef(p.weapon));
+    if (p.offhand) this.L.setWeapon(weaponDef(p.offhand));
     this.L.root.visible = this.R.root.visible && this.dual;
   }
 
@@ -274,7 +275,7 @@ export class Combat {
     }
     this.R.apply();
     this.L.apply();
-    for (const rig of [this.R, this.L]) rig.bladeMat.emissive.copy(this.glowColor).multiplyScalar(this.glow * 2.2);
+    for (const rig of [this.R, this.L]) rig.bladeMat.emissive.copy(rig.bladeMat.userData.baseEmissive).add(GLOW_TMP.copy(this.glowColor).multiplyScalar(this.glow * 2.2));
 
     const col = a?.color || TRAIL_WHITE, strength = a?.color ? 2.4 : 0.6, life = a?.color ? 0.16 : 0.1;
     if (swingR) {

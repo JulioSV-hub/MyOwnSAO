@@ -282,10 +282,10 @@ const RARE_W = {
 const RARE_POOL = [['Blue Rose Sword', '#a8c8ff'], ['Lambent Light', '#f4f4ff'], ['Fragrant Olive Sword', '#ffd27a'], ['Excalibur', '#ffe08a'],
   ['Silver Wolf Fang', '#e0e4ea'], ['Crimson Longsword', '#ff5a5a'], ['Moonlit Edge', '#c0d0ff'], ['Gilded Edge', '#f0c060'], ['Verdant Fang', '#7aff9a']];
 
-export function weaponDef(id) {
+function baseWeaponDef(id) {
   if (!id || id === 'small_sword') return { id: 'small_sword', name: 'Small Sword', atk: 14, price: 30, rarity: 0, blade: '#c8d0d8' };
   const m = /^(gen|rare)_(\d+)$/.exec(id);
-  if (!m) return weaponDef('small_sword');
+  if (!m) return baseWeaponDef('small_sword');
   const n = +m[2], rare = m[1] === 'rare';
   const atk = Math.round((14 + n * 8.5) * (rare ? 1.35 : 1));
   if (rare) {
@@ -300,10 +300,10 @@ const GEN_A = ['Gibão de Couro Reforçado', 'Cota de Malha', 'Armadura de Escam
 const RARE_A = { 1: 'Coat of Midnight', 50: 'Blackwyrm Coat', 25: 'Armadura dos Cavaleiros do Sangue' };
 const RARE_A_POOL = ['Manto Celeste', 'Armadura do Dragão', 'Manto das Sombras', 'Couraça Divina', 'Manto do Guardião'];
 
-export function armorDef(id) {
+function baseArmorDef(id) {
   if (!id || id === 'leather') return { id: 'leather', name: 'Roupas de Couro', def: 2, hp: 0, price: 20, rarity: 0 };
   const m = /^(arm|rarm)_(\d+)$/.exec(id);
-  if (!m) return armorDef('leather');
+  if (!m) return baseArmorDef('leather');
   const n = +m[2], rare = m[1] === 'rarm';
   const k = rare ? 1.35 : 1;
   const def = Math.round((3 + n * 2.4) * k), hp = Math.round(18 * n * k);
@@ -322,4 +322,64 @@ export function laReward(n) {
 export function shopStock(n) {
   const items = Object.entries(ITEMS).filter(([, d]) => !d.minFloor || n >= d.minFloor).map(([id]) => id);
   return { items, weapons: [`gen_${n}`], armors: [`arm_${n}`] };
+}
+
+// ───────────────────────────── Aparência (modelos 3D e ícones) ─────────────────────────────
+// style da lâmina: basic | long | broad | rapier | katana | dark | crystal | ornate | holy
+const W_LOOK = {
+  'Small Sword': { style: 'basic', guard: '#7a6a50', grip: '#4a3424' },
+  'Espada Longa de Ferro': { style: 'long', guard: '#5a5a62', grip: '#4a3424' },
+  'Espada de Aço': { style: 'long', guard: '#8a8a94', grip: '#2a2a30' },
+  'Lâmina de Bronze Polido': { style: 'broad', guard: '#b08040', grip: '#5a3a20' },
+  'Espada de Mithril': { style: 'long', guard: '#a8c8e8', grip: '#2a3a5a', gem: '#7ad0ff' },
+  'Lâmina Cristalina': { style: 'crystal', guard: '#7ad0e8', grip: '#2a4a5a', gem: '#bff4ff' },
+  'Espada Rúnica': { style: 'ornate', guard: '#8a70c8', grip: '#2a2040', gem: '#c08aff', rune: '#b08aff' },
+  'Lâmina Obsidiana': { style: 'dark', guard: '#2a2a34', grip: '#141418', gem: '#8a2aff' },
+  'Espada do Vento': { style: 'katana', guard: '#4a8a7a', grip: '#1a3a32' },
+  'Lâmina Celeste': { style: 'holy', guard: '#e8e0c0', grip: '#3a4a7a', gem: '#8ad0ff' },
+  'Espada Dracônica': { style: 'broad', guard: '#8a2a1a', grip: '#2a1410', gem: '#ff5a2a' },
+  'Anneal Blade': { style: 'long', guard: '#8aa0b8', grip: '#2a3040', gem: '#6ab0ff' },
+  'Sword of Eventide': { style: 'ornate', guard: '#c89040', grip: '#4a2a14', gem: '#ff8a3a' },
+  "Queen's Knightsword": { style: 'ornate', guard: '#d8c070', grip: '#3a2a5a', gem: '#ff5a8a' },
+  Elucidator: { style: 'dark', guard: '#1a1a20', grip: '#0e0e12', gem: '#3a3a4a' },
+  'Dark Repulser': { style: 'crystal', guard: '#5ac8c0', grip: '#1a3a3a', gem: '#aefff4' },
+  Liberator: { style: 'holy', guard: '#e8d8a0', grip: '#a02020', gem: '#ff3030' },
+  'Night Sky Sword': { style: 'dark', guard: '#14142a', grip: '#0a0a14', gem: '#6a7aff', rune: '#8a9aff' },
+  'Blue Rose Sword': { style: 'crystal', guard: '#4a70c8', grip: '#1a2a4a', gem: '#8ab8ff' },
+  'Lambent Light': { style: 'rapier', guard: '#e8e8f0', grip: '#a02020', gem: '#ff5050' },
+  'Fragrant Olive Sword': { style: 'ornate', guard: '#e0b040', grip: '#5a3a14', gem: '#ffd060', rune: '#ffd060' },
+  Excalibur: { style: 'holy', guard: '#f0c850', grip: '#2a3a8a', gem: '#5a8aff', rune: '#ffe08a' },
+  'Silver Wolf Fang': { style: 'long', guard: '#c0c4cc', grip: '#3a3a40' },
+  'Crimson Longsword': { style: 'broad', guard: '#8a1a1a', grip: '#2a0e0e', gem: '#ff3a3a' },
+  'Moonlit Edge': { style: 'katana', guard: '#8a90c0', grip: '#1a1a3a', gem: '#c0c8ff' },
+  'Gilded Edge': { style: 'ornate', guard: '#e0b040', grip: '#3a2a14', gem: '#fff0a0' },
+  'Verdant Fang': { style: 'long', guard: '#4a8a3a', grip: '#1a3a14', gem: '#7aff9a' },
+};
+const A_LOOK = {
+  'Roupas de Couro': { type: 'vest', color: '#7a5434', trim: '#4a3020' },
+  'Gibão de Couro Reforçado': { type: 'vest', color: '#6a4a2a', trim: '#b08a50' },
+  'Cota de Malha': { type: 'mail', color: '#8a8e96', trim: '#4a4a52' },
+  'Armadura de Escamas': { type: 'mail', color: '#5a7a6a', trim: '#2a3a32' },
+  'Manto do Viajante': { type: 'cloak', color: '#3a5a8a', trim: '#c8a860' },
+  'Peitoral de Aço': { type: 'plate', color: '#b8bcc4', trim: '#6a6e78' },
+  'Manto Encantado': { type: 'cloak', color: '#5a3a8a', trim: '#d8b0ff' },
+  'Coat of Midnight': { type: 'coat', color: '#18181e', trim: '#4a4a55' },
+  'Blackwyrm Coat': { type: 'coat', color: '#101014', trim: '#7a7a88' },
+  'Armadura dos Cavaleiros do Sangue': { type: 'plate', color: '#f0f0f4', trim: '#c0262c' },
+  'Manto Celeste': { type: 'cloak', color: '#8ac8f0', trim: '#ffffff' },
+  'Armadura do Dragão': { type: 'plate', color: '#8a2a1a', trim: '#e0a040' },
+  'Manto das Sombras': { type: 'coat', color: '#2a2a3a', trim: '#8a5aff' },
+  'Couraça Divina': { type: 'plate', color: '#f0e8c8', trim: '#e0b040' },
+  'Manto do Guardião': { type: 'cloak', color: '#3a6a4a', trim: '#e0c070' },
+};
+const baseName = (n) => n.replace(/ \+\d+$/, '');
+
+export function weaponDef(id) {
+  const d = baseWeaponDef(id);
+  return { ...d, ...(W_LOOK[baseName(d.name)] || { style: 'long', guard: '#7a7a82', grip: '#3a2a20' }) };
+}
+
+export function armorDef(id) {
+  const d = baseArmorDef(id);
+  return { ...d, ...(A_LOOK[baseName(d.name)] || { type: 'vest', color: '#7a5434', trim: '#4a3020' }) };
 }

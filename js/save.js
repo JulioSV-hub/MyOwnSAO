@@ -1,9 +1,12 @@
-// Salvamento local (localStorage) + exportação/importação do mundo em JSON.
-const KEY = 'sao-meu-mundo-save-v1';
+// Salvamento local (localStorage) com dois mundos: Normal (renasce ao morrer) e Hardcore (morreu = recomeça do zero).
+// Também exporta/importa o mundo Normal em JSON.
+const KEYS = { normal: 'sao-meu-mundo-save-v1', hardcore: 'sao-meu-mundo-save-hardcore-v1' };
+const RECORD_KEY = 'sao-meu-mundo-hardcore-recorde';
 
-export function newSave(name) {
+export function newSave(name, mode = 'normal') {
   return {
     version: 1,
+    mode,
     created: Date.now(),
     savedAt: Date.now(),
     playTime: 0,
@@ -22,9 +25,10 @@ export function newSave(name) {
   };
 }
 
-function migrate(s) {
-  const base = newSave(s?.player?.name || 'Player');
+function migrate(s, mode) {
+  const base = newSave(s?.player?.name || 'Player', s?.mode || mode || 'normal');
   const out = { ...base, ...s };
+  out.mode = s?.mode || mode || 'normal';
   out.player = { ...base.player, ...(s.player || {}) };
   out.progress = { ...base.progress, ...(s.progress || {}) };
   out.settings = { ...base.settings, ...(s.settings || {}) };
@@ -36,12 +40,12 @@ function valid(s) {
   return s && typeof s === 'object' && s.player && typeof s.player.name === 'string' && s.progress;
 }
 
-export function loadSave() {
+export function loadSave(mode = 'normal') {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEYS[mode]);
     if (!raw) return null;
     const s = JSON.parse(raw);
-    return valid(s) ? migrate(s) : null;
+    return valid(s) ? migrate(s, mode) : null;
   } catch {
     return null;
   }
@@ -50,15 +54,31 @@ export function loadSave() {
 export function writeSave(state) {
   state.savedAt = Date.now();
   try {
-    localStorage.setItem(KEY, JSON.stringify(state));
+    localStorage.setItem(KEYS[state.mode || 'normal'], JSON.stringify(state));
     return true;
   } catch {
     return false;
   }
 }
 
-export function deleteSave() {
-  localStorage.removeItem(KEY);
+export function deleteSave(mode = 'normal') {
+  localStorage.removeItem(KEYS[mode]);
+}
+
+// Recorde do Hardcore: sobrevive às mortes, para você tentar superar a si mesmo.
+export function getRecord() {
+  try { return { runs: 0, bestFloor: 0, bestLevel: 0, bestKills: 0, last: null, ...JSON.parse(localStorage.getItem(RECORD_KEY) || '{}') }; } catch { return { runs: 0, bestFloor: 0, bestLevel: 0, bestKills: 0, last: null }; }
+}
+
+export function recordDeath(state, cause) {
+  const r = getRecord(), p = state.player;
+  r.runs++;
+  r.bestFloor = Math.max(r.bestFloor, state.progress.highest);
+  r.bestLevel = Math.max(r.bestLevel, p.level);
+  r.bestKills = Math.max(r.bestKills, p.kills);
+  r.last = { name: p.name, floor: state.progress.floor, level: p.level, kills: p.kills, time: state.playTime, cause, at: Date.now() };
+  localStorage.setItem(RECORD_KEY, JSON.stringify(r));
+  return r;
 }
 
 export function exportSave(state) {
@@ -73,6 +93,7 @@ export function exportSave(state) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
+// Importa sempre para o mundo Normal (no Hardcore não existe "voltar no tempo").
 export function importSave() {
   return new Promise((resolve, reject) => {
     const inp = document.createElement('input');
@@ -86,7 +107,8 @@ export function importSave() {
         try {
           const s = JSON.parse(r.result);
           if (!valid(s)) throw new Error('Arquivo não é um mundo válido');
-          const m = migrate(s);
+          const m = migrate(s, 'normal');
+          m.mode = 'normal';
           writeSave(m);
           resolve(m);
         } catch (e) {

@@ -21,7 +21,7 @@ import { windTime } from './toon.js';
 import { Music } from './music.js';
 import { smoothstep } from './rng.js';
 import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward } from './data.js';
-import { loadSave, writeSave, deleteSave, newSave } from './save.js';
+import { loadSave, writeSave, deleteSave, newSave, recordDeath } from './save.js';
 
 const NIGHT_TOP = new THREE.Color('#050a1c');
 const NIGHT_BOTTOM = new THREE.Color('#121c34');
@@ -120,7 +120,7 @@ class Game {
       if (n && this.mode === 'play') this.npcs.populate();
       if (n) setTimeout(() => this.ui.toast(`${n} modelo(s) 3D carregado(s) — créditos em Menu → Sistema.`), 4000);
     });
-    const save = loadSave();
+    const save = loadSave('normal') || loadSave('hardcore');
     this.setFloor(save ? save.progress.floor : 1);
     this.combat.setVisible(false);
     this.frame = this.frame.bind(this);
@@ -131,7 +131,7 @@ class Game {
       this.ui.hideTitle();
       this.startState(newSave('Tester'));
     } else {
-      this.ui.showTitle(save);
+      this.ui.showTitle();
     }
   }
 
@@ -374,6 +374,7 @@ class Game {
   }
 
   logout() {
+    if (this.hardcoreDead) { this.hardcoreDead = null; this.ui.hideDeath(); this.state = null; this.mode = 'title'; this.combat.setVisible(false); this.enemies.clear(); this.npcs.clear(); this.ui.clearEnemyLabels(); this.ui.showTitle(); return; }
     this.npcs.clear();
     this.ui.closeDialog(false);
     this.save();
@@ -384,13 +385,13 @@ class Game {
     this.enemies.clear();
     this.ui.clearEnemyLabels();
     this.ui.hint(null);
-    this.ui.showTitle(loadSave());
+    this.ui.showTitle();
   }
 
   wipe() {
     this.npcs.clear();
     this.ui.closeDialog(false);
-    deleteSave();
+    deleteSave(this.state?.mode || 'normal');
     this.state = null;
     this.ui.closeMenu(false);
     this.mode = 'title';
@@ -399,11 +400,11 @@ class Game {
     this.enemies.clear();
     this.ui.clearEnemyLabels();
     this.ui.hint(null);
-    this.ui.showTitle(null);
+    this.ui.showTitle();
   }
 
   save(manual = false) {
-    if (!this.state) return;
+    if (!this.state || this.hardcoreDead) return;
     this.state.world.tod = this.tod;
     const ok = writeSave(this.state);
     if (manual) this.ui.toast(ok ? 'Mundo salvo.' : 'Não foi possível salvar (armazenamento cheio?).', ok ? '' : 'warn');
@@ -517,10 +518,10 @@ class Game {
     this.ui.hurt(dmg / st.maxHp);
     Sfx.hurt();
     this.shake(0.3);
-    if (p.hp <= 0) { p.hp = 0; this.die(); }
+    if (p.hp <= 0) { p.hp = 0; this.die(src?.def?.name); }
   }
 
-  die() {
+  die(cause) {
     const pl = this.player;
     pl.dead = true;
     pl.hot = null;
@@ -533,10 +534,26 @@ class Game {
     if (this.bossFight) this.endBossFight(false);
     this.mode = 'dead';
     this.ui.hint(null);
-    setTimeout(() => { this.input.unlock(); this.ui.showDeath(); }, 1400);
+    // Hardcore: como no anime, a morte é permanente — o mundo é apagado e você recomeça do zero
+    if (this.state.mode === 'hardcore') {
+      const record = recordDeath(this.state, cause);
+      deleteSave('hardcore');
+      this.hardcoreDead = { name: this.state.player.name, record };
+    } else this.hardcoreDead = null;
+    setTimeout(() => { this.input.unlock(); this.ui.showDeath(this.hardcoreDead, this.state, cause); }, 1400);
+  }
+
+  restartHardcore() {
+    const name = this.hardcoreDead?.name || this.state?.player.name || 'Kirito';
+    this.ui.hideDeath();
+    this.hardcoreDead = null;
+    this.mode = 'title';
+    this.combat.setVisible(false);
+    this.beginGame(newSave(name, 'hardcore'));
   }
 
   respawn() {
+    if (this.hardcoreDead) { this.restartHardcore(); return; }
     const p = this.state.player;
     const lost = Math.floor(p.exp * 0.1);
     p.exp -= lost;

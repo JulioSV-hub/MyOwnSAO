@@ -2,7 +2,8 @@
 import * as THREE from 'three';
 import { SKILLS, ITEMS, weaponDef, armorDef, getFloor, expNeed, skillById, shopStock } from './data.js';
 import { Sfx } from './audio.js';
-import { exportSave, importSave, newSave } from './save.js';
+import { exportSave, importSave, newSave, loadSave, getRecord } from './save.js';
+import { icon } from './icons.js';
 import { TOWN_R } from './world.js';
 import { registry, displayName } from './models.js';
 import { CAST } from './characters.js';
@@ -22,8 +23,8 @@ const ICONS = {
   map: '<svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/></svg>',
   system: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="3.4 2.1"/><circle cx="12" cy="12" r="2.6"/></svg>',
 };
-const MENU = [['status', 'Status'], ['items', 'Itens'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['map', 'Mapa'], ['system', 'Sistema']];
-const TITLES = { status: 'Status', items: 'Itens', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja do Agil' };
+const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['map', 'Mapa'], ['system', 'Sistema']];
+const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja do Agil' };
 const SET_FMT = {
   sens: (v) => (+v).toFixed(2), fov: (v) => `${v}°`, volume: (v) => `${Math.round(v * 100)}%`,
   xpRate: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`,
@@ -50,6 +51,7 @@ export class UI {
     this.bindPanel();
     $('clicktoplay').addEventListener('click', () => { Sfx.unlock(); game.input.lock(); });
     $('respawn-btn').addEventListener('click', () => game.respawn());
+    $('death-title-btn').addEventListener('click', () => game.logout());
   }
 
   // ─────────── HUD ───────────
@@ -111,7 +113,7 @@ export class UI {
     $('safe-tag').classList.toggle('hidden', !g.world.inSafeZone(pl.pos) || pl.dead);
     $('post-motion').classList.toggle('hidden', g.combat.post <= 0);
     const tod = g.tod * 24, hh = Math.floor(tod), mm = Math.floor((tod - hh) * 60);
-    $('floor-tag').innerHTML = `<b>Andar ${g.floor.n}</b>${esc(g.floor.town)}<span>${hh >= 6 && hh < 18 ? '☀' : '☾'} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}</span>`;
+    $('floor-tag').innerHTML = `${g.state.mode === 'hardcore' ? '<i class="hc-tag">HARDCORE</i>' : ''}<b>Andar ${g.floor.n}</b>${esc(g.floor.town)}<span>${hh >= 6 && hh < 18 ? '☀' : '☾'} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}</span>`;
 
     if (this.bannerT > 0) {
       this.bannerT -= dt;
@@ -329,7 +331,26 @@ export class UI {
     setTimeout(() => { cb(); setTimeout(() => f.classList.remove('on'), 150); }, 650);
   }
 
-  showDeath() { $('death').classList.remove('hidden'); }
+  showDeath(hc, state, cause) {
+    const p = state?.player;
+    $('death').classList.toggle('hardcore', !!hc);
+    if (hc) {
+      const r = hc.record;
+      $('death-title').textContent = 'GAME OVER';
+      $('death-sub').textContent = `${p.name} foi derrotado${cause ? ` por ${cause}` : ''}. No Hardcore não existe segunda chance: este mundo foi apagado.`;
+      $('death-stats').innerHTML = `<div class="dstats"><div><b>${state.progress.highest}</b><span>maior andar</span></div><div><b>${p.level}</b><span>nível</span></div><div><b>${p.kills}</b><span>monstros</span></div><div><b>${fmtTime(state.playTime)}</b><span>de sobrevivência</span></div></div>
+        <div class="muted-light">Recorde: andar ${r.bestFloor} · nível ${r.bestLevel} · ${r.runs} tentativa${r.runs > 1 ? 's' : ''}</div>`;
+      $('respawn-btn').textContent = 'Recomeçar do zero';
+      $('death-title-btn').classList.remove('hidden');
+    } else {
+      $('death-title').textContent = 'You are dead';
+      $('death-sub').textContent = 'Seu avatar se desfez em polígonos... mas este é o seu mundo. Aqui você pode tentar de novo.';
+      $('death-stats').innerHTML = '';
+      $('respawn-btn').textContent = 'Renascer na cidade';
+      $('death-title-btn').classList.add('hidden');
+    }
+    $('death').classList.remove('hidden');
+  }
   hideDeath() { $('death').classList.add('hidden'); }
 
   // ─────────── Minimapa ───────────
@@ -459,14 +480,60 @@ export class UI {
   }
 
   pItems() {
+    const g = this.g, p = g.state.player, st = g.stats();
+    const cat = this.bagCat || 'all';
+    const tiles = [];
+    const seen = new Set();
+    for (const id of p.weapons) {
+      if (seen.has(`w${id}`)) continue;
+      seen.add(`w${id}`);
+      const d = weaponDef(id), count = p.weapons.filter((x) => x === id).length;
+      tiles.push({ cat: 'weapon', kind: 'weapon', id, name: d.name, rarity: d.rarity, qty: count > 1 ? count : 0, eq: id === p.weapon ? 'D' : id === p.offhand ? 'E' : '' });
+    }
+    for (const id of [...new Set(p.armors)]) {
+      const d = armorDef(id);
+      tiles.push({ cat: 'armor', kind: 'armor', id, name: d.name, rarity: d.rarity, eq: id === p.armor ? '✓' : '' });
+    }
+    for (const [id, q] of Object.entries(p.items)) if (q > 0 && ITEMS[id]) tiles.push({ cat: 'item', kind: 'item', id, name: ITEMS[id].name, rarity: 1, qty: q });
+    for (const [name, m] of Object.entries(p.mats)) if (m.qty > 0) tiles.push({ cat: 'mat', kind: 'mat', id: name, name, rarity: 0, qty: m.qty });
+    const shown = tiles.filter((t) => cat === 'all' || t.cat === cat);
+    const tab = (k, l) => `<button class="tab ${cat === k ? 'on' : ''}" data-act="bagCat" data-c="${k}">${l}</button>`;
+    let html = `<div class="tabs">${tab('all', 'Tudo')}${tab('weapon', 'Armas')}${tab('armor', 'Armaduras')}${tab('item', 'Consumíveis')}${tab('mat', 'Materiais')}<span class="col">${nf(p.col)} Col</span></div>`;
+    if (this.detail) html += this.detailCard(this.detail, st);
+    html += shown.length
+      ? `<div class="bag">${shown.map((t) => `<button class="tile r${t.rarity} ${this.detail && this.detail.id === t.id && this.detail.kind === t.kind ? 'sel' : ''}" data-act="detail" data-kind="${t.kind}" data-id="${esc(t.id)}" title="${esc(t.name)}">
+          <img src="${icon(t.kind, t.id)}" alt="">${t.qty ? `<span class="tq">×${t.qty}</span>` : ''}${t.eq ? `<span class="te">${t.eq}</span>` : ''}<span class="tn">${esc(t.name)}</span></button>`).join('')}</div>`
+      : '<div class="muted pad">Nada aqui ainda. Derrote monstros e visite o Agil!</div>';
+    html += '<div class="muted pad">Clique num item para ver detalhes. <b>R</b> bebe uma poção. D/E = mão direita/esquerda.</div>';
+    return html;
+  }
+
+  detailCard({ kind, id }, st) {
     const p = this.g.state.player;
-    const cons = Object.entries(p.items).filter(([id, q]) => q > 0 && ITEMS[id]);
-    const mats = Object.entries(p.mats).filter(([, m]) => m.qty > 0);
-    return `<div class="section">Consumíveis</div>
-      ${cons.length ? cons.map(([id, q]) => `<div class="row"><div><b>${ITEMS[id].name}</b> <span class="qty">×${q}</span><div class="muted">${ITEMS[id].desc}</div></div><button class="btn" data-act="use" data-id="${id}">Usar</button></div>`).join('') : '<div class="muted pad">Nenhum consumível.</div>'}
-      <div class="section">Materiais</div>
-      ${mats.length ? mats.map(([n, m]) => `<div class="row"><div>${esc(n)} <span class="qty">×${m.qty}</span></div><span class="muted">${m.value} Col cada</span></div>`).join('') : '<div class="muted pad">Derrote monstros para obter materiais e venda-os ao Agil.</div>'}
-      <div class="muted pad">Atalho: <b>R</b> bebe uma poção.</div>`;
+    let title = '', lines = [], acts = '', rar = 0;
+    if (kind === 'weapon') {
+      const d = weaponDef(id), up = p.upgrades?.[id] || 0;
+      title = `${d.name}${up ? ` +${up}` : ''}`; rar = d.rarity;
+      const styles = { basic: 'Espada curta', long: 'Espada longa', broad: 'Espada larga', rapier: 'Rapieira', katana: 'Katana', dark: 'Lâmina sombria', crystal: 'Lâmina de cristal', ornate: 'Espada ornamentada', holy: 'Espada sagrada' };
+      lines = [`${styles[d.style] || 'Espada'} · ATK ${d.atk}${up ? ` (+${up * 8}% pela Lisbeth)` : ''}`, d.floor ? `Origem: Andar ${d.floor}${d.rarity === 2 ? ' — item raro' : ''}` : 'Arma inicial'];
+      if (id !== p.weapon) acts += `<button class="btn sm" data-act="equipW" data-id="${id}">Equipar (mão direita)</button>`;
+      if (p.dualBlades && id !== p.weapon && id !== p.offhand) acts += `<button class="btn sm" data-act="equipL" data-id="${id}">Mão esquerda</button>`;
+    } else if (kind === 'armor') {
+      const d = armorDef(id);
+      title = d.name; rar = d.rarity;
+      lines = [`DEF ${d.def} · HP +${d.hp}`, d.floor ? `Origem: Andar ${d.floor}${d.rarity === 2 ? ' — item raro' : ''}` : 'Equipamento inicial'];
+      if (id !== p.armor) acts += `<button class="btn sm" data-act="equipA" data-id="${id}">Equipar</button>`;
+    } else if (kind === 'item') {
+      const d = ITEMS[id];
+      title = d.name; rar = 1;
+      lines = [d.desc, `Você tem ${p.items[id] || 0}`];
+      acts += `<button class="btn sm" data-act="use" data-id="${id}">Usar</button>`;
+    } else {
+      const m = p.mats[id];
+      title = id;
+      lines = ['Material de monstro. Venda ao Agil ou guarde para o futuro.', `×${m?.qty || 0} · ${m?.value || 0} Col cada`];
+    }
+    return `<div class="detail r${rar}"><img src="${icon(kind, id)}" alt=""><div class="dinfo"><div class="dtitle"><span class="rar r${rar}">◆</span> ${esc(title)}</div>${lines.map((l) => `<div class="muted">${esc(l)}</div>`).join('')}<div class="btns">${acts}<button class="btn sm" data-act="closeDetail">Fechar</button></div></div></div>`;
   }
 
   pEquip() {
@@ -477,12 +544,12 @@ export class UI {
       const d = weaponDef(id), eqR = id === p.weapon, eqL = id === p.offhand;
       const main = eqR ? '<span class="tag">Principal</span>' : `<button class="btn sm" data-act="equipW" data-id="${id}">Equipar</button>`;
       const off = p.dualBlades && !eqR ? (eqL ? '<button class="btn sm on" data-act="unequipL">Secundária ✕</button>' : `<button class="btn sm" data-act="equipL" data-id="${id}">Secundária</button>`) : '';
-      return `<div class="row ${eqR || eqL ? 'eq' : ''}"><div><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">ATK ${d.atk}</span></div><div class="row-r">${main}${off}</div></div>`;
+      return `<div class="row ${eqR || eqL ? 'eq' : ''}"><div class="withicon"><img class="ico" src="${icon('weapon', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">ATK ${d.atk}</span></div><div class="row-r">${main}${off}</div></div>`;
     }).join('');
     seen.clear();
     const armors = p.armors.filter((id) => !seen.has(id) && seen.add(id)).map((id) => {
       const d = armorDef(id), eq = id === p.armor;
-      return `<div class="row ${eq ? 'eq' : ''}"><div><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">DEF ${d.def} · HP +${d.hp}</span></div>${eq ? '<span class="tag">Equipada</span>' : `<button class="btn sm" data-act="equipA" data-id="${id}">Equipar</button>`}</div>`;
+      return `<div class="row ${eq ? 'eq' : ''}"><div class="withicon"><img class="ico" src="${icon('armor', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">DEF ${d.def} · HP +${d.hp}</span></div>${eq ? '<span class="tag">Equipada</span>' : `<button class="btn sm" data-act="equipA" data-id="${id}">Equipar</button>`}</div>`;
     }).join('');
     return `<div class="equip-sum">
         <div><span class="muted">Mão direita</span><b>${esc(w.name)}</b><span>ATK ${w.atk}</span></div>
@@ -536,8 +603,9 @@ export class UI {
       ${range('dayMinutes', 'Duração do dia', 2, 60, 1)}
       ${check('invertY', 'Inverter eixo Y')}${check('bloom', 'Brilho (bloom)')}${check('shadows', 'Sombras')}${check('grass', 'Grama (desligue se o PC estiver lento)')}
       <div class="section">Mundo</div>
-      <div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="export">Exportar mundo (.json)</button><button class="btn" data-act="import">Importar mundo</button></div>
-      <div class="btns"><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Apagar save</button></div>
+      ${this.g.state.mode === 'hardcore'
+        ? '<div class="unique hc">Modo <b>Hardcore</b>: a morte é permanente. Exportar e importar ficam desativados neste mundo.</div><div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Desistir (apagar este mundo)</button></div>'
+        : '<div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="export">Exportar mundo (.json)</button><button class="btn" data-act="import">Importar mundo</button></div><div class="btns"><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Apagar save</button></div>'}
       <div class="muted pad">O jogo salva sozinho a cada 30s e em momentos importantes. Exporte de vez em quando como backup.</div>
       <div class="section">Modelos 3D (guardados só neste navegador)</div>
       <div class="muted pad">Escolha arquivos .vrm do seu PC. Eles ficam salvos apenas neste navegador e nunca são enviados para a internet — por isso funcionam no site online sem redistribuir os modelos.</div>
@@ -568,17 +636,17 @@ export class UI {
       html += '<div class="section">Consumíveis</div>';
       for (const id of stock.items) {
         const d = ITEMS[id];
-        html += `<div class="row"><div><b>${d.name}</b> <span class="qty">tem ${p.items[id] || 0}</span><div class="muted">${d.desc}</div></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="item" data-id="${id}" data-q="1">×1</button><button class="btn sm" data-act="buy" data-kind="item" data-id="${id}" data-q="5">×5</button></div></div>`;
+        html += `<div class="row"><div class="withicon"><img class="ico" src="${icon('item', id)}" alt=""><b>${d.name}</b> <span class="qty">tem ${p.items[id] || 0}</span><div class="muted">${d.desc}</div></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="item" data-id="${id}" data-q="1">×1</button><button class="btn sm" data-act="buy" data-kind="item" data-id="${id}" data-q="5">×5</button></div></div>`;
       }
       html += '<div class="section">Equipamento</div>';
       const cur = weaponDef(p.weapon), curA = armorDef(p.armor);
       for (const id of stock.weapons) {
         const d = weaponDef(id), diff = d.atk - cur.atk;
-        html += `<div class="row"><div><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">ATK ${d.atk}</span> <span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '+' : ''}${diff}</span></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="weapon" data-id="${id}">Comprar</button></div></div>`;
+        html += `<div class="row"><div class="withicon"><img class="ico" src="${icon('weapon', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">ATK ${d.atk}</span> <span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '+' : ''}${diff}</span></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="weapon" data-id="${id}">Comprar</button></div></div>`;
       }
       for (const id of stock.armors) {
         const d = armorDef(id), diff = d.def - curA.def;
-        html += `<div class="row"><div><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">DEF ${d.def} · HP +${d.hp}</span> <span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '+' : ''}${diff}</span></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="armor" data-id="${id}">Comprar</button></div></div>`;
+        html += `<div class="row"><div class="withicon"><img class="ico" src="${icon('armor', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">DEF ${d.def} · HP +${d.hp}</span> <span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '+' : ''}${diff}</span></div><div class="row-r"><span class="price">${nf(d.price)}</span><button class="btn sm" data-act="buy" data-kind="armor" data-id="${id}">Comprar</button></div></div>`;
       }
     } else {
       const mats = Object.entries(p.mats).filter(([, m]) => m.qty > 0);
@@ -656,6 +724,9 @@ export class UI {
           return;
         }
         case 'tab': this.shopTab = d.t; break;
+        case 'bagCat': this.bagCat = d.c; this.detail = null; break;
+        case 'detail': this.detail = { kind: d.kind, id: d.id }; break;
+        case 'closeDetail': this.detail = null; break;
         case 'buy': g.buy(d.kind, d.id, +(d.q || 1)); break;
         case 'sellMat': g.sellMat(d.id); break;
         case 'sellAllMats': Object.keys(p.mats).forEach((k) => g.sellMat(k)); break;
@@ -677,14 +748,28 @@ export class UI {
   }
 
   // ─────────── Tela inicial ───────────
-  showTitle(save) {
+  showTitle() {
     $('title').classList.remove('hidden');
     this.showHUD(false);
+    const normal = loadSave('normal'), hard = loadSave('hardcore'), rec = getRecord();
+    const info = (sv) => `${esc(sv.player.name)} · Nv ${sv.player.level} · Andar ${sv.progress.floor}`;
     const c = $('title-actions');
-    c.innerHTML = save
-      ? `<button class="tbtn primary" data-t="continue">Continuar<small>${esc(save.player.name)} · Nv ${save.player.level} · Andar ${save.progress.floor}</small></button>
-         <button class="tbtn" data-t="new">Novo jogo</button><button class="tbtn" data-t="import">Importar mundo</button>`
-      : '<button class="tbtn primary" data-t="new">Novo jogo</button><button class="tbtn" data-t="import">Importar mundo</button>';
+    c.innerHTML = `<div class="worlds">
+      <div class="world">
+        <div class="wt">Mundo Normal</div>
+        <div class="wd">Se morrer, você renasce na cidade e perde um pouco de EXP.</div>
+        ${normal ? `<button class="tbtn primary" data-t="continue" data-m="normal">Continuar<small>${info(normal)}</small></button>` : ''}
+        <button class="tbtn ${normal ? '' : 'primary'}" data-t="new" data-m="normal">Novo jogo</button>
+        <button class="tbtn small" data-t="import">Importar mundo (.json)</button>
+      </div>
+      <div class="world hc">
+        <div class="wt">Modo Hardcore</div>
+        <div class="wd">Como no anime: morreu, perdeu tudo. O mundo é apagado e você recomeça do zero.</div>
+        ${hard ? `<button class="tbtn danger-btn" data-t="continue" data-m="hardcore">Continuar<small>${info(hard)}</small></button>` : ''}
+        <button class="tbtn ${hard ? '' : 'danger-btn'}" data-t="new" data-m="hardcore">Novo jogo Hardcore</button>
+        <div class="wr">${rec.runs ? `Recorde: andar ${rec.bestFloor} · nível ${rec.bestLevel} · ${rec.runs} tentativa${rec.runs > 1 ? 's' : ''}${rec.last ? `<br>Última queda: ${esc(rec.last.name)}, andar ${rec.last.floor}${rec.last.cause ? `, por ${esc(rec.last.cause)}` : ''}` : ''}` : 'Nenhuma tentativa ainda.'}</div>
+      </div>
+    </div>`;
     $('title-new').classList.add('hidden');
     c.classList.remove('hidden');
     c.onclick = (e) => {
@@ -692,20 +777,27 @@ export class UI {
       if (!b) return;
       Sfx.unlock();
       Sfx.click();
-      if (b.dataset.t === 'continue') this.g.beginGame(save);
+      const mode = b.dataset.m;
+      if (b.dataset.t === 'continue') this.g.beginGame(mode === 'hardcore' ? hard : normal);
       else if (b.dataset.t === 'new') {
+        this.newMode = mode;
         c.classList.add('hidden');
         $('title-new').classList.remove('hidden');
-        $('title-warn').classList.toggle('hidden', !save);
+        $('title-new').classList.toggle('hc', mode === 'hardcore');
+        const has = mode === 'hardcore' ? hard : normal;
+        $('title-warn').textContent = mode === 'hardcore'
+          ? `Hardcore: se seu HP chegar a zero, este mundo será apagado para sempre.${has ? ' Isto também substitui o Hardcore atual.' : ''}`
+          : 'Atenção: começar um novo jogo substitui o mundo Normal salvo (exporte antes se quiser guardá-lo).';
+        $('title-warn').classList.toggle('hidden', !(has || mode === 'hardcore'));
         $('name-input').focus();
       } else {
-        importSave().then((s) => this.g.beginGame(s)).catch((err) => alert(`Não foi possível importar: ${err.message}`));
+        importSave().then((sv) => this.g.beginGame(sv)).catch((err) => alert(`Não foi possível importar: ${err.message}`));
       }
     };
     $('title-new').onsubmit = (e) => {
       e.preventDefault();
       const name = $('name-input').value.trim().slice(0, 16) || 'Kirito';
-      this.g.beginGame(newSave(name));
+      this.g.beginGame(newSave(name, this.newMode || 'normal'));
     };
     $('title-back').onclick = () => { $('title-new').classList.add('hidden'); c.classList.remove('hidden'); };
   }
