@@ -81,9 +81,94 @@ export class Ambient {
     this.smoke.frustumCulled = false;
     this.group.add(this.smoke);
     this.chimneys = [];
+
+    // clima: partículas que caem (ou sobem) em volta da câmera
+    const WN = 1800;
+    this.wN = WN;
+    this.wPos = new Float32Array(WN * 3);
+    this.wVel = new Float32Array(WN * 3);
+    const wg = new THREE.BufferGeometry();
+    wg.setAttribute('position', new THREE.BufferAttribute(this.wPos, 3));
+    this.weatherPts = new THREE.Points(wg, new THREE.PointsMaterial({ size: 0.12, map: dot, color: '#ffffff', transparent: true, depthWrite: false }));
+    this.weatherPts.frustumCulled = false;
+    this.weatherPts.visible = false;
+    this.group.add(this.weatherPts);
+    // chuva em riscos (linhas)
+    this.rPos = new Float32Array(WN * 6);
+    const rg = new THREE.BufferGeometry();
+    rg.setAttribute('position', new THREE.BufferAttribute(this.rPos, 3));
+    this.rain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: '#b8cce0', transparent: true, opacity: 0.45, depthWrite: false }));
+    this.rain.frustumCulled = false;
+    this.rain.visible = false;
+    this.group.add(this.rain);
+    this.weather = 'none';
+  }
+
+  setWeather(type) {
+    this.weather = type || 'none';
+    const S = { snow: ['#ffffff', 0.34, 1, false], petals: ['#ff9cc0', 0.38, 1, false], leaves: ['#e0782a', 0.42, 1, false], ash: ['#8a847e', 0.24, 0.85, false],
+      spores: ['#9af0ff', 0.22, 1, true], sparkles: ['#d8c8ff', 0.2, 1, true] }[this.weather];
+    this.rain.visible = this.weather === 'rain';
+    this.weatherPts.visible = !!S;
+    if (S) {
+      const m = this.weatherPts.material;
+      m.color.set(S[0]);
+      if (S[3]) m.color.multiplyScalar(1.8);
+      m.size = S[1];
+      m.opacity = S[2];
+      m.blending = S[3] ? THREE.AdditiveBlending : THREE.NormalBlending;
+    }
+    const c = this.game.camera.position;
+    for (let i = 0; i < this.wN; i++) this.respawnW(i, c, true);
+  }
+
+  respawnW(i, c, any) {
+    const p = this.wPos, v = this.wVel, t = this.weather, up = t === 'spores' || t === 'sparkles';
+    p[i * 3] = c.x + (Math.random() - 0.5) * 60;
+    p[i * 3 + 1] = any ? c.y - 8 + Math.random() * 30 : up ? c.y - 10 : c.y + 18 + Math.random() * 4;
+    p[i * 3 + 2] = c.z + (Math.random() - 0.5) * 60;
+    const fall = { rain: -26, snow: -1.4, petals: -1.1, leaves: -1.6, ash: -0.8, spores: 0.5, sparkles: 0.7 }[t] || -1;
+    v[i * 3] = (Math.random() - 0.5) * (t === 'rain' ? 0.5 : 1.2) + (t === 'petals' || t === 'leaves' ? 0.8 : 0);
+    v[i * 3 + 1] = fall * (0.7 + Math.random() * 0.6);
+    v[i * 3 + 2] = (Math.random() - 0.5) * (t === 'rain' ? 0.5 : 1.2);
+  }
+
+  updateWeather(dt, t) {
+    const w = this.weather;
+    const g = this.game;
+    const hide = w === 'none' || w === 'mist' || g.indoor || g.mode === 'title';
+    if (hide) { this.rain.visible = false; this.weatherPts.visible = false; return; }
+    this.rain.visible = w === 'rain';
+    this.weatherPts.visible = w !== 'rain';
+    const c = g.camera.position, p = this.wPos, v = this.wVel, n = w === 'rain' ? this.wN : Math.round(this.wN * 0.55);
+    for (let i = 0; i < n; i++) {
+      const k = i * 3;
+      const sway = w === 'rain' ? 0 : Math.sin(t * 1.3 + i) * 0.6;
+      p[k] += (v[k] + sway) * dt;
+      p[k + 1] += v[k + 1] * dt;
+      p[k + 2] += (v[k + 2] + Math.cos(t * 1.1 + i) * (w === 'rain' ? 0 : 0.4)) * dt;
+      const dx = p[k] - c.x, dz = p[k + 2] - c.z;
+      const dy = p[k + 1] - c.y;
+      // partículas coladas na câmera viram borrões enormes na tela (e pesam muito): mantém distância
+      if (dy < -10 || dy > 24 || Math.abs(dx) > 32 || Math.abs(dz) > 32 || (w !== 'rain' && dx * dx + dy * dy + dz * dz < 9)) this.respawnW(i, c, false);
+    }
+    if (w === 'rain') {
+      const r = this.rPos;
+      for (let i = 0; i < n; i++) {
+        const k = i * 3, j = i * 6;
+        r[j] = p[k]; r[j + 1] = p[k + 1]; r[j + 2] = p[k + 2];
+        r[j + 3] = p[k] - v[k] * 0.03; r[j + 4] = p[k + 1] - v[k + 1] * 0.03; r[j + 5] = p[k + 2] - v[k + 2] * 0.03;
+      }
+      this.rain.geometry.setDrawRange(0, n * 2);
+      this.rain.geometry.attributes.position.needsUpdate = true;
+    } else {
+      this.weatherPts.geometry.setDrawRange(0, n);
+      this.weatherPts.geometry.attributes.position.needsUpdate = true;
+    }
   }
 
   setWorld(world) {
+    this.setWeather(world.floor.weather);
     this.chimneys = (world.chimneys || []).slice(0, 60);
     const n = this.chimneys.length * this.SMOKE_PER;
     for (let i = 0; i < this.smokeMax; i++) { this.smokeAge[i] = Math.random() * 6; this.smokePos[i * 3 + 1] = -999; }
@@ -175,5 +260,6 @@ export class Ambient {
     });
     this.smoke.geometry.attributes.position.needsUpdate = true;
     this.smoke.material.opacity = 0.3 * (0.5 + day * 0.5);
+    this.updateWeather(dt, t);
   }
 }

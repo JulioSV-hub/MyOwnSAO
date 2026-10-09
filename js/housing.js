@@ -59,21 +59,47 @@ export class Housing {
   }
 
   get data() { return this.game.state.house || null; }
-  price(floor) { return 2500 + (floor - 1) * 900; }
+  // no andar 22 fica a cabana à beira do lago, como no anime
+  price(floor) { return floor === 22 ? 6000 : 2500 + (floor - 1) * 900; }
+
+  // venda: devolve 60% do que você pagou pela casa + metade do valor dos móveis
+  saleValue() {
+    const d = this.data;
+    if (!d) return 0;
+    const furn = d.items.reduce((a, it) => a + (byId(it.t)?.price || 0), 0);
+    return Math.floor((d.paid ?? this.price(d.floor)) * 0.6 + furn * 0.5);
+  }
+
+  sellHouse() {
+    const g = this.game, v = this.saleValue(), f = this.data.floor;
+    g.state.player.col += v;
+    g.state.house = null;
+    Sfx.coin();
+    g.ui.banner('Casa vendida', `+${v.toLocaleString('pt-BR')} Col — a casa do Andar ${f} voltou a ficar à venda`, 4);
+    g.save();
+  }
+
+  sellOption() {
+    const v = this.saleValue(), f = this.data.floor;
+    return { label: `Vender a casa do Andar ${f} (${v.toLocaleString('pt-BR')} Col)`, run: () => ({
+      text: `Tem certeza? Você recebe ${v.toLocaleString('pt-BR')} Col (60% do preço da casa + metade do valor dos móveis). Os móveis vão junto com a casa.`,
+      options: [{ label: 'Sim, vender', run: () => { this.sellHouse(); return null; } }, { label: 'Não, deixa pra lá', run: () => this.plaqueDialog() }],
+    }) };
+  }
 
   plaqueDialog() {
     const g = this.game, p = g.state.player, n = g.floor.n, d = this.data;
     const close = { label: 'Fechar', run: () => null };
-    if (d && d.floor === n) return { text: 'Sua casa. A chave encaixa perfeitamente na fechadura.', options: [{ label: 'Entrar', run: () => { g.ui.closeDialog(false); this.enter(); return undefined; } }, close] };
-    if (d) return { text: `Casa à venda — mas você já tem uma casa no Andar ${d.floor}. (Venda aquela antes, falando com a placa de lá.)`, options: [close] };
+    if (d && d.floor === n) return { text: 'Sua casa. A chave encaixa perfeitamente na fechadura.', options: [{ label: 'Entrar', run: () => { g.ui.closeDialog(false); this.enter(); return undefined; } }, this.sellOption(), close] };
+    if (d) return { text: `${n === 22 ? 'Cabana à beira do lago' : 'Casa à venda'} — mas você já tem uma casa no Andar ${d.floor}. Só dá para ter uma: venda a outra para comprar esta (a imobiliária cuida disso daqui mesmo).`, options: [this.sellOption(), close] };
     const price = this.price(n);
     return {
-      text: `CASA À VENDA\nUm sobrado aconchegante em ${g.floor.town}. Ideal para descansar entre as batalhas.\nPreço: ${price.toLocaleString('pt-BR')} Col.`,
+      text: n === 22 ? `CABANA À VENDA\nUma cabana de madeira à beira do lago de ${g.floor.town}, o andar mais tranquilo de Aincrad. Dizem que um casal de espadachins sonhava em morar aqui...\nPreço: ${price.toLocaleString('pt-BR')} Col.` : `CASA À VENDA\nUm sobrado aconchegante em ${g.floor.town}. Ideal para descansar entre as batalhas.\nPreço: ${price.toLocaleString('pt-BR')} Col.`,
       options: [
         { label: `Comprar (${price.toLocaleString('pt-BR')} Col)`, run: () => {
           if (p.col < price) { Sfx.error(); return { text: `Faltam ${(price - p.col).toLocaleString('pt-BR')} Col. Volte quando tiver juntado!`, options: [close] }; }
           p.col -= price;
-          g.state.house = { floor: n, items: [{ t: 'bed', x: -4.6, z: -3, rot: 0 }, { t: 'rug', x: 0, z: 0, rot: 0 }, { t: 'table', x: 2.5, z: -2.5, rot: 0 }] };
+          g.state.house = { floor: n, paid: price, items: [{ t: 'bed', x: -4.6, z: -3, rot: 0 }, { t: 'rug', x: 0, z: 0, rot: 0 }, { t: 'table', x: 2.5, z: -2.5, rot: 0 }] };
           Sfx.victory();
           g.ui.banner('Casa nova!', 'Bem-vindo ao lar. Dentro de casa, aperte G para decorar.', 4);
           g.save();

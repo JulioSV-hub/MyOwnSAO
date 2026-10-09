@@ -103,6 +103,7 @@ export class Loot {
   get day() { return this.game.state.world.day || 0; }
 
   clear() {
+    this.fbRef = null;
     if (this.group) {
       this.game.scene.remove(this.group);
       this.group.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); });
@@ -206,11 +207,37 @@ export class Loot {
   }
 
   openChest(c) {
-    const g = this.game, p = g.state.player, n = g.floor.n, k = 1 + (n - 1) * 0.6;
+    const g = this.game;
     this.st.c[c.i] = this.day;
     this.st.rev = (this.st.rev || []).filter((i) => i !== c.i);
     c.glow.visible = false;
     c.open = 0.001;
+    const got = this.grant(c.tier);
+    g.effects.sparks(c.pos.clone().add(new THREE.Vector3(0, 0.9, 0)), TIERS[c.tier].lock, 30, 1);
+    Sfx.victory();
+    g.ui.banner(TIERS[c.tier].name, got.join(' · '), 4);
+    g.quests.onChest();
+    g.save();
+  }
+
+  // ─────────── Chefe de Campo ───────────
+  fieldBossReady() { const fb = this.game.world?.fieldBoss; return !!fb && this.st.fb !== this.day; }
+
+  onFieldBoss(e) {
+    const g = this.game;
+    this.st.fb = this.day;
+    const got = this.grant('gold');
+    const exp = Math.round((10 + 9 * e.level) * 8 * g.state.settings.xpRate);
+    g.gainExp(exp);
+    Sfx.victory();
+    g.ui.banner(`Chefe de Campo derrotado: ${e.def.name}`, `+${exp} EXP · ${got.join(' · ')}`, 5);
+    g.save();
+  }
+
+  // recompensa de um baú (ou do Chefe de Campo); devolve a lista do que você ganhou
+  grant(tier) {
+    const g = this.game, p = g.state.player, n = g.floor.n, k = 1 + (n - 1) * 0.6;
+    const c = { tier };
     const got = [];
     const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
     const item = (id, q) => { p.items[id] = (p.items[id] || 0) + q; got.push(`${q}× ${ITEMS[id].name}`); };
@@ -243,11 +270,7 @@ export class Loot {
         got.push(`★ ${(w ? weaponDef(id) : armorDef(id)).name}`);
       }
     }
-    g.effects.sparks(c.pos.clone().add(new THREE.Vector3(0, 0.9, 0)), TIERS[c.tier].lock, 30, 1);
-    Sfx.victory();
-    g.ui.banner(TIERS[c.tier].name, got.join(' · '), 4);
-    g.quests.onChest();
-    g.save();
+    return got;
   }
 
   // boato da taverna: revela no mapa um baú fechado
@@ -264,6 +287,21 @@ export class Loot {
   update(dt) {
     if (!this.group) return;
     const t = this.game.time, pl = this.game.player.pos;
+    // o Chefe de Campo aparece quando você chega perto do marco dele
+    const fb = this.game.world.fieldBoss;
+    if (fb && this.fieldBossReady() && !this.game.indoor && Math.hypot(pl.x - fb.pos.x, pl.z - fb.pos.z) < 85) {
+      const ref = this.fbRef, list = this.game.enemies.list;
+      if (!ref || ref.dead || !list.includes(ref)) {
+        if (!ref || !ref.dead) {
+          const e = this.game.enemies.spawnAt(fb.def, this.game.floor.level + 6, fb.pos.x + 6, fb.pos.z + 6, {});
+          e.fieldBoss = true;
+          e.elite = true;
+          e.monId = fb.id;
+          e.label?.el.classList.add('elite');
+          this.fbRef = e;
+        }
+      }
+    }
     for (const c of this.chests) {
       if (c.open > 0 && c.open < 1) { c.open = Math.min(1, c.open + dt * 2.5); c.lid.rotation.x = -1.9 * (1 - (1 - c.open) ** 3); }
       if (c.glow.visible) c.glow.material.opacity = 0.14 + Math.sin(t * 3 + c.i) * 0.06;

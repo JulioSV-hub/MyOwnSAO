@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { makeNoise2D, mulberry32, fbm, smoothstep, lerp } from './rng.js';
-import { MAX_FLOOR } from './data.js';
+import { MAX_FLOOR, monDef } from './data.js';
 import { Grass } from './grass.js';
 import { worldMat, ashlarTexture, slateTexture, cobbleTexture } from './stone.js';
 import { toonMat } from './toon.js';
@@ -142,6 +142,7 @@ export class World {
     this.buildGate();
     this.buildNpc();
     this.buildArena();
+    this.buildLandmarks();
   }
 
   // ─────────── Terreno ───────────
@@ -374,6 +375,25 @@ export class World {
       case 'crystal':
         crownGeo = new THREE.OctahedronGeometry(1, 0).scale(0.7, 2.6, 0.7).translate(0, 2.0, 0);
         break;
+      case 'acacia': {
+        // tronco inclinado que se abre em dois galhos e copa larga e achatada (savana)
+        trunkGeo = mergeGeometries([
+          new THREE.CylinderGeometry(0.16, 0.3, 3.2, 9).translate(0, 1.6, 0),
+          branch(2.2, 0.13, -0.6, 0, 0, 3.0, 0),
+          branch(2.0, 0.12, 0.65, 0.2, 0, 3.0, 0),
+        ]);
+        const pads = [[0, 4.9, 0, 2.6], [1.6, 4.7, 0.3, 1.7], [-1.5, 4.75, -0.2, 1.8], [0.3, 4.8, 1.4, 1.5], [-0.2, 4.8, -1.4, 1.5]];
+        crownGeo = mergeGeometries(pads.map(([x, y, z, r], i) => { const g = blob(1, 0.12, S + 20 + i); g.deleteAttribute('uv'); return g.scale(r, r * 0.32, r).translate(x, y, z); }));
+        break;
+      }
+      case 'mushroom': {
+        // cogumelos gigantes: talo claro e chapéu colorido
+        trunkGeo = new THREE.CylinderGeometry(0.42, 0.62, 4.6, 9).translate(0, 2.3, 0);
+        const cap = new THREE.SphereGeometry(2.4, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.62, 1).translate(0, 4.4, 0);
+        const under = new THREE.CircleGeometry(2.38, 14).rotateX(Math.PI / 2).translate(0, 4.42, 0);
+        crownGeo = mergeGeometries([cap.deleteAttribute('uv') && cap, under.deleteAttribute('uv') && under]);
+        break;
+      }
       default: {
         trunkGeo = mergeGeometries([
           new THREE.CylinderGeometry(0.2, 0.36, 2.8, 10).translate(0, 1.4, 0),
@@ -403,7 +423,9 @@ export class World {
     }
     const n = spots.length;
     const trunkMat = std(t.trunk);
-    const crownMat = t.style === 'crystal'
+    const crownMat = t.style === 'mushroom'
+      ? std('#ffffff', { emissive: '#222222', side: THREE.DoubleSide })
+      : t.style === 'crystal'
       ? new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.15, metalness: 0.2, flatShading: true, emissive: '#2a2a44', transparent: true, opacity: 0.88 })
       : std('#ffffff', { side: t.style === 'pine' ? THREE.DoubleSide : THREE.FrontSide, wind: { strength: t.style === 'pine' ? 0.025 : 0.05, minY: 2.2 } });
     const trunks = trunkGeo ? new THREE.InstancedMesh(trunkGeo, trunkMat, n) : null;
@@ -418,7 +440,8 @@ export class World {
         c.set(t.leaf[i % t.leaf.length]).multiplyScalar(0.85 + r() * 0.3);
         crowns.setColorAt(i, c);
       }
-      this.grid.add({ x: s.x, z: s.z, r: (t.style === 'crystal' ? 0.6 : 0.42) * s.s });
+      if (t.style === 'mushroom') { s.s *= 1.15; m.compose(new THREE.Vector3(s.x, s.h - 0.1, s.z), q, new THREE.Vector3(s.s, s.s * s.k, s.s)); trunks.setMatrixAt(i, m); crowns.setMatrixAt(i, m); }
+      this.grid.add({ x: s.x, z: s.z, r: (t.style === 'crystal' ? 0.6 : t.style === 'mushroom' ? 0.7 : 0.42) * s.s });
     });
     for (const im of [trunks, crowns]) if (im) { im.castShadow = true; im.receiveShadow = true; this.group.add(im); }
   }
@@ -1314,6 +1337,129 @@ export class World {
     if (this.pond) { const d = Math.hypot(this.pond.x, this.pond.z); pts.push({ id: 'pond', name: 'Lago de Pesca', pos: new THREE.Vector3(this.pond.x * (1 - (this.pond.r + 3) / d), 0, this.pond.z * (1 - (this.pond.r + 3) / d)), look: new THREE.Vector3(this.pond.x, 0, this.pond.z), field: true }); }
     return pts;
   }
+
+  // ─────────── Marcos do campo ───────────
+  // Cada andar sorteia alguns: árvore ancestral, estátua de cavaleiro, arco de pedra, círculo de pedras,
+  // torre em ruínas, agulhas de rocha e jardim de cristais. O primeiro também guarda o Chefe de Campo.
+  buildLandmarks() {
+    const r = mulberry32(this.floor.seed + 555), list = this.floor.landmarks || [];
+    this.landmarks = [];
+    const rock = std(this.b.rockColor), stone = std('#b8b2a6'), dark = std('#8a8478');
+    const leaf = this.b.trees?.leaf || ['#4a9a3a'];
+    const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; this.group.add(m); return m; };
+    const NAMES = { bigtree: 'Árvore Ancestral', statue: 'Estátua do Cavaleiro', arch: 'Arco de Pedra', henge: 'Círculo de Pedras', tower: 'Torre em Ruínas', spires: 'Agulhas de Pedra', crystals: 'Jardim de Cristais' };
+    for (const kind of list) {
+      let spot = null;
+      for (let i = 0; i < 60 && !spot; i++) {
+        const a = r() * Math.PI * 2, d = 85 + r() * 115, x = Math.cos(a) * d, z = Math.sin(a) * d;
+        if (!this.freeSpot(x, z, 10)) continue;
+        if (this.water && this.groundAt(x, z) < this.water.level + 0.5) continue;
+        if (this.landmarks.some((l) => Math.hypot(l.pos.x - x, l.pos.z - z) < 45)) continue;
+        if (this.grid.query(x, z, 6, []).some((c) => c.r > 1)) continue;
+        spot = { x, z };
+      }
+      if (!spot) continue;
+      const { x, z } = spot, h = this.groundAt(x, z);
+      switch (kind) {
+        case 'bigtree': {
+          add(new THREE.CylinderGeometry(1.4, 2.4, 16, 16).translate(0, 8, 0), std(this.b.trees?.trunk || '#5a3a24'), x, h - 0.3, z);
+          for (let i = 0; i < 5; i++) { const ra = (i / 5) * Math.PI * 2; const root = add(new THREE.CylinderGeometry(0.3, 0.8, 4, 8), std(this.b.trees?.trunk || '#5a3a24'), x + Math.cos(ra) * 2.2, h + 0.4, z + Math.sin(ra) * 2.2); root.rotation.set(Math.sin(ra) * 1.1, 0, -Math.cos(ra) * 1.1); }
+          const cm = std(leaf[0], { wind: { strength: 0.03, minY: 8 } });
+          for (const [ox, oy, oz, rr] of [[0, 18, 0, 7], [5, 15.5, 1, 5], [-5, 16, -1.5, 5.2], [1, 15, 5, 4.6], [-1, 15.5, -5, 4.8], [0.5, 22, 0.5, 4.8]]) add(blob(1, 0.12, this.floor.seed + oy), cm, x + ox, h + oy, z + oz).scale.set(rr, rr * 0.85, rr);
+          this.grid.add({ x, z, r: 2.4 });
+          break;
+        }
+        case 'statue': {
+          add(new RoundedBoxGeometry(4.4, 2, 4.4, 2, 0.15), dark, x, h + 0.9, z);
+          const g = new THREE.Group();
+          g.position.set(x, h + 1.9, z);
+          g.rotation.y = r() * Math.PI * 2;
+          const sm = stone;
+          const part = (geo, px, py, pz, rx = 0, rz = 0) => { const m = new THREE.Mesh(geo, sm); m.position.set(px, py, pz); m.rotation.set(rx, 0, rz); m.castShadow = true; g.add(m); };
+          for (const sx of [-0.45, 0.45]) part(new THREE.CapsuleGeometry(0.32, 1.6, 4, 10), sx, 1.2, 0);
+          part(new THREE.CapsuleGeometry(0.75, 1.2, 4, 14), 0, 3.2, 0);
+          part(new THREE.SphereGeometry(0.55, 16, 12), 0, 4.75, 0);
+          part(new THREE.ConeGeometry(0.6, 0.6, 12), 0, 5.35, 0);
+          for (const sx of [-1, 1]) part(new THREE.CapsuleGeometry(0.26, 1.3, 4, 10), sx * 1.0, 3.3, -0.35, -0.6);
+          part(new THREE.BoxGeometry(0.22, 4.2, 0.08), 0, 1.8, -1.0);
+          part(new THREE.BoxGeometry(1.1, 0.18, 0.18), 0, 3.4, -1.0);
+          part(new THREE.CylinderGeometry(0.9, 0.9, 0.18, 18), -1.25, 2.6, 0.1, 0, Math.PI / 2);
+          this.group.add(g);
+          this.grid.add({ x, z, r: 3 });
+          break;
+        }
+        case 'arch': {
+          const rot = r() * Math.PI;
+          const g = new THREE.Group();
+          g.position.set(x, h, z);
+          g.rotation.y = rot;
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(6, 1.3, 10, 28, Math.PI), rock);
+          ring.position.y = 4;
+          ring.castShadow = true;
+          g.add(ring);
+          for (const sx of [-6, 6]) { const p2 = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.8, 4.5, 12), rock); p2.position.set(sx, 2, 0); p2.castShadow = true; g.add(p2); }
+          this.group.add(g);
+          for (const sx of [-6, 6]) this.grid.add({ x: x + Math.cos(rot) * sx, z: z - Math.sin(rot) * sx, r: 1.8 });
+          break;
+        }
+        case 'henge': {
+          for (let i = 0; i < 9; i++) {
+            const a = (i / 9) * Math.PI * 2, px = x + Math.cos(a) * 8, pz = z + Math.sin(a) * 8, hh = 4 + r() * 2.5;
+            const st = add(new RoundedBoxGeometry(1.4, hh, 0.8, 2, 0.2), dark, px, this.groundAt(px, pz) + hh / 2 - 0.3, pz);
+            st.rotation.set((r() - 0.5) * 0.12, -a, (r() - 0.5) * 0.12);
+            this.grid.add({ x: px, z: pz, r: 0.9 });
+          }
+          const rune = new THREE.Mesh(new THREE.RingGeometry(3, 3.4, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: hdr('#7ad0ff', 1.5), transparent: true, opacity: 0.6, depthWrite: false }));
+          rune.position.set(x, h + 0.08, z);
+          this.group.add(rune);
+          (this.henges ||= []).push(rune);
+          break;
+        }
+        case 'tower': {
+          const tw = new THREE.CylinderGeometry(3.4, 3.8, 13, 20, 1, true);
+          const pp = tw.attributes.position;
+          for (let i = 0; i < pp.count; i++) if (pp.getY(i) > 6) { const a = Math.atan2(pp.getZ(i), pp.getX(i)); pp.setY(i, 6.5 - Math.abs(Math.sin(a * 2.5)) * 4.5); }
+          tw.computeVertexNormals();
+          add(tw, std('#a8a294', { side: THREE.DoubleSide }), x, h + 6.2, z);
+          for (let i = 0; i < 6; i++) { const a = r() * Math.PI * 2, dd = 4.5 + r() * 4; add(new RoundedBoxGeometry(1 + r(), 0.7 + r() * 0.6, 1 + r(), 2, 0.15), dark, x + Math.cos(a) * dd, h + 0.3, z + Math.sin(a) * dd).rotation.y = r() * 3; }
+          for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2; if (i === 0 || i === 1) continue; this.grid.add({ x: x + Math.cos(a) * 3.6, z: z + Math.sin(a) * 3.6, r: 0.9 }); }
+          break;
+        }
+        case 'spires': {
+          for (let i = 0; i < 6; i++) {
+            const a = r() * Math.PI * 2, dd = i ? 3 + r() * 7 : 0, px = x + Math.cos(a) * dd, pz = z + Math.sin(a) * dd, hh = 12 + r() * 18, rr = 1.6 + r() * 1.6;
+            const sp = add(new THREE.ConeGeometry(rr, hh, 7), rock, px, this.groundAt(px, pz) + hh / 2 - 0.5, pz);
+            sp.rotation.set((r() - 0.5) * 0.15, r() * 3, (r() - 0.5) * 0.15);
+            this.grid.add({ x: px, z: pz, r: rr * 0.8 });
+          }
+          break;
+        }
+        case 'crystals': {
+          const cols = ['#7fd0ff', '#b08aff', '#ff9ae0', '#9affd8'];
+          for (let i = 0; i < 9; i++) {
+            const a = r() * Math.PI * 2, dd = i ? 2 + r() * 6 : 0, px = x + Math.cos(a) * dd, pz = z + Math.sin(a) * dd, hh = 3 + r() * (i ? 5 : 9);
+            const c = cols[i % cols.length];
+            const cr = add(new THREE.OctahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.6, roughness: 0.1, transparent: true, opacity: 0.85, flatShading: true }), px, this.groundAt(px, pz) + hh * 0.4, pz);
+            cr.scale.set(0.5 + r() * 0.5, hh * 0.5, 0.5 + r() * 0.5);
+            cr.rotation.set((r() - 0.5) * 0.5, r() * 3, (r() - 0.5) * 0.5);
+            this.grid.add({ x: px, z: pz, r: 0.8 });
+          }
+          break;
+        }
+        default: break;
+      }
+      this.landmarks.push({ kind, name: NAMES[kind], pos: new THREE.Vector3(x, h, z) });
+      this.labels.push({ text: NAMES[kind], pos: new THREE.Vector3(x, h + (kind === 'bigtree' ? 27 : kind === 'spires' ? 20 : 9), z), cls: 'gate' });
+    }
+    // Chefe de Campo: um monstro gigante que ronda o primeiro marco (volta a aparecer todo dia)
+    if (this.landmarks.length) {
+      const lm = this.landmarks[0], ids = this.floor.monsters, id = ids[Math.floor(r() * ids.length)];
+      const base = monDef(this.floor, id);
+      const titles = ['o Devorador', 'o Tirano', 'o Imortal', 'Rei da Planície', 'o Guardião Antigo', 'a Fera Lendária'];
+      this.fieldBoss = { id, pos: lm.pos.clone(), where: lm.name, def: { ...base, name: `${base.name}, ${titles[Math.floor(r() * titles.length)]}`, hp: (base.hp || 1) * 7, atk: (base.atk || 1) * 1.45, scale: (base.scale || 1) * 1.9, aggro: 22, speed: base.speed * 0.9, eye: '#ff2a2a' } };
+    }
+  }
+
 
   // ─────────── Arena do chefe e Labirinto ───────────
   buildArena() {

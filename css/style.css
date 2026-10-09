@@ -123,6 +123,8 @@ button { font-family: inherit; cursor: pointer; }
 .elabel.elite .ename { color: #ffd54f; font-size: 14px; }
 .elabel.docile .cursor { color: #ff9ac8; text-shadow: 0 0 8px #ff9ac8; }
 .elabel.docile .ename::after { content: ' ♥ dócil'; color: #ff9ac8; font-weight: 800; }
+.elabel.calm .cursor { color: #9ae0a0; }
+.elabel.calm .ename::after { content: ' · pacífico'; color: #9ae0a0; font-weight: 800; }
 .nlabel.pet .cursor { color: #ff9ac8; text-shadow: 0 0 8px #ff9ac8; font-size: 14px; }
 .nlabel.pet .nname { color: #ffd0e4; }
 .dmgn.pet { color: #ff9ac8; font-size: 18px; }

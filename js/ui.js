@@ -488,6 +488,7 @@ export class UI {
     dot(w.gatePos.x, w.gatePos.z, '#4fc3ff', 4, true);
     for (const sp of Object.values(w.shopSpots || {})) dot(sp.pos.x, sp.pos.z, '#ffb84a', 2.6);
     for (const ch of g.loot.revealed()) dot(ch.pos.x, ch.pos.z, '#ffe066', 3.4, true);
+    if (g.loot.fieldBossReady()) { const fb = w.fieldBoss; dot(fb.pos.x, fb.pos.z, '#ff2a2a', 4.6, true); dot(fb.pos.x, fb.pos.z, '#ffffff', 1.8, true); }
     for (const m of g.party.members) if (m.alive) dot(m.pos.x, m.pos.z, '#7ad8ff', 2.6);
     if (g.state.house && g.state.house.floor === g.floor.n) {
       let q = clampEdge(tr(w.housePlaque.x, w.housePlaque.z));
@@ -709,7 +710,8 @@ export class UI {
     const house = g.state.house;
     const tp = w.townPoints().filter((x) => x.id !== 'house' || (house && house.floor === g.floor.n)).map((x) => `<button class="tpbtn" data-act="townTp" data-id="${x.id}" ${inTown || crystals ? '' : 'disabled'}>${esc(x.id === 'house' ? '🏠 Minha casa' : x.name)}</button>`).join('');
     return `<div class="mapwrap"><canvas id="floormap" width="420" height="420"></canvas>
-        <div class="maplegend"><span style="--c:#4fc3ff">Portal</span><span style="--c:#ffd54f">Personagens</span><span style="--c:#ffb84a">Lojas</span><span style="--c:#ff8ac8">Sua casa</span><span style="--c:#7ad0ff">Missões</span><span style="--c:#ff5a4a">Elite/chefe</span><span style="--c:#ffe066">Baú (boato)</span><span style="--c:#3fb0d8">Lago</span></div></div>
+        <div class="maplegend"><span style="--c:#4fc3ff">Portal</span><span style="--c:#ffd54f">Personagens</span><span style="--c:#ffb84a">Lojas</span><span style="--c:#ff8ac8">Sua casa</span><span style="--c:#7ad0ff">Missões</span><span style="--c:#ff5a4a">Elite/chefe</span><span style="--c:#ffe066">Baú (boato)</span><span style="--c:#3fb0d8">Lago</span><span style="--c:#d8d0b8">Marcos</span><span style="--c:#ff2a2a">Chefe de Campo</span></div></div>
+      ${w.fieldBoss ? `<div class="muted pad">Chefe de Campo: <b>${esc(w.fieldBoss.def.name)}</b> perto de ${esc(w.fieldBoss.where)} — ${g.loot.fieldBossReady() ? 'está rondando hoje!' : 'já derrotado hoje (volta amanhã).'}${g.floor.weather && g.floor.weather !== 'none' ? ` · Clima: ${{ rain: 'chuva', snow: 'neve', petals: 'pétalas de cerejeira', leaves: 'folhas de outono', ash: 'cinzas', spores: 'esporos brilhantes', mist: 'névoa', sparkles: 'brilhos de cristal' }[g.floor.weather]}` : ''}</div>` : ''}
       <div class="section">Teletransporte na cidade — Andar ${g.floor.n}</div>
       <div class="muted pad">${inTown ? 'Grátis dentro da cidade.' : crystals ? 'Fora da cidade: gasta 1 Cristal de Teletransporte.' : 'Fora da cidade você precisa de um Cristal de Teletransporte.'}${house ? ` Sua casa fica no Andar ${house.floor}.` : ''}</div>
       <div class="tpgrid">${tp}</div>
@@ -746,6 +748,9 @@ export class UI {
     for (const n of g.npcs.list) if (n.role !== 'folk' && n.role !== 'kid') dot(n.pos.x, n.pos.z, '#ffd54f', 2.4);
     for (const m of g.quests.markers) dot(m.pos.x, m.pos.z, m.elite ? '#ff5a4a' : m.flower ? '#ffffff' : '#7ad0ff', 3.4);
     for (const ch of g.loot.revealed()) dot(ch.pos.x, ch.pos.z, '#ffe066', 4);
+    c.font = '600 10px "Exo 2", sans-serif'; c.textAlign = 'center';
+    for (const lm of w.landmarks || []) { dot(lm.pos.x, lm.pos.z, '#d8d0b8', 3); const [lx, ly] = tr(lm.pos.x, lm.pos.z); c.fillStyle = 'rgba(255,255,255,0.75)'; c.fillText(lm.name, lx, ly - 6); }
+    if (g.loot.fieldBossReady()) { const fb = w.fieldBoss; dot(fb.pos.x, fb.pos.z, '#ff2a2a', 6); dot(fb.pos.x, fb.pos.z, '#ffffff', 2.2); }
     if (g.state.house?.floor === g.floor.n) {
       const [hx, hy] = tr(w.housePlaque.x, w.housePlaque.z);
       c.fillStyle = '#ff8ac8';

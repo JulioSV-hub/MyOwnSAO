@@ -89,7 +89,51 @@ export const BIOMES = {
     rocks: 150, rockColor: '#4a4a56', amp: 13, freq: 0.009,
     pool: ['shadowknight', 'ghost', 'lizard', 'spider'],
   },
+  autumn: {
+    label: 'Bosque de outono',
+    ground: ['#a08a3a', '#c09a48', '#d8b060'], cliff: '#8a6a48', path: '#c8a878', plaza: '#b8a890',
+    sky: { top: '#3a7ad0', bottom: '#ffe0b8' }, fog: [70, 460],
+    trees: { style: 'round', count: 520, trunk: '#5a3a24', leaf: ['#e0702a', '#d8a030', '#c84a2a', '#e8c040', '#b85a2a'] },
+    rocks: 100, rockColor: '#8a8070', amp: 11, freq: 0.008,
+    pool: ['emberfox', 'scarecrow', 'acornboar', 'wolf'],
+  },
+  sakura: {
+    label: 'Colinas das cerejeiras',
+    ground: ['#6aa84a', '#86c060', '#b0d880'], cliff: '#8a8478', path: '#d8c0a8', plaza: '#c8b8b0',
+    sky: { top: '#5a8ae0', bottom: '#ffe8f0' }, fog: [80, 520],
+    trees: { style: 'round', count: 380, trunk: '#5a3a3a', leaf: ['#ffb0cc', '#ffc8dc', '#ff98b8', '#fff0f4'] },
+    rocks: 70, rockColor: '#9a9490', amp: 10, freq: 0.008,
+    pool: ['kitsune', 'petalsprite', 'ronin', 'wasp'],
+  },
+  swamp: {
+    label: 'Pântano nebuloso',
+    ground: ['#3a4a2a', '#4a5a30', '#5a6a3a'], cliff: '#4a4a3a', path: '#6a6048', plaza: '#7a7a6a',
+    sky: { top: '#4a6a6a', bottom: '#b8c8b0' }, fog: [25, 240],
+    trees: { style: 'dead', count: 320, trunk: '#3a3428', leaf: ['#3a3428'] },
+    rocks: 90, rockColor: '#5a5a4a', amp: 6, freq: 0.01, base: -2.6,
+    water: { level: -1.9, color: '#4a6a4a', opacity: 0.88 },
+    pool: ['boglurker', 'marshcrawler', 'swamptroll', 'toad'],
+  },
+  savanna: {
+    label: 'Savana dourada',
+    ground: ['#b8a048', '#d0b860', '#a89040'], cliff: '#9a7a50', path: '#d8c498', plaza: '#c8b898',
+    sky: { top: '#3a88e8', bottom: '#fff0c8' }, fog: [100, 560],
+    trees: { style: 'acacia', count: 110, trunk: '#5a4430', leaf: ['#6a8a2a', '#7a9a3a', '#5a7a28'] },
+    rocks: 90, rockColor: '#b09070', amp: 8, freq: 0.006,
+    pool: ['lion', 'rhino', 'vulture', 'boar'],
+  },
+  mushroom: {
+    label: 'Floresta de cogumelos gigantes',
+    ground: ['#4a3a5a', '#5a4a6a', '#6a5a7a'], cliff: '#3a3048', path: '#8a7a90', plaza: '#8a8090',
+    sky: { top: '#3a3070', bottom: '#d8c0e8' }, fog: [35, 300],
+    trees: { style: 'mushroom', count: 150, trunk: '#e8e0d0', leaf: ['#e0403a', '#8a5ad8', '#40a8d8', '#e8a030', '#d84a9a'] },
+    rocks: 80, rockColor: '#6a5a70', amp: 12, freq: 0.009,
+    pool: ['myconid', 'sporeslime', 'glowmoth', 'spider'],
+  },
 };
+
+// Clima de cada bioma (os andares sem bioma fixo também sorteiam chuva às vezes)
+export const BIOME_WEATHER = { snow: 'snow', sakura: 'petals', autumn: 'leaves', volcanic: 'ash', mushroom: 'spores', swamp: 'mist', crystal: 'sparkles', dark: 'mist' };
 
 // Vegetação de cada bioma: densidade/cores da grama, arbustos e canteiros de flores.
 const LOOK = {
@@ -103,6 +147,11 @@ const LOOK = {
   desert: { grass: 0.08, grassColors: ['#8a7a40', '#d8c080'], bushes: 40, bushColor: '#7a7a40', flowers: 0 },
   volcanic: { grass: 0, bushes: 0, flowers: 0 },
   dark: { grass: 0.45, grassColors: ['#1a2a2a', '#3a5a5a'], bushes: 140, bushColor: '#2a3a3a', flowers: 60, flowerColors: ['#c03aff', '#60a0ff'] },
+  autumn: { grass: 0.8, grassColors: ['#8a7a30', '#e0c060'], bushes: 220, bushColor: '#c8702a', flowers: 160, flowerColors: ['#ff8a2a', '#ffd040', '#c84a2a'] },
+  sakura: { grass: 1, grassColors: ['#4a9a3a', '#c8f080'], bushes: 140, bushColor: '#ff9ac0', flowers: 900, flowerColors: ['#ffffff', '#ffb8d0', '#ff8ab0', '#fff4f8'] },
+  swamp: { grass: 0.7, grassColors: ['#2a3a1a', '#7a8a40'], bushes: 260, bushColor: '#3a4a2a', flowers: 40, flowerColors: ['#d8e870', '#ffffff'] },
+  savanna: { grass: 0.9, grassColors: ['#8a7a30', '#f0d870'], bushes: 70, bushColor: '#7a8a3a', flowers: 60, flowerColors: ['#ffe066', '#ff9a4a'] },
+  mushroom: { grass: 0.5, grassColors: ['#3a2a4a', '#9a7ac8'], bushes: 120, bushColor: '#5a3a6a', flowers: 300, flowerColors: ['#7af0ff', '#ff8af0', '#d0ff7a'] },
 };
 for (const k in LOOK) Object.assign(BIOMES[k], LOOK[k]);
 
@@ -132,6 +181,21 @@ export const MONSTERS = {
   scorpion: { name: 'Desert Scorpion', arch: 'spider', color: '#b8843a', color2: '#5a3a1a', stinger: true, scale: 1.1, speed: 4.8, hp: 1.2, atk: 1.2, aggro: 13, range: 2.1, windup: 0.55, drop: ['Garra de Escorpião', 14] },
   magma: { name: 'Magma Slime', arch: 'slime', color: '#ff5a1a', color2: '#ffd27a', emissive: true, scale: 1.1, speed: 3.6, hp: 1.2, atk: 1.25, aggro: 11, range: 2, windup: 0.6, eye: '#ffffa0', drop: ['Núcleo de Magma', 15] },
   flamewisp: { name: 'Flame Wisp', arch: 'flyer', color: '#ff8a3a', color2: '#ffe0a0', ghost: true, wingless: true, emissive: true, scale: 0.8, speed: 5.5, hp: 0.8, atk: 1.25, aggro: 16, range: 2.1, windup: 0.45, eye: '#ffffff', drop: ['Brasa Viva', 14] },
+  emberfox: { name: 'Ember Fox', arch: 'quad', color: '#e0702a', color2: '#fff0dc', ears: true, tail: true, scale: 0.8, speed: 6.4, hp: 0.8, atk: 1.05, aggro: 16, range: 1.6, windup: 0.42, eye: '#ffd040', drop: ['Cauda de Raposa', 13] },
+  scarecrow: { name: 'Scarecrow Reaper', arch: 'humanoid', color: '#c8a050', color2: '#5a3a24', weapon: 'axe', leaves: true, scale: 1.1, speed: 3.8, hp: 1.3, atk: 1.2, aggro: 13, range: 2.4, windup: 0.7, eye: '#ff8a20', drop: ['Palha Encantada', 12] },
+  acornboar: { name: 'Acorn Boar', arch: 'quad', color: '#6a4228', color2: '#c89a50', tusks: true, horns: true, scale: 1.1, speed: 4.8, hp: 1.15, atk: 1, aggro: 11, range: 1.8, windup: 0.55, drop: ['Bolota Dourada', 10] },
+  kitsune: { name: 'Kitsune', arch: 'quad', color: '#f4f0ec', color2: '#ff8ab0', ears: true, tail: true, scale: 0.85, speed: 6.6, hp: 0.9, atk: 1.15, aggro: 17, range: 1.7, windup: 0.4, eye: '#ff5aa0', drop: ['Pelo de Kitsune', 16] },
+  petalsprite: { name: 'Petal Sprite', arch: 'flyer', color: '#ffb0cc', color2: '#fff0f8', scale: 0.65, speed: 5.8, hp: 0.65, atk: 1, aggro: 15, range: 2.1, windup: 0.45, eye: '#ff3a8a', drop: ['Pétala Mágica', 12] },
+  ronin: { name: 'Ronin Spirit', arch: 'humanoid', color: '#5a4a7a', color2: '#e8e0f0', weapon: 'katana', ears: false, scale: 1.05, speed: 5.4, hp: 1.15, atk: 1.3, aggro: 18, range: 2.6, windup: 0.5, eye: '#b08aff', drop: ['Fita de Ronin', 18] },
+  boglurker: { name: 'Bog Lurker', arch: 'slime', color: '#4a5a2a', color2: '#8a9a40', scale: 1.2, speed: 3.4, hp: 1.3, atk: 1.1, aggro: 9, range: 2, windup: 0.65, eye: '#d8ff40', drop: ['Lodo Viscoso', 11] },
+  marshcrawler: { name: 'Marsh Crawler', arch: 'spider', color: '#3a5a3a', color2: '#6a8a4a', stinger: true, scale: 1.05, speed: 4.6, hp: 1.1, atk: 1.15, aggro: 13, range: 2.1, windup: 0.55, eye: '#ffe040', drop: ['Quitina do Pântano', 14] },
+  swamptroll: { name: 'Swamp Troll', arch: 'humanoid', color: '#4a6a3a', color2: '#3a3428', weapon: 'hammer', bulky: true, ears: true, scale: 1.55, speed: 3.2, hp: 2.1, atk: 1.4, aggro: 11, range: 2.9, windup: 0.9, eye: '#ffd040', drop: ['Dente de Troll', 19] },
+  lion: { name: 'Plains Lion', arch: 'quad', color: '#d0a048', color2: '#8a5a24', ears: true, scale: 1.15, speed: 6, hp: 1.2, atk: 1.25, aggro: 18, range: 1.9, windup: 0.45, eye: '#ffd040', drop: ['Juba de Leão', 16] },
+  rhino: { name: 'Stampede Rhino', arch: 'quad', color: '#8a8a86', color2: '#e8e4d8', horns: true, tusks: true, scale: 1.6, speed: 4.2, hp: 1.9, atk: 1.3, aggro: 10, range: 2.4, windup: 0.8, drop: ['Chifre de Rinoceronte', 18] },
+  vulture: { name: 'Bone Vulture', arch: 'flyer', color: '#4a3a30', color2: '#e8dcc8', tail: true, scale: 1, speed: 5.4, hp: 0.9, atk: 1.1, aggro: 17, range: 2.2, windup: 0.5, drop: ['Pena de Abutre', 12] },
+  myconid: { name: 'Myconid', arch: 'humanoid', color: '#e8dcc8', color2: '#d8403a', leaves: true, bulky: true, scale: 1.15, speed: 3.4, hp: 1.5, atk: 1.15, aggro: 11, range: 2.4, windup: 0.75, eye: '#40ffa0', drop: ['Chapéu de Cogumelo', 13] },
+  sporeslime: { name: 'Spore Slime', arch: 'slime', color: '#8a5ad8', color2: '#d8ff7a', emissive: true, scale: 0.95, speed: 3.8, hp: 1, atk: 1.1, aggro: 11, range: 1.9, windup: 0.6, eye: '#ffffff', drop: ['Esporo Brilhante', 12] },
+  glowmoth: { name: 'Glow Moth', arch: 'flyer', color: '#40a8d8', color2: '#c8f8ff', emissive: true, scale: 0.85, speed: 5.2, hp: 0.8, atk: 1.05, aggro: 15, range: 2.1, windup: 0.5, eye: '#ffffff', drop: ['Pó de Mariposa', 13] },
   shadowknight: { name: 'Shadow Knight', arch: 'humanoid', color: '#2a2a34', color2: '#5a3a8a', weapon: 'zweihander', horns: true, scale: 1.2, speed: 4.4, hp: 1.6, atk: 1.35, aggro: 16, range: 2.8, windup: 0.7, eye: '#c03aff', drop: ['Fragmento Sombrio', 20] },
 };
 
@@ -150,7 +214,10 @@ const CANON = {
     boss: { name: 'Fuscus the Vacant Colossus', arch: 'humanoid', color: '#7a7a74', color2: '#4a4a46', bulky: true, scale: 3.8, bars: 4, eye: '#5ad1ff', adds: ['golem'] } },
   6: { town: 'Stachion', biome: 'crystal', monsters: ['cubeling', 'slime', 'wisp'],
     boss: { name: 'The Irrational Cube', arch: 'cube', color: '#3a7ad8', color2: '#bff4ff', scale: 3.4, bars: 4, adds: ['cubeling'] } },
-  22: { town: 'Coral', biome: 'lake', monsters: ['boar', 'wasp', 'toad'], desc: 'Um andar tranquilo de lagos e florestas — dizem que há uma cabana à venda por aqui.' },
+  22: { town: 'Coral', biome: 'lake', monsters: ['boar', 'wasp', 'toad'], peaceful: true, weather: 'none',
+    desc: 'O andar mais tranquilo de Aincrad: lagos, florestas e nenhum monstro hostil — dizem que há uma cabana à venda por aqui.' },
+  35: { town: 'Mishe', biome: 'forest', desc: 'A Floresta das Andanças' },
+  47: { town: 'Floria', biome: 'sakura', desc: 'O andar das flores' },
   48: { town: 'Lindarth', biome: 'meadow' },
   50: { town: 'Algade', biome: 'ruins', monsters: ['skeleton', 'golem', 'shadowknight'] },
   55: { town: 'Granzam', biome: 'snow', monsters: ['frostwolf', 'yeti', 'wisp'] },
@@ -188,15 +255,67 @@ function genBoss(n, rand) {
   };
 }
 
+// Subespécies: em cada andar alguns monstros aparecem numa versão diferente (cor, tamanho, força e nome).
+const AFFIXES = [
+  { name: 'Blindado', en: 'Armored', hp: 1.35, speed: 0.9, tint: '#8a8e96' },
+  { name: 'Veloz', en: 'Swift', hp: 0.85, speed: 1.25, atk: 1.05, scale: 0.9 },
+  { name: 'Gigante', en: 'Giant', hp: 1.5, atk: 1.15, speed: 0.85, scale: 1.35 },
+  { name: 'Venenoso', en: 'Venomous', atk: 1.18, tint: '#6ac83a', eye: '#a0ff40' },
+  { name: 'Sombrio', en: 'Shadow', atk: 1.12, hp: 1.1, tint: '#2a2a3a', eye: '#c03aff' },
+  { name: 'Gélido', en: 'Frost', hp: 1.15, tint: '#bfe4ff', eye: '#60c0ff' },
+  { name: 'Flamejante', en: 'Blazing', atk: 1.15, tint: '#ff7a3a', emissive: true, eye: '#ffffa0' },
+  { name: 'Cristalino', en: 'Crystal', hp: 1.2, tint: '#a8e8ff', glassy: true },
+  { name: 'Ancião', en: 'Elder', hp: 1.3, atk: 1.12, scale: 1.12, tint: '#d8d0c0' },
+  { name: 'Selvagem', en: 'Feral', atk: 1.1, speed: 1.12, tint: '#8a3a2a', eye: '#ff2a2a' },
+];
+export const WEATHERS = ['rain', 'mist', 'none'];
+export const LANDMARKS = ['bigtree', 'statue', 'arch', 'henge', 'tower', 'spires', 'crystals'];
+
+function makeVariant(base, a) {
+  const tint = (c) => (a.tint ? `#${new THREE_Color(c).lerp(a.tint, 0.55)}` : c);
+  return { ...base, name: `${a.en} ${base.name}`, ptName: a.name, color: tint(base.color), color2: base.color2, hp: (base.hp || 1) * (a.hp || 1), atk: (base.atk || 1) * (a.atk || 1), speed: base.speed * (a.speed || 1),
+    scale: (base.scale || 1) * (a.scale || 1), ...(a.eye ? { eye: a.eye } : {}), ...(a.emissive ? { emissive: true } : {}), ...(a.glassy ? { glassy: true } : {}), variant: a.name };
+}
+// mistura de cores simples sem depender do three.js
+function THREE_Color(hex) {
+  const v = parseInt(hex.slice(1), 16);
+  this.r = (v >> 16) & 255; this.g = (v >> 8) & 255; this.b = v & 255;
+  this.lerp = (h2, t) => { const o = new THREE_Color(h2); this.r += (o.r - this.r) * t; this.g += (o.g - this.g) * t; this.b += (o.b - this.b) * t; return this; };
+  this.toString = () => [this.r, this.g, this.b].map((x) => Math.round(x).toString(16).padStart(2, '0')).join('');
+}
+
+// Definição do monstro neste andar (pode ser uma subespécie)
+export const monDef = (floor, id) => floor?.variants?.[id] || MONSTERS[id];
+
+const BIOME_CYCLE = shuffle(mulberry32(4242), Object.keys(BIOMES));
+
 export function getFloor(n) {
   const rand = mulberry32(n * 7919 + 17);
   const c = CANON[n] || {};
-  const biomeKey = c.biome || pick(rand, Object.keys(BIOMES));
+  pick(rand, Object.keys(BIOMES)); // mantém a sequência de sorteios de cada andar
+  // os biomas giram num ciclo embaralhado: todos aparecem a cada 15 andares e andares vizinhos nunca se repetem
+  const biomeKey = c.biome || BIOME_CYCLE[n % BIOME_CYCLE.length];
   const biome = BIOMES[biomeKey];
   const monsters = c.monsters || shuffle(rand, biome.pool).slice(0, 3);
   const boss = c.boss || genBoss(n, rand);
   const town = c.town || TOWN_NAMES[Math.floor(rand() * TOWN_NAMES.length)];
-  return { n, town, biomeKey, biome, monsters, boss, level: 1 + (n - 1) * 3, seed: n * 104729 + 7, desc: c.desc || biome.label };
+  // a partir daqui usa outra semente, para não mudar os andares que já existem
+  const r2 = mulberry32(n * 31337 + 5);
+  if (!c.monsters && n > 2) {
+    // um "visitante" de outro bioma
+    const others = Object.keys(BIOMES).filter((k) => k !== biomeKey);
+    const vis = pick(r2, BIOMES[pick(r2, others)].pool);
+    if (!monsters.includes(vis)) monsters.push(vis);
+  }
+  const variants = {};
+  if (n > 3 && !c.peaceful) {
+    const k = n > 20 ? 2 : 1;
+    for (const id of shuffle(r2, monsters.slice()).slice(0, k)) variants[id] = { ...makeVariant(MONSTERS[id], pick(r2, AFFIXES)), baseId: id };
+  }
+  const weather = c.weather || BIOME_WEATHER[biomeKey] || (r2() < 0.3 && !biome.water?.lava ? pick(r2, WEATHERS) : 'none');
+  const landmarks = shuffle(r2, LANDMARKS.slice()).slice(0, 3 + Math.floor(r2() * 2));
+  if (biomeKey === 'crystal' && !landmarks.includes('crystals')) landmarks.push('crystals');
+  return { n, town, biomeKey, biome, monsters, variants, boss, level: 1 + (n - 1) * 3, seed: n * 104729 + 7, desc: c.desc || biome.label, peaceful: !!c.peaceful, weather, landmarks };
 }
 
 // ───────────────────────────── Sword Skills ─────────────────────────────

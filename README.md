@@ -36,7 +36,9 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 
 ## O que tem no jogo
 
-- **Andares de Aincrad (1–100)** gerados de forma procedural, com 10 biomas. Vários são canônicos: Town of Beginnings, Urbus, Zumfut, Coral, Algade, Kamdet, Collinia...
+- **Andares de Aincrad (1–100)** gerados de forma procedural, com 15 biomas que giram sem repetir em andares vizinhos (inclui outono, cerejeiras, pântano, savana e floresta de cogumelos gigantes), clima próprio (chuva, neve, pétalas, folhas, cinzas, esporos, névoa), marcos no campo (Árvore Ancestral, Estátua do Cavaleiro, Arco de Pedra, Círculo de Pedras, Torre em Ruínas, Agulhas de Pedra, Jardim de Cristais) e um **Chefe de Campo** que ronda um marco e volta todo dia.
+- **40 monstros** e **subespécies por andar** (Armored, Swift, Giant, Venomous, Shadow, Frost, Blazing...), além de um monstro "visitante" de outro bioma.
+- **Andar 22** pacífico como no anime: nenhum monstro ataca, e a cabana à beira do lago está à venda. Vários são canônicos: Town of Beginnings, Urbus, Zumfut, Coral, Algade, Kamdet, Collinia...
 - **Chefes de andar** com barras de HP múltiplas, ataques telegrafados, reforços e fúria na última barra: Illfang, Asterius, The Irrational Cube, The Gleam Eyes, The Skull Reaper, Heathcliff...
 - **16 Sword Skills** com brilho, rastro de luz e *post-motion delay*: Slant, Vertical, Sonic Leap, Vorpal Strike, Mother's Rosario...
 - **Dual Blades** no nível 25: Starburst Stream (16 golpes) e The Eclipse (27 golpes).
@@ -49,7 +51,7 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 - **Pousada do Sino Dourado:** dormir até de manhã/noite, recupera HP e salva.
 - **Mascotes:** monstros dóceis (♥) podem ser domados com Petisco de Domador; seguem, lutam e curam.
 - **Pesca:** lago perto da cidade em todo andar; a Asuna grelha seus peixes.
-- **Casa própria:** compre pela placa na cidade e decore com 12 móveis (G).
+- **Casa própria:** compre pela placa na cidade e decore com 12 móveis (G). Para vender, fale com a placa (devolve 60% do preço + metade dos móveis); qualquer placa vende a casa que você tem, para comprar em outro andar.
 - **Town of Beginnings** no estilo do anime: Black Iron Palace, Monumento da Vida e torre do relógio.
 - **Rua do Comércio** (junto à muralha): Armaduras do Grimm (leves, médias e pesadas), Oficina de Runas da Mira, Toca dos Mascotes (filhotes e petiscos), Taverna do Javali Dourado (comidas com bônus, boatos de baús, contratar companheiros) e Guilda dos Aventureiros (postos F → S, contratos diários, bônus). A Lisbeth também vende armas forjadas.
 - **Runas:** até 3 encaixes (níveis 1, 10 e 20) com bônus de ataque, defesa, HP, velocidade, crítico, roubo de vida, Col ou EXP. Equipe em *Menu → Equipamento*.

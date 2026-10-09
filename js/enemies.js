@@ -1,7 +1,7 @@
 // IA dos monstros e dos chefes de andar.
 import * as THREE from 'three';
 import { buildMonster, buildWeapon } from './monsters.js';
-import { MONSTERS } from './data.js';
+import { MONSTERS, monDef } from './data.js';
 import { FLOOR_R, TOWN_R, ARENA_R } from './world.js';
 import { Sfx } from './audio.js';
 import { hdr } from './effects.js';
@@ -55,6 +55,9 @@ export class Enemy {
     this.bars = this.boss ? (def.bars || 3) : 1;
     this.bar = this.bars;
     this.enraged = false;
+    // andar pacífico (22): ninguém ataca; quem apanha foge
+    this.peaceful = !!this.game.floor?.peaceful && !this.boss;
+    this.fleeT = 0;
     this.game.scene.add(this.mesh);
     this.label = this.boss ? null : this.game.ui.createEnemyLabel(this);
     this.pos.y = this.game.world.groundAt(x, z) + this.flyH;
@@ -137,6 +140,14 @@ export class Enemy {
 
   updateNormal(dt, dx, dz, dist, pSafe) {
     const g = this.game, d = this.def;
+    if (this.peaceful) {
+      if (this.fleeT > 0) {
+        this.fleeT -= dt;
+        this.moveTo(this.pos.x - dx, this.pos.z - dz, this.speed * 1.1, dt);
+        return;
+      }
+      if (this.state !== 'idle' && this.state !== 'wander') { this.state = 'idle'; this.timer = 1; }
+    }
     // alvo: o jogador ou um companheiro do time que chamou a atenção do monstro
     if (this.tgtC && !this.tgtC.alive) this.tgtC = null;
     const tc = this.tgtC;
@@ -204,7 +215,7 @@ export class Enemy {
       default:
         this.state = 'chase';
     }
-    if ((this.state === 'idle' || this.state === 'wander') && !pSafe && ((dist < d.aggro && !this.docile) || this.aggro)) {
+    if (!this.peaceful && (this.state === 'idle' || this.state === 'wander') && !pSafe && ((dist < d.aggro && !this.docile) || this.aggro)) {
       this.state = 'chase';
       this.cool = 0.6;
     }
@@ -366,8 +377,9 @@ export class Enemy {
     this.hp -= dmg;
     this.flash = 1;
     this.aggro = true;
-    if (this.docile) { this.docile = false; this.label?.el.classList.remove('docile'); }
-    if (this.state === 'idle' || this.state === 'wander' || this.state === 'return') {
+    if (this.peaceful) { this.fleeT = 5; this.aggro = false; }
+    else if (this.docile) { this.docile = false; this.label?.el.classList.remove('docile'); }
+    if (!this.peaceful && (this.state === 'idle' || this.state === 'wander' || this.state === 'return')) {
       this.state = 'chase';
       this.cool = Math.min(this.cool, 0.6);
     }
@@ -506,18 +518,22 @@ export class EnemyManager {
     this.list = [];
   }
 
-  pickDef() {
+  pickId() {
     const ids = this.game.floor.monsters;
-    return MONSTERS[ids[Math.floor(Math.random() * ids.length)]];
+    return ids[Math.floor(Math.random() * ids.length)];
   }
+
+  pickDef() { return monDef(this.game.floor, this.pickId()); }
 
   levelFor() { return this.game.floor.level + Math.floor(Math.random() * 3); }
 
   spawnOne(near, minD, maxD) {
-    const def = this.pickDef();
+    const id = this.pickId(), def = monDef(this.game.floor, id);
     const p = this.game.world.randomSpawn(near, minD, maxD, def.arch === 'flyer');
     if (!p) return null;
     const e = new Enemy(this, def, this.levelFor(), p.x, p.z);
+    e.monId = id;
+    if (e.peaceful) { e.docile = TAMEABLE.has(def.arch); e.label?.el.classList.add(e.docile ? 'docile' : 'calm'); return this.list.push(e), e; }
     // de vez em quando um monstro aparece dócil e pode ser domado
     if (TAMEABLE.has(def.arch) && Math.random() < 0.07) {
       e.docile = true;
@@ -534,7 +550,8 @@ export class EnemyManager {
   }
 
   populate() {
-    for (let i = 0; i < this.target; i++) this.spawnOne({ x: 0, z: 0 }, 45, 210);
+    const n = this.game.floor.peaceful ? 14 : this.target;
+    for (let i = 0; i < n; i++) this.spawnOne({ x: 0, z: 0 }, 45, 210);
   }
 
   update(dt) {
@@ -552,7 +569,7 @@ export class EnemyManager {
     this.spawnT -= dt;
     let normals = 0;
     for (const e of this.list) if (!e.boss) normals++;
-    if (this.spawnT <= 0 && normals < this.target) {
+    if (this.spawnT <= 0 && normals < (this.game.floor.peaceful ? 14 : this.target)) {
       this.spawnOne(this.game.player.pos, 45, 130);
       this.spawnT = 1.5;
     }

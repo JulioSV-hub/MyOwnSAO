@@ -54,7 +54,7 @@ export class Pets {
     const chance = 0.45 + e.tameTries * 0.2;
     g.effects.sparks(e.pos.clone().add(new THREE.Vector3(0, 1, 0)), '#ff9ac8', 14, 0.6);
     if (Math.random() > chance) { g.ui.toast(`${e.def.name} cheirou o petisco... mas ainda desconfia. Tente de novo!`); Sfx.click(); return; }
-    const monId = Object.keys(MONSTERS).find((k) => MONSTERS[k] === e.def);
+    const monId = e.def.baseId || e.monId || Object.keys(MONSTERS).find((k) => MONSTERS[k] === e.def);
     if (g.state.pet) g.ui.toast(`${g.state.pet.name} foi libertado e voltou para a natureza.`);
     g.state.pet = { mon: monId, name: e.def.name.split(' ').pop(), level: 1, exp: 0 };
     e.dead = true;

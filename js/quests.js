@@ -2,7 +2,7 @@
 // Tipos: kill (derrotar monstros) · deliver (entregar materiais) · explore (visitar pontos marcados)
 //        skill (usar Sword Skills) · parry (aparar ataques) · upgrade (fortalecer arma) · talk (conversar) · boss
 import * as THREE from 'three';
-import { MONSTERS, weaponDef, armorDef, laReward } from './data.js';
+import { MONSTERS, weaponDef, armorDef, laReward, monDef } from './data.js';
 import { mulberry32 } from './rng.js';
 import { guildRank } from './guild.js';
 import { Sfx } from './audio.js';
@@ -24,9 +24,9 @@ export function questsForFloor(floor) {
     { title: 'Peixe fresco na loja', desc: '"Peixe vende que é uma beleza! Pesque 3 peixes quaisquer no lago e eu compro todos."', type: 'fish', count: 3 },
   ]) });
   Q.push({ id: `klein_${n}`, giver: 'klein', reward: { col: col(180), exp: Math.round(120 * k * 1.6) }, ...vary([
-    { title: 'Caçada do Fuurinkazan', desc: `"Bora mostrar do que a gente é capaz! Derrote 8 ${MONSTERS[m1].name} comigo... quer dizer, por mim!"`, type: 'kill', target: m1, count: 8 },
+    { title: 'Caçada do Fuurinkazan', desc: `"Bora mostrar do que a gente é capaz! Derrote 8 ${monDef(floor, m1).name} comigo... quer dizer, por mim!"`, type: 'kill', target: m1, count: 8 },
     { title: 'Ronda noturna', desc: '"Samurai de verdade caça sob a lua! Derrote 8 monstros quaisquer durante a noite."', type: 'kill', target: '*', night: true, count: 8 },
-    { title: `Duelo contra ${MONSTERS[m2].name}`, desc: `"Os ${MONSTERS[m2].name} acham que mandam neste andar. Derrote 7 e mostre quem manda!"`, type: 'kill', target: m2, count: 7 },
+    { title: `Duelo contra ${monDef(floor, m2).name}`, desc: `"Os ${monDef(floor, m2).name} acham que mandam neste andar. Derrote 7 e mostre quem manda!"`, type: 'kill', target: m2, count: 7 },
   ], 1) });
   Q.push({ id: `argo_${n}`, giver: 'argo', reward: { col: col(150), items: { teleport_crystal: 2 } }, ...vary([
     { title: 'Mapear o andar', desc: '"Preciso de alguém pra checar 3 lugares nos campos. Marquei com pilares de luz no seu mapa. Nyahaha~"', type: 'explore', count: 3 },
@@ -98,7 +98,7 @@ export function chainForFloor(floor) {
   const npcs = [['Caçador veterano', { hair: 'short', hairColor: '#5a5a62', top: '#4a5a3a', beard: true }], ['Guarda da cidade', { hair: 'short', hairColor: '#2a1e16', top: '#6a7080' }], ['Velha sábia', { female: true, hair: 'bob', hairColor: '#d8d4cc', top: '#5a3a6a' }], ['Mercadora viajante', { female: true, hair: 'ponytail', hairColor: '#a85a2a', top: '#3a6a5a', hat: '#6a4a2a' }]];
   const [npc, look] = npcs[Math.floor(r() * npcs.length)];
   const adj = ['Alfa', 'Ancião', 'Sanguinário', 'Colosso', 'Fantasma', 'Rei'][Math.floor(r() * 6)];
-  const ename = `${adj} ${MONSTERS[m0].name}`;
+  const ename = `${adj} ${monDef(floor, m0).name}`;
   return {
     npc, title: `${floor.town}`, look,
     greet: `Viajante! Um ${ename} anda atacando quem sai de ${floor.town}. Ninguém voltou para contar onde ele se esconde.`,
@@ -122,7 +122,7 @@ export function dailyQuests(floor, day, giver) {
   const mons = floor.monsters;
   const who = () => pick(REQUESTERS);
   const T = [
-    () => { const m = pick(mons), c = ri(6, 10); return { title: `Caçada: ${MONSTERS[m].name}`, desc: `Pedido de ${who()}: ${c} ${MONSTERS[m].name} estão rondando as estradas. Derrote-os.`, type: 'kill', target: m, count: c, rw: 170 }; },
+    () => { const m = pick(mons), c = ri(6, 10); return { title: `Caçada: ${monDef(floor, m).name}`, desc: `Pedido de ${who()}: ${c} ${monDef(floor, m).name} estão rondando as estradas. Derrote-os.`, type: 'kill', target: m, count: c, rw: 170 }; },
     () => { const c = ri(12, 18); return { title: 'Limpar os campos', desc: `Pedido de ${who()}: derrote ${c} monstros quaisquer nos arredores da cidade.`, type: 'kill', target: '*', count: c, rw: 210 }; },
     () => { const m = pick(mons), c = ri(4, 7); return { title: `Encomenda: ${dropOf(m)}`, desc: `Pedido de ${who()}: precisa de ${c} ${dropOf(m)}. Pagam bem!`, type: 'deliver', target: dropOf(m), count: c, rw: 200 }; },
     () => { const g = pick(['Erva Medicinal', 'Erva Medicinal', 'Cogumelo Luminoso', 'Minério de Ferro', 'Cristal Bruto']), c = g === 'Cristal Bruto' ? 2 : ri(3, 6); return { title: `Coleta: ${g}`, desc: `Pedido de ${who()}: colete ${c} ${g} pelos campos (pontos brilhantes no chão).`, type: 'deliver', target: g, count: c, rw: g === 'Cristal Bruto' ? 230 : 150 }; },
@@ -135,8 +135,8 @@ export function dailyQuests(floor, day, giver) {
     () => ({ title: 'Remédios para a enfermaria', desc: 'Pedido da enfermaria: doe 3 Poções de Cura para os feridos.', type: 'deliverItem', target: 'potion', count: 3, rw: 260 }),
     () => {
       const m = pick(mons), adj = pick(['Caolho', 'Furioso', 'Gigante', 'Ancião', 'Faminto', 'das Cinzas']);
-      return { title: `Recompensa: ${MONSTERS[m].name} ${adj}`, desc: `Cartaz de procurado: um ${MONSTERS[m].name} ${adj} foi visto nos campos (pilar vermelho no mapa). Derrote-o.`, type: 'elite', count: 1, rw: 420,
-        elite: { base: m, name: `${MONSTERS[m].name} ${adj}`, color: null, hp: 4, scale: 1.45, drop: null } };
+      return { title: `Recompensa: ${monDef(floor, m).name} ${adj}`, desc: `Cartaz de procurado: um ${monDef(floor, m).name} ${adj} foi visto nos campos (pilar vermelho no mapa). Derrote-o.`, type: 'elite', count: 1, rw: 420,
+        elite: { base: m, name: `${monDef(floor, m).name} ${adj}`, color: null, hp: 4, scale: 1.45, drop: null } };
     },
   ];
   const order = Array.from(T.keys());
@@ -321,7 +321,7 @@ export class Quests {
 
   onKill(e) {
     const night = this.game.night > 0.5;
-    this.bump((q) => q.type === 'kill' && (!q.night || night) && (q.target === '*' || MONSTERS[q.target] === e.def));
+    this.bump((q) => q.type === 'kill' && (!q.night || night) && (q.target === '*' || q.target === e.monId));
     if (e.questId) {
       this.bump((q) => q.id === e.questId);
       const q = this.def(e.questId);
@@ -428,10 +428,11 @@ export class Quests {
       const pos = this.points[q.id][0], ref = this.elites[q.id];
       if (ref && !ref.dead && this.game.enemies.list.includes(ref)) continue;
       if (Math.hypot(pl.x - pos.x, pl.z - pos.z) > 75) continue;
-      const base = MONSTERS[q.elite.base];
+      const base = monDef(this.game.floor, q.elite.base);
       const def = { ...base, name: q.elite.name, hp: base.hp * q.elite.hp, atk: (base.atk || 1) * 1.35, scale: (base.scale || 1) * q.elite.scale, aggro: 24, ...(q.elite.color ? { color: q.elite.color } : {}), ...(q.elite.color2 ? { color2: q.elite.color2 } : {}) };
       const e = this.game.enemies.spawnAt(def, this.game.floor.level + 3, pos.x, pos.z, {});
       e.questId = q.id;
+      e.monId = q.elite.base;
       e.elite = true;
       e.label?.el.classList.add('elite');
       this.elites[q.id] = e;

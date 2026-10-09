@@ -291,7 +291,7 @@ class Game {
     this.hemi.color.copy(u.top.value).lerp(WHITE, 0.55);
     this.hemi.intensity = 0.45 + 0.75 * day;
     this.scene.environmentIntensity = 0.05 + 0.12 * day;
-    this.sun.intensity = 0.3 + 2.1 * day;
+    this.sun.intensity = (0.3 + 2.1 * day) * (this.weatherDim ?? 1);
     this.sun.color.copy(MOON).lerp(SUN, day).lerp(SUNSET, sunset * 0.4);
     const ld = elev > -0.05 ? sun : v3a.copy(sun).negate().setY(Math.max(0.35, -sun.y));
     const c = this.mode === 'title' ? v3b.set(0, 0, 0) : this.player.pos;
@@ -333,8 +333,11 @@ class Game {
     this.scene.add(this.world.group);
     this.ambient?.setWorld(this.world);
     const [near, far] = this.floor.biome.fog;
-    this.scene.fog.near = near;
-    this.scene.fog.far = far;
+    // névoa e chuva fecham a visão; chuva também escurece o dia
+    const wk = { mist: 0.45, rain: 0.7, snow: 0.8 }[this.floor.weather] || 1;
+    this.scene.fog.near = near * wk;
+    this.scene.fog.far = far * wk;
+    this.weatherDim = this.floor.weather === 'rain' ? 0.62 : this.floor.weather === 'mist' ? 0.85 : 1;
     this.ui.setWorldLabels(this.world.labels);
   }
 
@@ -360,6 +363,8 @@ class Game {
     this.combat.setSheathed(!!this.state.settings.autoSheath, true);
     this.wasSafe = true;
     this.ui.banner(`Andar ${n}`, `${this.floor.town} — ${this.floor.desc}`, 3.5);
+    if (this.floor.peaceful) setTimeout(() => this.ui.toast('Andar pacífico: nenhum monstro daqui ataca. Os animais fogem se você bater neles — e muitos podem ser domados (♥).', 'skill'), 1500);
+    if (this.world.fieldBoss && this.loot.fieldBossReady()) { const fb = this.world.fieldBoss, w = this.world; setTimeout(() => { if (this.world === w) this.ui.toast(`Dizem que ${fb.def.name}, um Chefe de Campo, ronda ${fb.where}. (ponto vermelho no mapa)`); }, 3000); }
     this.save();
   }
 
@@ -729,6 +734,7 @@ class Game {
     if (Math.random() < 0.07) { p.items.potion = (p.items.potion || 0) + 1; msg += ' · Poção'; }
     this.ui.toast(msg);
     this.gainExp(exp);
+    if (e.fieldBoss) this.loot.onFieldBoss(e);
   }
 
   gainExp(x) {
