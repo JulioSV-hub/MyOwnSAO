@@ -134,7 +134,10 @@ export class World {
     this.buildBushes();
     if (this.b.ruins) this.buildRuins();
     // andar 1 = Town of Beginnings (estilo do anime); os outros alternam cidades de pedra e vilas de chalés
-    this.townStyle = floor.n === 1 ? 'sao' : (this.rand() < 0.55 ? 'stone' : 'cottage');
+    // todas as cidades seguem o estilo de pedra do anime (o andar 1 ganha os marcos do Town of Beginnings);
+    // o sorteio continua aqui para manter o mesmo mapa de cada andar
+    this.rand();
+    this.townStyle = floor.n === 1 ? 'sao' : 'stone';
     this.buildTown();
     this.buildGate();
     this.buildNpc();
@@ -564,7 +567,8 @@ export class World {
       this.stoneMat = worldMat(ashlarTexture(sao ? '#d2ccc2' : '#d6cbb8', '#8f897f', this.floor.seed), 0.42);
       this.darkStoneMat = worldMat(ashlarTexture('#5a5c66', '#2e3036', this.floor.seed + 1), 0.42);
       this.trimMat = worldMat(ashlarTexture('#e6e0d4', '#b8b0a2', this.floor.seed + 2), 0.6);
-      this.slateMat = worldMat(slateTexture(sao ? '#4e5a6c' : '#7a4a3a', this.floor.seed + 3), 0.55);
+      const roofs = ['#4e5a6c', '#7a4a3a', '#3e5a4e', '#5a4a6a', '#6a5a4a', '#46566e'];
+      this.slateMat = worldMat(slateTexture(sao ? '#4e5a6c' : roofs[this.floor.n % roofs.length], this.floor.seed + 3), 0.55);
       this.darkSlateMat = worldMat(slateTexture('#2e3442', this.floor.seed + 4), 0.55);
       this.cobbleMat = worldMat(cobbleTexture('#a39a8c', this.floor.seed + 5), 0.32, '#ffffff', { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     }
