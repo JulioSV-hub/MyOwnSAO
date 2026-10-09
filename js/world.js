@@ -5,6 +5,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { makeNoise2D, mulberry32, fbm, smoothstep, lerp } from './rng.js';
 import { MAX_FLOOR } from './data.js';
 import { Grass } from './grass.js';
+import { worldMat, ashlarTexture, slateTexture, cobbleTexture } from './stone.js';
 import { toonMat } from './toon.js';
 
 export const FLOOR_R = 230;
@@ -122,6 +123,8 @@ export class World {
     this.buildRocks();
     this.buildBushes();
     if (this.b.ruins) this.buildRuins();
+    // andar 1 = Town of Beginnings (estilo do anime); os outros alternam cidades de pedra e vilas de chalés
+    this.townStyle = floor.n === 1 ? 'sao' : (this.rand() < 0.55 ? 'stone' : 'cottage');
     this.buildTown();
     this.buildGate();
     this.buildNpc();
@@ -495,6 +498,7 @@ export class World {
   // ─────────── Cidade ───────────
   buildTown() {
     const r = this.rand;
+    this.townStatic = new THREE.Group();
     const wallCols = ['#f3e6cf', '#efe0c4', '#f6efe0', '#ead6b4', '#f0dcc8', '#e8d8c0'];
     const roofCols = ['#c4572e', '#d36b3a', '#3f7f8f', '#9a3f2e', '#5d8a4a', '#b8482e', '#4a6a9a'];
     const doorCols = ['#4a7a4a', '#3a6a8a', '#8a3a2a', '#6a4a2a'];
@@ -509,6 +513,139 @@ export class World {
     const doorMat = std('#5a3a22');
     const spokeAngles = this.spokes.map((sp) => Math.atan2(sp.dz, sp.dx));
     const onRoad = (ang, rad, half) => spokeAngles.some((sa) => Math.abs(Math.atan2(Math.sin(ang - sa), Math.cos(ang - sa))) * rad < half);
+
+
+    // ─────────── Estilo de pedra (Town of Beginnings / cidades de pedra) ───────────
+    const stone = this.townStyle !== 'cottage';
+    const sao = this.townStyle === 'sao';
+    if (stone) {
+      this.stoneMat = worldMat(ashlarTexture(sao ? '#d2ccc2' : '#d6cbb8', '#8f897f', this.floor.seed), 0.42);
+      this.darkStoneMat = worldMat(ashlarTexture('#5a5c66', '#2e3036', this.floor.seed + 1), 0.42);
+      this.trimMat = worldMat(ashlarTexture('#e6e0d4', '#b8b0a2', this.floor.seed + 2), 0.6);
+      this.slateMat = worldMat(slateTexture(sao ? '#4e5a6c' : '#7a4a3a', this.floor.seed + 3), 0.55);
+      this.darkSlateMat = worldMat(slateTexture('#2e3442', this.floor.seed + 4), 0.55);
+      this.cobbleMat = worldMat(cobbleTexture('#a39a8c', this.floor.seed + 5), 0.32, '#ffffff', { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    }
+    const arch = (w, h, y0 = 0) => {
+      const s = new THREE.Shape();
+      s.moveTo(-w / 2, y0); s.lineTo(w / 2, y0); s.lineTo(w / 2, y0 + h - w / 2);
+      s.absarc(0, y0 + h - w / 2, w / 2, 0, Math.PI, false);
+      s.lineTo(-w / 2, y0);
+      return s;
+    };
+    const archHole = (w, h, y0) => {
+      const p = new THREE.Path();
+      p.moveTo(-w / 2, y0); p.lineTo(w / 2, y0); p.lineTo(w / 2, y0 + h - w / 2);
+      p.absarc(0, y0 + h - w / 2, w / 2, 0, Math.PI, false);
+      p.lineTo(-w / 2, y0);
+      return p;
+    };
+    const winFrameGeo = (() => { const s = arch(1.0, 1.55); s.holes.push(archHole(0.76, 1.36, 0.08)); return new THREE.ExtrudeGeometry(s, { depth: 0.14, bevelEnabled: false, curveSegments: 10 }); })();
+    const winGlassGeo = new THREE.ShapeGeometry(arch(0.78, 1.38, 0.07), 10);
+    const reserved = [];
+    const isReserved = (ang, rad) => reserved.some((rv) => Math.abs(rad - rv.rad) < rv.dr && Math.abs(Math.atan2(Math.sin(ang - rv.ang), Math.cos(ang - rv.ang))) < rv.da);
+    const m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+
+    const makeStone = (x, z, rot, w, d, floors) => {
+      const fh = 3.1, H = floors * fh, rh = Math.min(w, d) * 0.42 + 1.4;
+      const house = new THREE.Group();
+      house.position.set(x, this.townH, z);
+      house.rotation.y = rot;
+      const prof = new THREE.Shape();
+      prof.moveTo(-w / 2, 0); prof.lineTo(w / 2, 0); prof.lineTo(w / 2, H); prof.lineTo(0, H + rh); prof.lineTo(-w / 2, H);
+      const body = new THREE.ExtrudeGeometry(prof, { depth: d, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 1 });
+      body.translate(0, 0, -d / 2);
+      house.add(new THREE.Mesh(body, this.stoneMat));
+      const plinth = new THREE.Mesh(rbox(w + 0.3, 0.8, d + 0.3, 0.08), this.darkStoneMat);
+      plinth.position.y = 0.4;
+      house.add(plinth);
+      for (let f = 1; f <= floors; f++) {
+        const c = new THREE.Mesh(rbox(w + 0.28, 0.22, d + 0.28, 0.05), this.trimMat);
+        c.position.y = f * fh;
+        house.add(c);
+      }
+      const slope = Math.hypot(w / 2, rh) + 0.6, ang2 = Math.atan2(rh, w / 2);
+      for (const s of [-1, 1]) {
+        const slab = new THREE.Mesh(rbox(slope, 0.26, d + 1.0, 0.06), this.slateMat);
+        slab.position.set(s * (w / 4 + 0.1), H + rh / 2 + 0.14, 0);
+        slab.rotation.z = -s * ang2;
+        house.add(slab);
+      }
+      const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, d + 1.05), this.darkSlateMat);
+      ridge.position.y = H + rh + 0.16;
+      ridge.rotation.z = Math.PI / 4;
+      const chimney = new THREE.Mesh(rbox(0.8, 2.0, 0.8, 0.06), this.stoneMat);
+      chimney.position.set(w * 0.24, H + rh * 0.62, -d * 0.18);
+      house.add(ridge, chimney);
+      // janelas em arco (uma malha por casa para manter poucos draw calls)
+      const frames = [], glass = [];
+      const addWin = (lx, ly, lz, ry) => {
+        qq.setFromAxisAngle(up, ry);
+        m4.compose(new THREE.Vector3(lx, ly, lz), qq, new THREE.Vector3(1, 1, 1));
+        frames.push(winFrameGeo.clone().applyMatrix4(m4));
+        glass.push(winGlassGeo.clone().applyMatrix4(m4.multiply(new THREE.Matrix4().makeTranslation(0, 0, 0.04))));
+      };
+      for (let f = 0; f < floors; f++) {
+        const y = f * fh + 0.85 + (f === 0 ? 0.25 : 0);
+        const n = Math.max(1, Math.floor((w - 0.8) / 2.2));
+        for (let i = 0; i < n; i++) {
+          const lx = -w / 2 + ((i + 0.5) * w) / n;
+          if (f === 0 && Math.abs(lx) < 1.1) continue;
+          addWin(lx, y, d / 2 + 0.01, 0);
+          addWin(lx, y, -d / 2 - 0.01, Math.PI);
+        }
+        const n2 = Math.max(1, Math.floor((d - 0.8) / 2.6));
+        for (let i = 0; i < n2; i++) {
+          const lz = -d / 2 + ((i + 0.5) * d) / n2;
+          addWin(w / 2 + 0.01, y, lz, Math.PI / 2);
+          addWin(-w / 2 - 0.01, y, lz, -Math.PI / 2);
+        }
+      }
+      if (frames.length) {
+        house.add(new THREE.Mesh(mergeGeometries(frames), this.trimMat));
+        house.add(new THREE.Mesh(mergeGeometries(glass), this.windowMat));
+      }
+      // porta em arco com moldura de pedra
+      const doorFrame = new THREE.Mesh(new THREE.ExtrudeGeometry((() => { const s = arch(1.9, 2.9); s.holes.push(archHole(1.4, 2.6, 0)); return s; })(), { depth: 0.2, bevelEnabled: false, curveSegments: 10 }), this.trimMat);
+      doorFrame.position.z = d / 2 - 0.02;
+      const door = new THREE.Mesh(new THREE.ExtrudeGeometry(arch(1.4, 2.6), { depth: 0.08, bevelEnabled: false, curveSegments: 10 }), M(doorCols[Math.floor(r() * doorCols.length)]));
+      door.position.z = d / 2 + 0.02;
+      house.add(doorFrame, door);
+      // sacada no segundo andar
+      if (floors >= 2 && r() < 0.55) {
+        const bal = new THREE.Mesh(rbox(2.4, 0.16, 0.9, 0.04), this.trimMat);
+        bal.position.set(0, fh + 0.05, d / 2 + 0.45);
+        house.add(bal);
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 0.06), M('#2e3036'));
+        rail.position.set(0, fh + 0.95, d / 2 + 0.86);
+        house.add(rail);
+        for (let i = 0; i < 7; i++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.85, 6), rail.material); b.position.set(-1.1 + i * 0.367, fh + 0.5, d / 2 + 0.86); house.add(b); }
+      }
+      // floreiras em algumas janelas do térreo
+      if (r() < 0.6) for (const sx of [-1, 1]) {
+        const lx = sx * Math.min(w / 2 - 0.9, 2.2);
+        const box = new THREE.Mesh(rbox(1.1, 0.26, 0.34, 0.04), beamMat);
+        box.position.set(lx, 0.98, d / 2 + 0.2);
+        house.add(box);
+        const fc = M(flowerCols[Math.floor(r() * flowerCols.length)]);
+        for (let f = 0; f < 5; f++) { const bl = new THREE.Mesh(flowerGeo, f % 2 ? leafMat : fc); bl.position.set(lx - 0.42 + f * 0.21, 1.18, d / 2 + 0.2); house.add(bl); }
+      }
+      // só o corpo e o telhado projetam sombra (janelas, flores e sacadas não precisam) — mantém o FPS alto
+      house.traverse((o) => { if (o.isMesh) { o.castShadow = o.material === this.stoneMat || o.material === this.slateMat; o.receiveShadow = o.material === this.stoneMat; } });
+      this.townStatic.add(house);
+      house.updateMatrixWorld(true);
+      (this.chimneys ||= []).push(chimney.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 1.1, 0)));
+      this.grid.add({ x, z, hw: w / 2 + 0.15, hd: d / 2 + 0.15, rot });
+    };
+
+    // Marcos do Town of Beginnings: Black Iron Palace, Monumento da Vida e torre do relógio
+    if (sao) {
+      const palA = this.arenaDir + Math.PI + Math.PI / 4, clkA = this.arenaDir + Math.PI / 4;
+      reserved.push({ ang: palA, rad: 44, dr: 6, da: 0.46 }, { ang: clkA, rad: 24.5, dr: 3, da: 0.34 });
+      this.buildPalace(palA, M);
+      this.buildClockTower(clkA);
+    }
+
 
     const makeHouse = (x, z, rot, w, d, hgt) => {
     const house = new THREE.Group();
@@ -570,7 +707,7 @@ export class World {
       house.add(beam);
     }
     house.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    this.group.add(house);
+    this.townStatic.add(house);
     this.grid.add({ x, z, hw: w / 2, hd: d / 2, rot });
     };
 
@@ -580,12 +717,30 @@ export class World {
         const ang = (i / n) * Math.PI * 2 + r() * 0.08;
         const w = wr[0] + r() * (wr[1] - wr[0]), d = dr[0] + r() * (dr[1] - dr[0]), hgt = hr[0] + r() * (hr[1] - hr[0]);
         const rad = r0 + r() * (r1 - r0);
-        if (onRoad(ang, rad, 4.2 + w / 2)) continue;
-        makeHouse(Math.cos(ang) * rad, Math.sin(ang) * rad, Math.atan2(-Math.cos(ang), -Math.sin(ang)), w, d, hgt);
+        if (onRoad(ang, rad, 4.2 + w / 2) || isReserved(ang, rad)) continue;
+        const hx = Math.cos(ang) * rad, hz = Math.sin(ang) * rad, hrot = Math.atan2(-Math.cos(ang), -Math.sin(ang));
+        if (stone) makeStone(hx, hz, hrot, w * 1.1, d * 1.15, hgt > 5.6 ? 3 : 2);
+        else makeHouse(hx, hz, hrot, w, d, hgt);
       }
     };
     ring(16, 23, 26, [5, 7], [4.5, 6], [3.4, 4.6]);
     ring(26, 41.5, 45.5, [6, 8.5], [5, 7], [4.4, 7]);
+
+    if (stone) {
+      const y = this.townH + 0.03;
+      const cob = (geo) => { const m = new THREE.Mesh(geo.rotateX(-Math.PI / 2), this.cobbleMat); m.position.y = y; m.receiveShadow = true; this.townStatic.add(m); };
+      cob(new THREE.CircleGeometry(20.3, 64));
+      cob(new THREE.RingGeometry(30.2, 35.8, 96));
+      cob(new THREE.RingGeometry(49.4, 54.6, 128));
+      for (const sa of spokeAngles) {
+        const len = TOWN_R + 3 - 19;
+        const pl = new THREE.Mesh(new THREE.PlaneGeometry(6.6, len).rotateX(-Math.PI / 2), this.cobbleMat);
+        pl.position.set(Math.cos(sa) * (19 + len / 2), y + 0.004, Math.sin(sa) * (19 + len / 2));
+        pl.rotation.y = Math.atan2(Math.cos(sa), Math.sin(sa));
+        pl.receiveShadow = true;
+        this.townStatic.add(pl);
+      }
+    }
 
     // Postes de luz na praça e na rua principal
     const pole = new THREE.CylinderGeometry(0.06, 0.1, 3.4, 10);
@@ -600,7 +755,7 @@ export class World {
       const cap = new THREE.Mesh(capGeo, poleMat);
       cap.position.set(x, this.townH + 3.95, z);
       p.castShadow = true;
-      this.group.add(p, lan, cap);
+      this.townStatic.add(p, lan, cap);
       this.grid.add({ x, z, r: 0.25 });
     };
     for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 + 0.31; if (!onRoad(a, 19.5, 3)) lamp(Math.cos(a) * 19.5, Math.sin(a) * 19.5); }
@@ -622,7 +777,7 @@ export class World {
       b.add(seat, back);
       for (const sx of [-0.85, 0.85]) { const l = new THREE.Mesh(rbox(0.1, 0.48, 0.5, 0.03), iron); l.position.set(sx, 0.24, 0); b.add(l); }
       b.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-      this.group.add(b);
+      this.townStatic.add(b);
       this.grid.add({ x, z, hw: 1, hd: 0.35, rot });
     }
     const bedGeo = new THREE.CylinderGeometry(2.1, 2.2, 0.45, 24);
@@ -636,13 +791,13 @@ export class World {
       bed.position.set(x, this.townH + 0.22, z);
       const soil = new THREE.Mesh(soilGeo, M('#5a4030'));
       soil.position.set(x, this.townH + 0.45, z);
-      this.group.add(bed, soil);
+      this.townStatic.add(bed, soil);
       const fc = M(flowerCols[i % flowerCols.length]);
       for (let k = 0; k < 26; k++) {
         const fa = r() * Math.PI * 2, fr = Math.sqrt(r()) * 1.7;
         const f = new THREE.Mesh(flowerGeo, k % 3 ? fc : leafMat);
         f.position.set(x + Math.cos(fa) * fr, this.townH + 0.6, z + Math.sin(fa) * fr);
-        this.group.add(f);
+        this.townStatic.add(f);
       }
       this.grid.add({ x, z, r: 2.2 });
     }
@@ -667,13 +822,14 @@ export class World {
       t.scale.setScalar(sc);
       c.scale.setScalar(sc);
       t.castShadow = c.castShadow = true;
-      this.group.add(t, c);
+      this.townStatic.add(t, c);
       this.grid.add({ x, z, r: 0.45 * sc });
       placed++;
     }
 
     // Muralha da cidade com torres, aberta nas estradas
-    const wallR = TOWN_R - 1.2, wallMat = M('#d8ccb4'), towerMat = M('#cfc2a8'), roofT = M('#b8482e');
+    const wallR = TOWN_R - 1.2, wallMat = stone ? this.stoneMat : M('#d8ccb4'), towerMat = stone ? this.stoneMat : M('#cfc2a8'), roofT = stone ? this.slateMat : M('#b8482e');
+    const merlon = rbox(0.75, 0.75, 1.15, 0.05);
     const segs = 64;
     const towerG = new THREE.CylinderGeometry(1.5, 1.7, 5, 16), towerRoof = new THREE.ConeGeometry(2.0, 2.4, 16);
     for (let i = 0; i < segs; i++) {
@@ -685,16 +841,42 @@ export class World {
       seg.position.set(x, this.townH + 1.1, z);
       seg.rotation.y = rot;
       seg.castShadow = seg.receiveShadow = true;
-      this.group.add(seg);
+      this.townStatic.add(seg);
       this.grid.add({ x, z, hw: len / 2, hd: 0.6, rot });
+      if (stone) for (const k of [-0.3, 0.2]) {
+        const mm = new THREE.Mesh(merlon, wallMat);
+        mm.position.set(x + Math.cos(rot) * k * len, this.townH + 2.75, z - Math.sin(rot) * k * len);
+        mm.rotation.y = rot;
+        this.townStatic.add(mm);
+      }
       if (i % 8 === 0) {
         const tw = new THREE.Mesh(towerG, towerMat);
         tw.position.set(x, this.townH + 2.3, z);
         const tr = new THREE.Mesh(towerRoof, roofT);
         tr.position.set(x, this.townH + 6, z);
         tw.castShadow = tr.castShadow = true;
-        this.group.add(tw, tr);
+        this.townStatic.add(tw, tr);
         this.grid.add({ x, z, r: 1.7 });
+      }
+    }
+    if (stone) for (const sa of spokeAngles) {
+      // arco do portão da cidade entre as duas torres
+      const s = new THREE.Shape();
+      s.moveTo(-5.4, 0); s.lineTo(5.4, 0); s.lineTo(5.4, 7.6); s.lineTo(-5.4, 7.6); s.lineTo(-5.4, 0);
+      const hole = new THREE.Path();
+      hole.moveTo(-3.3, -0.01); hole.lineTo(3.3, -0.01); hole.lineTo(3.3, 3.2); hole.absarc(0, 3.2, 3.3, 0, Math.PI, false); hole.lineTo(-3.3, -0.01);
+      s.holes.push(hole);
+      const gate = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 1.6, bevelEnabled: false, curveSegments: 16 }).translate(0, 0, -0.8), this.stoneMat);
+      gate.position.set(Math.cos(sa) * wallR, this.townH, Math.sin(sa) * wallR);
+      gate.rotation.y = Math.atan2(-Math.cos(sa), -Math.sin(sa));
+      gate.castShadow = gate.receiveShadow = true;
+      this.townStatic.add(gate);
+      for (let k = 0; k < 6; k++) {
+        const mm = new THREE.Mesh(merlon, this.stoneMat);
+        const lx = -4.6 + k * 1.84;
+        mm.position.set(gate.position.x + Math.cos(gate.rotation.y) * lx, this.townH + 7.95, gate.position.z - Math.sin(gate.rotation.y) * lx);
+        mm.rotation.y = gate.rotation.y;
+        this.townStatic.add(mm);
       }
     }
     for (const sa of spokeAngles) for (const side of [-1, 1]) {
@@ -706,7 +888,7 @@ export class World {
       const tr = new THREE.Mesh(towerRoof, roofT);
       tr.position.set(x, this.townH + 7.6, z);
       tw.castShadow = tr.castShadow = true;
-      this.group.add(tw, tr);
+      this.townStatic.add(tw, tr);
       this.grid.add({ x, z, r: 1.6 });
     }
 
@@ -743,9 +925,184 @@ export class World {
       g.add(n);
     }
     g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-    this.group.add(g);
+    this.townStatic.add(g);
     this.grid.add({ x: p.x, z: p.z, hw: 1.3, hd: 0.3, rot: g.rotation.y });
     this.labels.push({ text: 'Quadro de Missões', pos: new THREE.Vector3(p.x, this.townH + 3.2, p.z), cls: 'npc' });
+    this.mergeStatic(this.townStatic);
+  }
+
+  // Black Iron Palace: o grande castelo escuro do Town of Beginnings, com o Monumento da Vida em frente
+  buildPalace(ang, M) {
+    const rad = 44, x = Math.cos(ang) * rad, z = Math.sin(ang) * rad, rot = Math.atan2(-Math.cos(ang), -Math.sin(ang));
+    const g = new THREE.Group();
+    g.position.set(x, this.townH, z);
+    g.rotation.y = rot;
+    const W = 22, D = 13, H = 12, rh = 5;
+    const prof = new THREE.Shape();
+    prof.moveTo(-W / 2, 0); prof.lineTo(W / 2, 0); prof.lineTo(W / 2, H); prof.lineTo(0, H + rh); prof.lineTo(-W / 2, H);
+    const body = new THREE.ExtrudeGeometry(prof, { depth: D, bevelEnabled: false });
+    body.translate(0, 0, -D / 2);
+    g.add(new THREE.Mesh(body, this.darkStoneMat));
+    const slope = Math.hypot(W / 2, rh) + 0.8, a2 = Math.atan2(rh, W / 2);
+    for (const s of [-1, 1]) {
+      const slab = new THREE.Mesh(rbox(slope, 0.35, D + 1.2, 0.08), this.darkSlateMat);
+      slab.position.set(s * (W / 4 + 0.15), H + rh / 2 + 0.2, 0);
+      slab.rotation.z = -s * a2;
+      g.add(slab);
+    }
+    for (const yy of [0.5, H]) { const c = new THREE.Mesh(rbox(W + 0.5, yy === 0.5 ? 1 : 0.4, D + 0.5, 0.08), this.darkStoneMat); c.position.y = yy; g.add(c); }
+    // torres nos cantos com telhado cônico escuro
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.3, 17, 20), this.darkStoneMat);
+      t.position.set(sx * W / 2, 8.5, sz * D / 2);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(2.7, 6, 20), this.darkSlateMat);
+      roof.position.set(sx * W / 2, 20, sz * D / 2);
+      g.add(t, roof);
+    }
+    // torre central da fachada
+    const ct = new THREE.Mesh(rbox(6, 21, 5, 0.1), this.darkStoneMat);
+    ct.position.set(0, 10.5, D / 2 + 1.2);
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(4.2, 8, 4).rotateY(Math.PI / 4), this.darkSlateMat);
+    spire.position.set(0, 25, D / 2 + 1.2);
+    g.add(ct, spire);
+    // portal de entrada e janelas altas em arco
+    const doorShape = (() => { const s = new THREE.Shape(); s.moveTo(-2, 0); s.lineTo(2, 0); s.lineTo(2, 4); s.absarc(0, 4, 2, 0, Math.PI, false); s.lineTo(-2, 0); return s; })();
+    const door = new THREE.Mesh(new THREE.ExtrudeGeometry(doorShape, { depth: 0.3, bevelEnabled: false, curveSegments: 12 }), M('#1a1410'));
+    door.position.set(0, 0, D / 2 + 3.72);
+    g.add(door);
+    const winGlow = new THREE.MeshStandardMaterial({ color: '#203040', emissive: '#6ab8ff', emissiveIntensity: 0.5 });
+    this.palaceGlass = winGlow;
+    const tall = new THREE.ShapeGeometry((() => { const s = new THREE.Shape(); s.moveTo(-0.6, 0); s.lineTo(0.6, 0); s.lineTo(0.6, 2.6); s.absarc(0, 2.6, 0.6, 0, Math.PI, false); s.lineTo(-0.6, 0); return s; })(), 10);
+    for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) for (const yy of [2.5, 7.2]) {
+      const w = new THREE.Mesh(tall, winGlow);
+      w.position.set(sx * (5 + i * 2.2), yy, D / 2 + 0.02);
+      g.add(w);
+    }
+    // estandartes
+    for (const sx of [-1, 1]) {
+      const b = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 4.5), toonMat('#7a1a22', { side: THREE.DoubleSide }));
+      b.position.set(sx * 3.6, 9, D / 2 + 3.75);
+      g.add(b);
+    }
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.group.add(g);
+    this.grid.add({ x, z, hw: W / 2 + 2.3, hd: D / 2 + 2.3, rot });
+    const ctw = new THREE.Vector3(0, 0, D / 2 + 1.2).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot).add(g.position);
+    this.grid.add({ x: ctw.x, z: ctw.z, r: 3.4 });
+    this.labels.push({ text: 'Black Iron Palace', pos: new THREE.Vector3(x, this.townH + 31, z), cls: 'door' });
+
+    // Monumento da Vida
+    const mr = 33.5, mx = Math.cos(ang) * mr, mz = Math.sin(ang) * mr;
+    const mon = new THREE.Group();
+    mon.position.set(mx, this.townH, mz);
+    mon.rotation.y = rot;
+    const base = new THREE.Mesh(rbox(6.4, 0.6, 2.2, 0.1), this.darkStoneMat);
+    base.position.y = 0.3;
+    const cv = document.createElement('canvas');
+    cv.width = 512; cv.height = 256;
+    const cx = cv.getContext('2d');
+    cx.fillStyle = '#101216'; cx.fillRect(0, 0, 512, 256);
+    cx.font = '600 13px "Exo 2", sans-serif';
+    const names = ['Kirito', 'Asuna', 'Klein', 'Agil', 'Lisbeth', 'Silica', 'Argo', 'Diavel', 'Kibaou', 'Sachi', 'Keita', 'Heathcliff', 'Godfree', 'Kuradeel', 'Thinker', 'Yulier', 'Sasha', 'Coper', 'Schmitt', 'Griselda', 'Grimlock', 'Yolko', 'Caynz', 'Nezha', 'Liten', 'Dusker', 'Ducker', 'Tetsuo', 'Sasamaru', 'Kains', 'Pina?', 'Nishida'];
+    const fallen = new Set(['Diavel', 'Sachi', 'Keita', 'Kuradeel', 'Griselda', 'Tetsuo', 'Sasamaru', 'Ducker', 'Coper']);
+    for (let i = 0; i < 96; i++) {
+      const n = names[i % names.length] + (i >= names.length ? `_${(i * 37) % 97}` : '');
+      const px = 14 + (i % 6) * 84, py = 22 + Math.floor(i / 6) * 15;
+      const dead = fallen.has(names[i % names.length]) && i < names.length;
+      cx.fillStyle = dead ? '#ff7a6a' : '#9fd8ff';
+      cx.fillText(n, px, py);
+      if (dead) { cx.strokeStyle = '#ff4a3a'; cx.lineWidth = 1.5; cx.beginPath(); cx.moveTo(px - 2, py - 4); cx.lineTo(px + cx.measureText(n).width + 2, py - 4); cx.stroke(); }
+    }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const slab = new THREE.Mesh(rbox(6, 3.4, 0.6, 0.08), new THREE.MeshStandardMaterial({ color: '#16181e', metalness: 0.6, roughness: 0.25 }));
+    slab.position.y = 2.3;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 2.8), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1.6, 1.6, 1.6) }));
+    face.position.set(0, 2.35, 0.31);
+    mon.add(base, slab, face);
+    mon.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.group.add(mon);
+    this.grid.add({ x: mx, z: mz, hw: 3.2, hd: 1.1, rot });
+    this.monumentPos = new THREE.Vector3(mx, this.townH, mz);
+    this.labels.push({ text: 'Monumento da Vida', pos: new THREE.Vector3(mx, this.townH + 4.6, mz), cls: 'npc' });
+  }
+
+  // Torre do relógio: os ponteiros mostram a hora do jogo
+  buildClockTower(ang) {
+    const rad = 24.5, x = Math.cos(ang) * rad, z = Math.sin(ang) * rad;
+    const g = new THREE.Group();
+    g.position.set(x, this.townH, z);
+    g.rotation.y = Math.atan2(-Math.cos(ang), -Math.sin(ang));
+    const T = 4.6, H = 19;
+    const shaft = new THREE.Mesh(rbox(T, H, T, 0.1), this.stoneMat);
+    shaft.position.y = H / 2;
+    g.add(shaft);
+    for (const yy of [0.5, 6.5, 12.5, H]) { const c = new THREE.Mesh(rbox(T + 0.5, yy === 0.5 ? 1 : 0.35, T + 0.5, 0.06), this.trimMat); c.position.y = yy; g.add(c); }
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(T * 0.78, 8, 4).rotateY(Math.PI / 4), this.slateMat);
+    spire.position.y = H + 4;
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.25, 10, 8), toonMat('#d8b050'));
+    tip.position.y = H + 8.2;
+    g.add(spire, tip);
+    this.clockHands = [];
+    const faceMat = toonMat('#f4ecd8'), handMat = toonMat('#1a1a20'), rimMat = toonMat('#c8a050');
+    for (let i = 0; i < 4; i++) {
+      const f = new THREE.Group();
+      f.rotation.y = (i * Math.PI) / 2;
+      const off = T / 2 + 0.05;
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(1.45, 32), faceMat);
+      disc.position.set(0, 15.6, off);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.1, 6, 32), rimMat);
+      rim.position.set(0, 15.6, off + 0.02);
+      const hour = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.85, 0.05).translate(0, 0.38, 0), handMat);
+      const min = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.25, 0.05).translate(0, 0.58, 0), handMat);
+      hour.position.set(0, 15.6, off + 0.05);
+      min.position.set(0, 15.6, off + 0.08);
+      for (let k = 0; k < 12; k++) {
+        const tick = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.22, 0.03), handMat);
+        const ta = (k / 12) * Math.PI * 2;
+        tick.position.set(Math.sin(ta) * 1.22, 15.6 + Math.cos(ta) * 1.22, off + 0.03);
+        tick.rotation.z = -ta;
+        f.add(tick);
+      }
+      f.add(disc, rim, hour, min);
+      g.add(f);
+      this.clockHands.push({ hour, min });
+    }
+    // aberturas do sino
+    const bell = new THREE.ShapeGeometry((() => { const s = new THREE.Shape(); s.moveTo(-0.7, 0); s.lineTo(0.7, 0); s.lineTo(0.7, 1.6); s.absarc(0, 1.6, 0.7, 0, Math.PI, false); s.lineTo(-0.7, 0); return s; })(), 8);
+    const dark = toonMat('#14161a');
+    for (let i = 0; i < 4; i++) { const b = new THREE.Mesh(bell, dark); const a = (i * Math.PI) / 2; b.position.set(Math.sin(a) * (T / 2 + 0.03), 9.5, Math.cos(a) * (T / 2 + 0.03)); b.rotation.y = a; g.add(b); }
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.group.add(g);
+    this.grid.add({ x, z, hw: T / 2 + 0.3, hd: T / 2 + 0.3, rot: g.rotation.y });
+  }
+
+  // Junta todas as peças estáticas da cidade em poucas malhas (uma por material): de ~1000 draw calls para dezenas
+  mergeStatic(root) {
+    root.updateMatrixWorld(true);
+    const buckets = new Map();
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      if (!g.attributes.normal) g.computeVertexNormals();
+      g.applyMatrix4(o.matrixWorld);
+      const key = `${o.material.uuid}|${o.castShadow ? 1 : 0}${o.receiveShadow ? 1 : 0}|${o.renderOrder}`;
+      if (!buckets.has(key)) buckets.set(key, { mat: o.material, cast: o.castShadow, recv: o.receiveShadow, order: o.renderOrder, list: [] });
+      buckets.get(key).list.push(g);
+    });
+    for (const b of buckets.values()) {
+      const merged = mergeGeometries(b.list);
+      b.list.forEach((g) => g.dispose());
+      if (!merged) continue;
+      const m = new THREE.Mesh(merged, b.mat);
+      m.castShadow = b.cast;
+      m.receiveShadow = b.recv;
+      m.renderOrder = b.order;
+      this.group.add(m);
+    }
+    root.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
   }
 
   buildStall(pos, [c1, c2]) {
@@ -1017,6 +1374,11 @@ export class World {
     if (this.cloudMat) { this.cloudMat.map.offset.x += dt * 0.002; this.cloudMat.map.offset.y += dt * 0.001; }
     if (this.waterMesh) this.waterMesh.position.y = this.water.level + Math.sin(t * 0.6) * 0.06;
     if (this.windowMat) this.windowMat.emissiveIntensity = 0.1 + night * 2.6;
+    if (this.clockHands) {
+      const hrs = (this.game.tod * 24) % 12, mins = (this.game.tod * 24 * 60) % 60;
+      for (const h of this.clockHands) { h.hour.rotation.z = -(hrs / 12) * Math.PI * 2; h.min.rotation.z = -(mins / 60) * Math.PI * 2; }
+    }
+    if (this.palaceGlass) this.palaceGlass.emissiveIntensity = 0.3 + night * 1.6;
     if (this.forgeMat) { const f = 0.8 + Math.sin(t * 7) * 0.12 + Math.sin(t * 13) * 0.08; this.forgeMat.color.setRGB(2.2 * f, 0.9 * f, 0.25 * f); this.forgeLight.intensity = 12 * f; }
     if (this.barrier.visible) this.barrierMat.uniforms.uTime.value = t;
     this.runeMat.opacity = 0.35 + Math.sin(t * 1.5) * 0.15;

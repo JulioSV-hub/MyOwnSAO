@@ -23,7 +23,7 @@ import { windTime } from './toon.js';
 import { Music } from './music.js';
 import { smoothstep } from './rng.js';
 import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward } from './data.js';
-import { loadSave, writeSave, deleteSave, newSave, recordDeath } from './save.js';
+import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord } from './save.js';
 
 const NIGHT_TOP = new THREE.Color('#050a1c');
 const NIGHT_BOTTOM = new THREE.Color('#121c34');
@@ -729,6 +729,15 @@ class Game {
     else this.ui.toast('Sem poções! Compre mais com o Agil na cidade.', 'warn');
   }
 
+  monumentNpc() {
+    const p = this.state.player, rec = this.state.mode === 'hardcore' ? getRecord() : null;
+    const lines = [`Milhares de nomes estão gravados na pedra negra. Entre eles, o seu: "${p.name}".`];
+    lines.push(p.deaths ? `Ao lado do seu nome brilham ${p.deaths} marca(s) — as vezes em que você caiu e voltou.` : 'Seu nome brilha em azul. Você ainda não caiu nenhuma vez.');
+    if (rec?.last) lines.push(`Mais abaixo, um nome riscado em vermelho: "${rec.last.name}" — caiu no andar ${rec.last.floor}${rec.last.cause ? `, derrotado por ${rec.last.cause}` : ''}.`);
+    lines.push('Os nomes riscados em vermelho são dos jogadores que não voltaram...');
+    return { name: 'Monumento da Vida', title: 'Black Iron Palace', def: {}, talking: false, dialog: () => ({ text: lines.join(String.fromCharCode(10, 10)), options: [{ label: 'Fechar', run: () => null }] }) };
+  }
+
   boardNpc() {
     const back = () => this.boardNpc().dialog();
     return {
@@ -812,6 +821,9 @@ class Game {
     if (this.nearGate()) {
       hint = '[E] Portal de Teletransporte';
       act = () => this.ui.openMenu('map');
+    } else if (w.monumentPos && Math.hypot(pl.x - w.monumentPos.x, pl.z - w.monumentPos.z) < 3.6) {
+      hint = '[E] Monumento da Vida';
+      act = () => this.ui.openDialog(this.monumentNpc());
     } else if (Math.hypot(pl.x - w.boardPos.x, pl.z - w.boardPos.z) < 3) {
       hint = '[E] Quadro de Missões';
       act = () => this.ui.openDialog(this.boardNpc());
