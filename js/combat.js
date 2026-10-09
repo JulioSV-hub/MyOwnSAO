@@ -137,6 +137,9 @@ export class Combat {
     this.glow = 0;
     this.glowColor = new THREE.Color('#ffffff');
     this.prevR = false;
+    this.sheathed = false;
+    this.sheathAmt = 0;
+    this.shown = true;
     this.prevL = false;
     this._a = new THREE.Vector3();
     this._b = new THREE.Vector3();
@@ -147,15 +150,32 @@ export class Combat {
   get locked() { return this.post > 0 || !!(this.action && !this.action.basic); }
 
   setVisible(v) {
+    this.shown = v;
+    this.updateVisibility();
+  }
+
+  updateVisibility() {
+    const v = this.shown !== false && this.sheathAmt < 0.97;
     this.R.root.visible = v;
     this.L.root.visible = v && this.dual;
   }
+
+  // Guardar / sacar a espada (tecla H). Atacar com a espada guardada saca automaticamente.
+  setSheathed(on, quiet = false) {
+    if (this.sheathed === on) return;
+    if (on && this.busy) return;
+    this.sheathed = on;
+    this.guard = false;
+    if (!quiet) Sfx.sheath(on);
+  }
+
+  toggleSheath() { this.setSheathed(!this.sheathed); }
 
   refresh() {
     const p = this.game.state.player;
     this.R.setWeapon(weaponDef(p.weapon));
     if (p.offhand) this.L.setWeapon(weaponDef(p.offhand));
-    this.L.root.visible = this.R.root.visible && this.dual;
+    this.updateVisibility();
   }
 
   reset() {
@@ -168,6 +188,7 @@ export class Combat {
   }
 
   basic() {
+    if (this.sheathed) { this.setSheathed(false); return; }
     if (this.post > 0 || this.guard) return;
     if (this.action) {
       if (this.action.basic && this.action.t > this.action.dur * 0.4) this.queued = true;
@@ -180,6 +201,7 @@ export class Combat {
   }
 
   skill(slot) {
+    if (this.sheathed) { this.setSheathed(false); return; }
     const g = this.game, p = g.state.player;
     const id = p.slots[slot];
     if (!id) { g.ui.toast('Nenhuma Sword Skill neste atalho — abra o menu → Skills.', 'warn'); return; }
@@ -257,7 +279,7 @@ export class Combat {
         if (this.queued) { this.queued = false; this.basic(); }
       }
     } else {
-      const wantGuard = inp.mouse.buttons.has(2) && this.post <= 0 && !g.player.dead;
+      const wantGuard = inp.mouse.buttons.has(2) && this.post <= 0 && !g.player.dead && !this.sheathed;
       if (wantGuard && !this.guard) { this.guard = true; this.guardT = 0; }
       if (!wantGuard) this.guard = false;
       if (this.guard) this.guardT += dt;
@@ -273,8 +295,20 @@ export class Combat {
       }
       this.glow = Math.max(0, this.glow - dt * 3);
     }
+    // animação de guardar/sacar: a espada desce para fora da tela e some
+    this.sheathAmt += ((this.sheathed ? 1 : 0) - this.sheathAmt) * Math.min(1, dt * 9);
+    if (Math.abs(this.sheathAmt - (this.sheathed ? 1 : 0)) < 0.002) this.sheathAmt = this.sheathed ? 1 : 0;
+    for (const rig of [this.R, this.L]) {
+      rig.pose.py -= this.sheathAmt * 0.75;
+      rig.pose.pitch += this.sheathAmt * 0.9;
+    }
+    this.updateVisibility();
     this.R.apply();
     this.L.apply();
+    for (const rig of [this.R, this.L]) {
+      rig.pose.py += this.sheathAmt * 0.75;
+      rig.pose.pitch -= this.sheathAmt * 0.9;
+    }
     for (const rig of [this.R, this.L]) rig.bladeMat.emissive.copy(rig.bladeMat.userData.baseEmissive).add(GLOW_TMP.copy(this.glowColor).multiplyScalar(this.glow * 2.2));
 
     const col = a?.color || TRAIL_WHITE, strength = a?.color ? 2.4 : 0.6, life = a?.color ? 0.16 : 0.1;

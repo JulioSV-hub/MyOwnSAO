@@ -27,6 +27,8 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 | Botão direito | Defender — no instante certo vira **Parry** e atordoa o inimigo |
 | 1–4 | Sword Skills |
 | R | Poção |
+| T | Cristal de Teletransporte (abre a lista de andares) |
+| H | Guardar / sacar a espada |
 | E | Interagir (Portal, loja do Agil, porta do Labirinto) |
 | Tab / Esc | Menu |
 

@@ -91,6 +91,8 @@ button { font-family: inherit; cursor: pointer; }
 .slot .cd { --p: 0; position: absolute; inset: 0; background: conic-gradient(rgba(30, 32, 40, 0.65) calc(var(--p) * 360deg), transparent 0); }
 .slot.ready:not(.empty) { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 0 0 1px var(--sc); }
 .slot.potion { width: 70px; border-bottom-color: #7aff9a; }
+.slot.tp { width: 70px; border-bottom-color: #4ab8ff; }
+.slot.tp .count { color: #2a7ab8; }
 .slot .count { position: absolute; right: 6px; bottom: 3px; font-size: 13px; font-weight: 800; color: #2a8a4a; }
 
 /* ─────────── Toasts e banner ─────────── */

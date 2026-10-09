@@ -324,6 +324,8 @@ class Game {
     this.enemies.populate();
     this.npcs.populate();
     this.combat.reset();
+    this.combat.setSheathed(!!this.state.settings.autoSheath, true);
+    this.wasSafe = true;
     this.ui.banner(`Andar ${n}`, `${this.floor.town} — ${this.floor.desc}`, 3.5);
     this.save();
   }
@@ -716,6 +718,13 @@ class Game {
     else this.ui.toast('Sem poções! Compre mais com o Agil na cidade.', 'warn');
   }
 
+  quickTeleport() {
+    const p = this.state.player;
+    if (this.nearGate() || (p.items.teleport_crystal || 0) > 0) { this.ui.openMenu('map'); return; }
+    Sfx.error();
+    this.ui.toast('Sem Cristal de Teletransporte. Compre com o Agil (250 Col) ou use o Portal da cidade.', 'warn');
+  }
+
   buy(kind, id, q = 1) {
     const p = this.state.player;
     const d = kind === 'item' ? ITEMS[id] : kind === 'weapon' ? weaponDef(id) : armorDef(id);
@@ -806,6 +815,8 @@ class Game {
     if (inp.mouse.clicked.has(0)) this.combat.basic();
     for (let i = 0; i < 4; i++) if (inp.pressed(`Digit${i + 1}`)) this.combat.skill(i);
     if (inp.pressed('KeyR')) this.quickPotion();
+    if (inp.pressed('KeyH')) this.combat.toggleSheath();
+    if (inp.pressed('KeyT')) this.quickTeleport();
   }
 
   updateMusic(dt) {
@@ -842,6 +853,10 @@ class Game {
         this.enemies.update(dt);
         this.npcs.update(dt);
         this.updateInteract();
+        // guardar a espada sozinho ao entrar na cidade (opção em Sistema)
+        const safe = this.world.inSafeZone(this.player.pos);
+        if (this.state.settings.autoSheath && safe !== this.wasSafe && this.wasSafe !== undefined) this.combat.setSheathed(safe);
+        this.wasSafe = safe;
         this.state.playTime += real;
         this.autosaveT -= real;
         if (this.autosaveT <= 0) { this.autosaveT = 30; this.save(); }

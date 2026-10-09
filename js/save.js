@@ -20,7 +20,7 @@ export function newSave(name, mode = 'normal') {
       dualBlades: false, kills: 0, deaths: 0,
     },
     progress: { floor: 1, highest: 1, cleared: {} },
-    settings: { sens: 1, fov: 75, volume: 0.5, music: 0.45, bloom: true, shadows: true, grass: true, xpRate: 1, dayMinutes: 20, invertY: false },
+    settings: { sens: 1, fov: 75, volume: 0.5, music: 0.45, bloom: true, shadows: true, grass: true, autoSheath: true, xpRate: 1, dayMinutes: 20, invertY: false },
     world: { tod: 0.32 },
   };
 }

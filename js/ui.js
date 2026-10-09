@@ -62,7 +62,8 @@ export class UI {
   buildSkillbar() {
     const bar = $('skillbar');
     bar.innerHTML = [0, 1, 2, 3].map((i) => `<div class="slot" id="slot${i}"><span class="key">${i + 1}</span><span class="sname"></span><div class="cd"></div></div>`).join('')
-      + '<div class="slot potion" id="slot-pot"><span class="key">R</span><span class="sname">Poção</span><span class="count" id="pot-count">0</span></div>';
+      + '<div class="slot potion" id="slot-pot"><span class="key">R</span><span class="sname">Poção</span><span class="count" id="pot-count">0</span></div>'
+      + '<div class="slot tp" id="slot-tp"><span class="key">T</span><span class="sname">Cristal</span><span class="count" id="tp-count">0</span></div>';
   }
 
   refreshSkillbar() {
@@ -100,6 +101,8 @@ export class UI {
       el.classList.toggle('ready', !!s && cd <= 0);
     }
     $('pot-count').textContent = (p.items.potion || 0) + (p.items.hipotion || 0);
+    $('tp-count').textContent = p.items.teleport_crystal || 0;
+    $('slot-tp').classList.toggle('locked', !(p.items.teleport_crystal > 0) && !g.nearGate());
 
     const boss = g.bossFight?.boss;
     $('boss-bar').classList.toggle('hidden', !boss || boss.dead);
@@ -603,7 +606,7 @@ export class UI {
       ${range('music', 'Volume da música', 0, 1, 0.05)}
       ${range('xpRate', 'Taxa de EXP (seu mundo, suas regras)', 1, 10, 1)}
       ${range('dayMinutes', 'Duração do dia', 2, 60, 1)}
-      ${check('invertY', 'Inverter eixo Y')}${check('bloom', 'Brilho (bloom)')}${check('shadows', 'Sombras')}${check('grass', 'Grama (desligue se o PC estiver lento)')}
+      ${check('invertY', 'Inverter eixo Y')}${check('bloom', 'Brilho (bloom)')}${check('shadows', 'Sombras')}${check('grass', 'Grama (desligue se o PC estiver lento)')}${check('autoSheath', 'Guardar a espada automaticamente na cidade')}
       <div class="section">Mundo</div>
       ${this.g.state.mode === 'hardcore'
         ? '<div class="unique hc">Modo <b>Hardcore</b>: a morte é permanente. Exportar e importar ficam desativados neste mundo.</div><div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Desistir (apagar este mundo)</button></div>'
@@ -613,7 +616,7 @@ export class UI {
       <div class="muted pad">Modelos, altura e presença de cada personagem ficam em <b>Menu → NPCs</b>.</div>
       ${Object.keys(registry.credits).length ? `<div class="section">Créditos dos modelos 3D</div>${Object.entries(registry.credits).map(([f, c]) => `<div class="row"><div><b>${esc(c.title)}</b> <span class="muted">por</span> <b>${esc(c.author)}</b>${c.contact ? `<div class="muted">${/^https?:\/\//.test(c.contact) ? `<a href="${esc(c.contact)}" target="_blank" rel="noopener">${esc(c.contact)}</a>` : esc(c.contact)}</div>` : ''}</div><div class="row-r"><span class="muted">${esc(displayName(f))}</span>${f.startsWith('local:') ? `<button class="btn sm" data-act="creditEdit" data-key="${esc(f)}">Editar</button>` : ''}</div></div>`).join('')}<div class="muted pad">Modelos usados conforme as condições de uso de cada autor: sem redistribuição, sem alterações e sem atos violentos.</div>` : ''}
       <div class="section">Controles</div>
-      <div class="keys"><b>WASD</b> mover · <b>Shift</b> correr · <b>Espaço</b> pular · <b>Q</b> esquiva · <b>Clique</b> atacar (combo) · <b>Botão direito</b> defender (no tempo certo = <i>parry</i>) · <b>1–4</b> Sword Skills · <b>R</b> poção · <b>E</b> interagir · <b>Tab/Esc</b> menu</div>`;
+      <div class="keys"><b>WASD</b> mover · <b>Shift</b> correr · <b>Espaço</b> pular · <b>Q</b> esquiva · <b>Clique</b> atacar (combo) · <b>Botão direito</b> defender (no tempo certo = <i>parry</i>) · <b>1–4</b> Sword Skills · <b>R</b> poção · <b>T</b> Cristal de Teletransporte · <b>H</b> guardar/sacar espada · <b>E</b> interagir · <b>Tab/Esc</b> menu</div>`;
   }
 
   pNpcs() {

@@ -75,6 +75,7 @@ export const Sfx = {
   click() { tone(1318, 0.06, { type: 'sine', vol: 0.06 }); },
   error() { tone(220, 0.15, { type: 'square', vol: 0.05 }); tone(180, 0.15, { type: 'square', vol: 0.05, delay: 0.08 }); },
   coin() { tone(1568, 0.08, { type: 'square', vol: 0.04 }); tone(2093, 0.15, { type: 'square', vol: 0.04, delay: 0.06 }); },
+  sheath(on) { noise(0.22, { vol: 0.16, freq: on ? 2600 : 1400, to: on ? 900 : 4200, q: 3 }); tone(on ? 660 : 990, 0.08, { type: 'triangle', vol: 0.05, delay: 0.16 }); },
   dash() { noise(0.2, { vol: 0.15, freq: 500, to: 1800, q: 0.6 }); },
   teleport() { tone(400, 1.2, { type: 'sine', vol: 0.1, slide: 1600 }); tone(600, 1.2, { type: 'triangle', vol: 0.06, slide: 2000, delay: 0.1 }); noise(1, { vol: 0.08, freq: 2000, to: 8000 }); },
   roar() { tone(90, 1.2, { type: 'sawtooth', vol: 0.18, slide: -40 }); noise(1.0, { vol: 0.25, freq: 300, to: 120, q: 0.7 }); },
