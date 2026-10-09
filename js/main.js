@@ -15,6 +15,7 @@ import { EnemyManager } from './enemies.js';
 import { NPCManager } from './npcs.js';
 import { Quests } from './quests.js';
 import { Ambient } from './ambient.js';
+import { Pets } from './pets.js';
 import { loadModels } from './models.js';
 import { Effects } from './effects.js';
 import { UI } from './ui.js';
@@ -98,6 +99,7 @@ class Game {
     this.npcs = new NPCManager(this);
     this.quests = new Quests(this);
     this.ambient = new Ambient(this);
+    this.pets = new Pets(this);
     this.effects = new Effects(this);
 
     this.mode = 'title';
@@ -330,6 +332,7 @@ class Game {
     this.enemies.populate();
     this.npcs.populate();
     this.quests.setFloor(this.floor);
+    this.pets.spawn();
     this.combat.reset();
     this.combat.setSheathed(!!this.state.settings.autoSheath, true);
     this.wasSafe = true;
@@ -383,6 +386,7 @@ class Game {
   }
 
   logout() {
+    this.pets.despawn();
     if (this.hardcoreDead) { this.hardcoreDead = null; this.ui.hideDeath(); this.state = null; this.mode = 'title'; this.combat.setVisible(false); this.enemies.clear(); this.npcs.clear(); this.ui.clearEnemyLabels(); this.ui.showTitle(); return; }
     this.npcs.clear();
     this.ui.closeDialog(false);
@@ -398,6 +402,7 @@ class Game {
   }
 
   wipe() {
+    this.pets.despawn();
     this.npcs.clear();
     this.ui.closeDialog(false);
     deleteSave(this.state?.mode || 'normal');
@@ -554,6 +559,7 @@ class Game {
   }
 
   restartHardcore() {
+    this.pets.despawn();
     const name = this.hardcoreDead?.name || this.state?.player.name || 'Kirito';
     this.ui.hideDeath();
     this.hardcoreDead = null;
@@ -711,6 +717,7 @@ class Game {
     const p = this.state.player, d = ITEMS[id];
     if (!d || !(p.items[id] > 0)) return false;
     if (id === 'teleport_crystal') { this.ui.setPanel('map'); return true; }
+    if (d.tool) { this.ui.toast('Use perto de um monstro dócil (♥) com a tecla E.'); return false; }
     const max = this.stats().maxHp;
     if (p.hp >= max) { this.ui.toast('Seu HP já está cheio.'); return false; }
     p.items[id]--;
@@ -834,6 +841,10 @@ class Game {
     if (this.nearGate()) {
       hint = '[E] Portal de Teletransporte';
       act = () => this.ui.openMenu('map');
+    } else if (this.enemies.list.some((e) => e.docile && !e.dead && e.dist < 3.2)) {
+      const e = this.enemies.list.find((x) => x.docile && !x.dead && x.dist < 3.2);
+      hint = `[E] Domar ${e.def.name} ♥ (Petiscos: ${this.state.player.items.tame_treat || 0})`;
+      act = () => this.pets.tryTame(e);
     } else if (w.monumentPos && Math.hypot(pl.x - w.monumentPos.x, pl.z - w.monumentPos.z) < 3.6) {
       hint = '[E] Monumento da Vida';
       act = () => this.ui.openDialog(this.monumentNpc());
@@ -908,6 +919,7 @@ class Game {
         this.enemies.update(dt);
         this.npcs.update(dt);
         this.quests.update(dt);
+        this.pets.update(dt);
         this.updateInteract();
         // guardar a espada sozinho ao entrar na cidade (opção em Sistema)
         const safe = this.world.inSafeZone(this.player.pos);

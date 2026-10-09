@@ -270,6 +270,7 @@ export const ITEMS = {
   hipotion: { name: 'Poção Superior', desc: 'Recupera 100% do HP ao longo de 6s.', price: 180, heal: 1, over: 6, minFloor: 3 },
   heal_crystal: { name: 'Cristal de Cura', desc: 'Recupera todo o HP instantaneamente.', price: 600, heal: 1, over: 0, minFloor: 5 },
   teleport_crystal: { name: 'Cristal de Teletransporte', desc: 'Teletransporta para qualquer andar desbloqueado, de qualquer lugar.', price: 250 },
+  tame_treat: { name: 'Petisco de Domador', desc: 'Ofereça a um monstro dócil (♥) para tentar domá-lo. Cada tentativa aumenta a chance.', price: 120, tool: true },
 };
 
 const GEN_W = ['Espada Longa de Ferro', 'Espada de Aço', 'Lâmina de Bronze Polido', 'Espada de Mithril', 'Lâmina Cristalina',

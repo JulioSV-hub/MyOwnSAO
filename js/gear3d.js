@@ -198,11 +198,22 @@ const ITEM_LOOK = {
   hipotion: { kind: 'bottle', liquid: '#ff9a2a', big: true },
   heal_crystal: { kind: 'crystal', color: '#ff7ab8' },
   teleport_crystal: { kind: 'crystal', color: '#4ab8ff' },
+  tame_treat: { kind: 'treat' },
 };
 
 export function buildItem(id) {
   const look = ITEM_LOOK[id] || { kind: 'bottle', liquid: '#7aff9a' };
   const group = new THREE.Group();
+  if (look.kind === 'treat') {
+    const bag = M(new THREE.SphereGeometry(0.2, 16, 12), std('#c8a070', { roughness: 0.9 }));
+    bag.scale.set(1, 0.85, 1);
+    const tie = M(new THREE.TorusGeometry(0.07, 0.025, 6, 14), std('#ff7ab8'), 0, 0.17, 0);
+    tie.rotation.x = Math.PI / 2;
+    const top = M(new THREE.ConeGeometry(0.09, 0.12, 10), std('#c8a070', { roughness: 0.9 }), 0, 0.24, 0);
+    const heart = M(new THREE.SphereGeometry(0.05, 8, 6), std('#ff5a8a', { emissive: '#801030' }), 0, 0, 0.19);
+    group.add(bag, tie, top, heart);
+    return { group };
+  }
   if (look.kind === 'bottle') {
     const k = look.big ? 1.15 : 1;
     const pts = [[0, 0], [0.16, 0], [0.2, 0.05], [0.21, 0.16], [0.18, 0.26], [0.07, 0.34], [0.065, 0.44], [0.08, 0.46]].map(([x, y]) => new THREE.Vector2(x * k, y * k));

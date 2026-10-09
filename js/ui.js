@@ -1,6 +1,6 @@
 // Interface no estilo de Aincrad: barra de HP, menu circular, janelas holográficas, rótulos e números de dano.
 import * as THREE from 'three';
-import { SKILLS, ITEMS, weaponDef, armorDef, getFloor, expNeed, skillById, shopStock } from './data.js';
+import { SKILLS, ITEMS, MONSTERS, weaponDef, armorDef, getFloor, expNeed, skillById, shopStock } from './data.js';
 import { Sfx } from './audio.js';
 import { exportSave, importSave, newSave, loadSave, getRecord } from './save.js';
 import { icon } from './icons.js';
@@ -161,6 +161,16 @@ export class UI {
     return lab;
   }
 
+  createPetLabel(pet, data) {
+    const el = document.createElement('div');
+    el.className = 'nlabel pet';
+    el.innerHTML = '<div class="cursor">♥</div><div class="nname"></div>';
+    $('labels').appendChild(el);
+    const lab = { el, pet, data, remove: () => { el.remove(); this.petLabel = null; } };
+    this.petLabel = lab;
+    return lab;
+  }
+
   createNpcLabel(npc) {
     const el = document.createElement('div');
     el.className = `nlabel ${npc.role === 'folk' || npc.role === 'kid' ? 'folk' : 'named'}`;
@@ -268,6 +278,17 @@ export class UI {
       l.el.classList.toggle('near', d < 2.8);
       const mk = n.def.id ? this.g.quests.marker(n.def.id) : '';
       if (l.mk !== mk) { l.mk = mk; l.el.querySelector('.cursor').textContent = mk === '?' ? '❓' : mk === '!' ? '❗' : (n.role === 'folk' || n.role === 'kid' ? '▼' : '◆'); l.el.classList.toggle('quest', !!mk); }
+    }
+    if (this.petLabel && this.g.state?.pet) {
+      const l = this.petLabel, pt = l.pet, d = cam.distanceTo(pt.pos);
+      const p = d < 30 ? this.project(v3.set(pt.pos.x, pt.pos.y + pt.height + 0.25, pt.pos.z)) : null;
+      if (!p) l.el.style.display = 'none';
+      else {
+        l.el.style.display = '';
+        l.el.style.transform = `translate(${p[0].toFixed(1)}px, ${p[1].toFixed(1)}px) translate(-50%, -100%)`;
+        const txt = `${this.g.state.pet.name} · Lv ${this.g.state.pet.level}`;
+        if (l.txt !== txt) { l.txt = txt; l.el.querySelector('.nname').textContent = txt; }
+      }
     }
     for (const l of this.worldLabels) {
       const d = cam.distanceTo(l.pos);
@@ -495,7 +516,8 @@ export class UI {
       </div>
       <div class="section">Pontos de atributo: <b class="accent">${p.points}</b></div>
       ${statRow('str', 'STR', '+3% de dano da arma por ponto')}${statRow('agi', 'AGI', '+0,8% crítico, +0,6% velocidade, −1% recarga das skills')}${statRow('vit', 'VIT', '+2% HP máximo, +10 HP e defesa')}
-      ${p.dualBlades ? '<div class="unique">Habilidade Única: <b>Dual Blades</b></div>' : ''}`;
+      ${p.dualBlades ? '<div class="unique">Habilidade Única: <b>Dual Blades</b></div>' : ''}
+      ${g.state.pet ? `<div class="section">Mascote</div><div class="row"><div class="withicon"><b>♥ ${esc(g.state.pet.name)}</b> <span class="muted">${esc(MONSTERS[g.state.pet.mon]?.name || '')} · nível ${g.state.pet.level} · ataca junto com você e cura quando seu HP está baixo</span></div><div class="row-r"><button class="btn sm" data-act="petName">Renomear</button><button class="btn sm" data-act="petFree">Libertar</button></div></div>` : '<div class="muted pad">Sem mascote. Procure monstros dóceis (♥ rosa) e ofereça um Petisco de Domador.</div>'}`;
   }
 
   pItems() {
@@ -793,6 +815,12 @@ export class UI {
           g.reloadModels().then(() => this.renderPanel());
           return;
         }
+        case 'petName': {
+          const nm = prompt('Nome do mascote:', g.state.pet?.name || '');
+          if (nm && g.state.pet) { g.state.pet.name = nm.trim().slice(0, 16); g.save(); }
+          break;
+        }
+        case 'petFree': if (confirm(`Libertar ${g.state.pet?.name}?`)) g.pets.release(); break;
         case 'npcReset': resetNpc(d.id); g.npcs.applyHeights(); break;
         case 'npcCall': {
           const n = g.npcs.byId(d.id);

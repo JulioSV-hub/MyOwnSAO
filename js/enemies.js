@@ -6,13 +6,15 @@ import { FLOOR_R, TOWN_R, ARENA_R } from './world.js';
 import { Sfx } from './audio.js';
 import { hdr } from './effects.js';
 
+const TAMEABLE = new Set(['quad', 'flyer', 'slime', 'spider', 'cube']);
+
 const RED = new THREE.Color('#ff2010');
 const WHITE = new THREE.Color('#ffffff');
 const angleTo = (from, to) => { const d = to - from; return Math.atan2(Math.sin(d), Math.cos(d)); };
 const lerp = (a, b, t) => a + (b - a) * t;
 const easeOut = (t) => 1 - (1 - t) * (1 - t);
 
-class Enemy {
+export class Enemy {
   constructor(mgr, def, level, x, z, opts = {}) {
     this.mgr = mgr;
     this.game = mgr.game;
@@ -196,7 +198,7 @@ class Enemy {
       default:
         this.state = 'chase';
     }
-    if ((this.state === 'idle' || this.state === 'wander') && !pSafe && (dist < d.aggro || this.aggro)) {
+    if ((this.state === 'idle' || this.state === 'wander') && !pSafe && ((dist < d.aggro && !this.docile) || this.aggro)) {
       this.state = 'chase';
       this.cool = 0.6;
     }
@@ -358,6 +360,7 @@ class Enemy {
     this.hp -= dmg;
     this.flash = 1;
     this.aggro = true;
+    if (this.docile) { this.docile = false; this.label?.el.classList.remove('docile'); }
     if (this.state === 'idle' || this.state === 'wander' || this.state === 'return') {
       this.state = 'chase';
       this.cool = Math.min(this.cool, 0.6);
@@ -509,6 +512,11 @@ export class EnemyManager {
     const p = this.game.world.randomSpawn(near, minD, maxD, def.arch === 'flyer');
     if (!p) return null;
     const e = new Enemy(this, def, this.levelFor(), p.x, p.z);
+    // de vez em quando um monstro aparece dócil e pode ser domado
+    if (TAMEABLE.has(def.arch) && Math.random() < 0.07) {
+      e.docile = true;
+      e.label?.el.classList.add('docile');
+    }
     this.list.push(e);
     return e;
   }

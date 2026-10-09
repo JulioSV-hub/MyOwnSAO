@@ -121,6 +121,12 @@ button { font-family: inherit; cursor: pointer; }
 .elabel .ename { font-size: 12px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px #000, 0 0 2px #000; }
 .elabel .ename span { color: var(--nc); font-weight: 800; }
 .elabel.elite .ename { color: #ffd54f; font-size: 14px; }
+.elabel.docile .cursor { color: #ff9ac8; text-shadow: 0 0 8px #ff9ac8; }
+.elabel.docile .ename::after { content: ' ♥ dócil'; color: #ff9ac8; font-weight: 800; }
+.nlabel.pet .cursor { color: #ff9ac8; text-shadow: 0 0 8px #ff9ac8; font-size: 14px; }
+.nlabel.pet .nname { color: #ffd0e4; }
+.dmgn.pet { color: #ff9ac8; font-size: 18px; }
+.dmgn.heal { color: #7aff9a; font-size: 20px; }
 .elabel.elite .ename::before { content: '♛ '; }
 .elabel.elite .ehp { width: 120px; height: 7px; border-color: #ffd54f; }
 .elabel .ehp { width: 80px; height: 5px; margin: 2px auto 0; background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.6); }
