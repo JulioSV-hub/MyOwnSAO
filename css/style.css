@@ -530,3 +530,16 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 
 .dstats span { color: #6a6d75; }
 .dstats b { color: #2a2d33; font-weight: 800; margin-left: 3px; font-size: 13px; }
+
+/* espaços de save na tela inicial */
+.slots { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.slot-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.82); }
+.slot-row.empty { background: rgba(255, 255, 255, 0.45); }
+.slot-row.hc { background: rgba(255, 235, 232, 0.88); }
+.sr-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sr-info b { display: block; font-size: 13px; color: #2a2d33; }
+.sr-info small { display: block; font-size: 11px; color: #6a6d75; }
+.sr-n { font-size: 11px; font-weight: 800; color: #8a8e96; width: 12px; }
+.sr-cls { font-size: 18px; width: 20px; text-align: center; }
+.sr-btns { display: flex; gap: 4px; }
+.sr-btns .tbtn.small { padding: 5px 10px; font-size: 12px; margin: 0; }

@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { SKILLS, ITEMS, MONSTERS, weaponDef, armorDef, getFloor, expNeed, skillById, shopStock } from './data.js';
 import { Sfx } from './audio.js';
-import { exportSave, importSave, newSave, loadSave, getRecord } from './save.js';
+import { exportSave, importSave, newSave, loadSave, getRecord, listSaves, deleteSave, SLOTS } from './save.js';
 import { icon } from './icons.js';
 import { TOWN_R } from './world.js';
 import { registry, displayName } from './models.js';
@@ -1049,22 +1049,38 @@ export class UI {
   showTitle() {
     $('title').classList.remove('hidden');
     this.showHUD(false);
-    const normal = loadSave('normal'), hard = loadSave('hardcore'), rec = getRecord();
-    const info = (sv) => `${esc(sv.player.name)} · Nv ${sv.player.level} · Andar ${sv.progress.floor}`;
+    // avisos da partida não ficam por cima da tela inicial
+    $('banner').classList.remove('show');
+    this.bannerT = 0;
+    $('toasts').innerHTML = '';
+    const rec = getRecord();
+    const saves = { normal: listSaves('normal'), hardcore: listSaves('hardcore') };
+    const order = Object.keys(CLASSES);
+    // cada espaço vazio sugere uma classe, para dar para testar todas
+    const slotRow = (mode, i) => {
+      const sv = saves[mode][i], hc = mode === 'hardcore';
+      if (sv) {
+        const c = CLASSES[sv.player.cls];
+        return `<div class="slot-row ${hc ? 'hc' : ''}"><div class="sr-info"><span class="sr-n">${i + 1}</span><span class="sr-cls" style="color:${c?.color || '#888'}">${c?.icon || '?'}</span>
+          <div><b>${esc(sv.player.name)}</b><small>${c ? c.name : 'sem classe'} · Nv ${sv.player.level} · Andar ${sv.progress.floor}</small></div></div>
+          <div class="sr-btns"><button class="tbtn small ${hc ? 'danger-btn' : 'primary'}" data-t="continue" data-m="${mode}" data-s="${i}">Continuar</button><button class="tbtn small" data-t="del" data-m="${mode}" data-s="${i}" title="Apagar este espaço">✕</button></div></div>`;
+      }
+      const sug = order[i % order.length], c = CLASSES[sug];
+      return `<div class="slot-row empty"><div class="sr-info"><span class="sr-n">${i + 1}</span><span class="sr-cls" style="color:${c.color}">${c.icon}</span><div><b>Espaço vazio</b><small>sugestão: ${c.name}</small></div></div>
+        <div class="sr-btns"><button class="tbtn small" data-t="new" data-m="${mode}" data-s="${i}" data-c="${sug}">Novo jogo</button></div></div>`;
+    };
     const c = $('title-actions');
     c.innerHTML = `<div class="worlds">
       <div class="world">
         <div class="wt">Mundo Normal</div>
         <div class="wd">Se morrer, você renasce na cidade e perde um pouco de EXP.</div>
-        ${normal ? `<button class="tbtn primary" data-t="continue" data-m="normal">Continuar<small>${info(normal)}</small></button>` : ''}
-        <button class="tbtn ${normal ? '' : 'primary'}" data-t="new" data-m="normal">Novo jogo</button>
-        <button class="tbtn small" data-t="import">Importar mundo (.json)</button>
+        <div class="slots">${Array.from({ length: SLOTS }, (_, i) => slotRow('normal', i)).join('')}</div>
+        <button class="tbtn small" data-t="import">Importar mundo (.json) para um espaço vazio</button>
       </div>
       <div class="world hc">
         <div class="wt">Modo Hardcore</div>
         <div class="wd">Como no anime: morreu, perdeu tudo. O mundo é apagado e você recomeça do zero.</div>
-        ${hard ? `<button class="tbtn danger-btn" data-t="continue" data-m="hardcore">Continuar<small>${info(hard)}</small></button>` : ''}
-        <button class="tbtn ${hard ? '' : 'danger-btn'}" data-t="new" data-m="hardcore">Novo jogo Hardcore</button>
+        <div class="slots">${Array.from({ length: SLOTS }, (_, i) => slotRow('hardcore', i)).join('')}</div>
         <div class="wr">${rec.runs ? `Recorde: andar ${rec.bestFloor} · nível ${rec.bestLevel} · ${rec.runs} tentativa${rec.runs > 1 ? 's' : ''}${rec.last ? `<br>Última queda: ${esc(rec.last.name)}, andar ${rec.last.floor}${rec.last.cause ? `, por ${esc(rec.last.cause)}` : ''}` : ''}` : 'Nenhuma tentativa ainda.'}</div>
       </div>
     </div>`;
@@ -1075,39 +1091,42 @@ export class UI {
       if (!b) return;
       Sfx.unlock();
       Sfx.click();
-      const mode = b.dataset.m;
-      if (b.dataset.t === 'continue') this.g.beginGame(mode === 'hardcore' ? hard : normal);
-      else if (b.dataset.t === 'new') {
+      const mode = b.dataset.m, slot = +(b.dataset.s || 0);
+      if (b.dataset.t === 'continue') this.g.beginGame(saves[mode][slot]);
+      else if (b.dataset.t === 'del') {
+        const sv = saves[mode][slot];
+        if (confirm(`Apagar o Espaço ${slot + 1} (${sv.player.name}, nível ${sv.player.level})? Isso não pode ser desfeito — exporte antes se quiser guardar.`)) { deleteSave(mode, slot); this.showTitle(); }
+      } else if (b.dataset.t === 'new') {
         this.newMode = mode;
+        this.newSlot = slot;
+        this.newCls = b.dataset.c || 'swordsman';
         c.classList.add('hidden');
         $('title-new').classList.remove('hidden');
         $('title-new').classList.toggle('hc', mode === 'hardcore');
-        const has = mode === 'hardcore' ? hard : normal;
         $('title-warn').textContent = mode === 'hardcore'
-          ? `Hardcore: se seu HP chegar a zero, este mundo será apagado para sempre.${has ? ' Isto também substitui o Hardcore atual.' : ''}`
-          : 'Atenção: começar um novo jogo substitui o mundo Normal salvo (exporte antes se quiser guardá-lo).';
-        $('title-warn').classList.toggle('hidden', !(has || mode === 'hardcore'));
-        this.newCls ||= 'swordsman';
+          ? `Hardcore — Espaço ${slot + 1}: se seu HP chegar a zero, este mundo será apagado para sempre.`
+          : `Mundo Normal — Espaço ${slot + 1}. Os outros espaços não são afetados.`;
+        $('title-warn').classList.remove('hidden');
         this.newLook = null;
         this.newFemale = false;
         const sx = $('sex-pick');
         const drawSex = () => { sx.innerHTML = `<button type="button" class="tbtn small ${!this.newFemale ? 'on' : ''}" data-sex="m">Masculino</button><button type="button" class="tbtn small ${this.newFemale ? 'on' : ''}" data-sex="f">Feminino</button><button type="button" class="tbtn small" data-sex="custom">${this.newLook ? '✓ Aparência personalizada' : 'Personalizar aparência…'}</button>`; };
         drawSex();
         sx.onclick = (ev) => {
-          const b = ev.target.closest('[data-sex]');
-          if (!b) return;
+          const bb = ev.target.closest('[data-sex]');
+          if (!bb) return;
           Sfx.click();
-          if (b.dataset.sex === 'custom') {
+          if (bb.dataset.sex === 'custom') {
             openLookEditor({ look: this.newLook || defaultLook(this.newFemale), name: $('name-input').value || 'Você', title: 'Monte seu personagem', onSave: (l) => { this.newLook = l; this.newFemale = !!l.female; drawSex(); } });
             return;
           }
-          this.newFemale = b.dataset.sex === 'f';
+          this.newFemale = bb.dataset.sex === 'f';
           this.newLook = null;
           drawSex();
         };
         const cp = $('class-pick');
         cp.innerHTML = classCards(this.newCls);
-        cp.onclick = (ev) => { const b = ev.target.closest('[data-cls]'); if (!b) return; Sfx.click(); this.newCls = b.dataset.cls; cp.innerHTML = classCards(this.newCls); };
+        cp.onclick = (ev) => { const bb = ev.target.closest('[data-cls]'); if (!bb) return; Sfx.click(); this.newCls = bb.dataset.cls; cp.innerHTML = classCards(this.newCls); };
         $('name-input').focus();
       } else {
         importSave().then((sv) => this.g.beginGame(sv)).catch((err) => alert(`Não foi possível importar: ${err.message}`));
@@ -1116,7 +1135,7 @@ export class UI {
     $('title-new').onsubmit = (e) => {
       e.preventDefault();
       const name = $('name-input').value.trim().slice(0, 16) || 'Kirito';
-      this.g.beginGame(newSave(name, this.newMode || 'normal', this.newCls || 'swordsman', this.newLook || defaultLook(!!this.newFemale)));
+      this.g.beginGame(newSave(name, this.newMode || 'normal', this.newCls || 'swordsman', this.newLook || defaultLook(!!this.newFemale), this.newSlot || 0));
     };
     $('title-back').onclick = () => { $('title-new').classList.add('hidden'); c.classList.remove('hidden'); };
   }

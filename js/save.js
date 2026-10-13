@@ -1,12 +1,16 @@
 // Salvamento local (localStorage) com dois mundos: Normal (renasce ao morrer) e Hardcore (morreu = recomeça do zero).
 // Também exporta/importa o mundo Normal em JSON.
 const KEYS = { normal: 'sao-meu-mundo-save-v1', hardcore: 'sao-meu-mundo-save-hardcore-v1' };
+// 7 espaços por modo (um para cada classe). O espaço 0 usa a chave antiga, então saves existentes continuam no Espaço 1.
+export const SLOTS = 7;
+const keyOf = (mode = 'normal', slot = 0) => KEYS[mode] + (slot ? `-s${slot}` : '');
 const RECORD_KEY = 'sao-meu-mundo-hardcore-recorde';
 
-export function newSave(name, mode = 'normal', cls = null, look = null) {
+export function newSave(name, mode = 'normal', cls = null, look = null, slot = 0) {
   return {
     version: 1,
     mode,
+    slot,
     created: Date.now(),
     savedAt: Date.now(),
     playTime: 0,
@@ -46,12 +50,15 @@ function valid(s) {
   return s && typeof s === 'object' && s.player && typeof s.player.name === 'string' && s.progress;
 }
 
-export function loadSave(mode = 'normal') {
+export function loadSave(mode = 'normal', slot = 0) {
   try {
-    const raw = localStorage.getItem(KEYS[mode]);
+    const raw = localStorage.getItem(keyOf(mode, slot));
     if (!raw) return null;
     const s = JSON.parse(raw);
-    return valid(s) ? migrate(s, mode) : null;
+    if (!valid(s)) return null;
+    const m = migrate(s, mode);
+    m.slot = slot;
+    return m;
   } catch {
     return null;
   }
@@ -60,16 +67,19 @@ export function loadSave(mode = 'normal') {
 export function writeSave(state) {
   state.savedAt = Date.now();
   try {
-    localStorage.setItem(KEYS[state.mode || 'normal'], JSON.stringify(state));
+    localStorage.setItem(keyOf(state.mode || 'normal', state.slot || 0), JSON.stringify(state));
     return true;
   } catch {
     return false;
   }
 }
 
-export function deleteSave(mode = 'normal') {
-  localStorage.removeItem(KEYS[mode]);
+export function deleteSave(mode = 'normal', slot = 0) {
+  localStorage.removeItem(keyOf(mode, slot));
 }
+
+export const listSaves = (mode) => Array.from({ length: SLOTS }, (_, i) => loadSave(mode, i));
+export const firstEmptySlot = (mode) => listSaves(mode).findIndex((x) => !x);
 
 // Recorde do Hardcore: sobrevive às mortes, para você tentar superar a si mesmo.
 export function getRecord() {
@@ -115,6 +125,9 @@ export function importSave() {
           if (!valid(s)) throw new Error('Arquivo não é um mundo válido');
           const m = migrate(s, 'normal');
           m.mode = 'normal';
+          const free = firstEmptySlot('normal');
+          if (free < 0) throw new Error('Todos os 7 espaços do mundo Normal estão ocupados. Apague um na tela inicial.');
+          m.slot = free;
           writeSave(m);
           resolve(m);
         } catch (e) {

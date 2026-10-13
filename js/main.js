@@ -35,7 +35,7 @@ import { classBonus, CLASSES, normalizeTalents } from './classes.js';
 import { checkCompletion } from './completion.js';
 import { classPicker } from './talentui.js';
 import { adoptPrice, ADOPT_NAMES } from './shopui.js';
-import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord } from './save.js';
+import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord, listSaves } from './save.js';
 
 const NIGHT_TOP = new THREE.Color('#050a1c');
 const NIGHT_BOTTOM = new THREE.Color('#121c34');
@@ -145,7 +145,7 @@ class Game {
       if (n && this.mode === 'play') this.npcs.populate();
       if (n) setTimeout(() => this.ui.toast(`${n} modelo(s) 3D carregado(s) — créditos em Menu → Sistema.`), 4000);
     });
-    const save = loadSave('normal') || loadSave('hardcore');
+    const save = [...listSaves('normal'), ...listSaves('hardcore')].find(Boolean);
     this.setFloor(save ? save.progress.floor : 1);
     this.combat.setVisible(false);
     this.frame = this.frame.bind(this);
@@ -474,7 +474,7 @@ class Game {
     this.loot.clear();
     this.npcs.clear();
     this.ui.closeDialog(false);
-    deleteSave(this.state?.mode || 'normal');
+    deleteSave(this.state?.mode || 'normal', this.state?.slot || 0);
     this.state = null;
     this.ui.closeMenu(false);
     this.mode = 'title';
@@ -728,7 +728,7 @@ class Game {
     // Hardcore: como no anime, a morte é permanente — o mundo é apagado e você recomeça do zero
     if (this.state.mode === 'hardcore') {
       const record = recordDeath(this.state, cause);
-      deleteSave('hardcore');
+      deleteSave('hardcore', this.state.slot || 0);
       this.hardcoreDead = { name: this.state.player.name, record };
     } else this.hardcoreDead = null;
     setTimeout(() => { this.input.unlock(); this.ui.showDeath(this.hardcoreDead, this.state, cause); }, 1400);
@@ -739,11 +739,12 @@ class Game {
     this.party.despawn();
     this.loot.clear();
     const name = this.hardcoreDead?.name || this.state?.player.name || 'Kirito';
+    const old = this.state?.player, slot = this.state?.slot || 0;
     this.ui.hideDeath();
     this.hardcoreDead = null;
     this.mode = 'title';
     this.combat.setVisible(false);
-    this.beginGame(newSave(name, 'hardcore'));
+    this.beginGame(newSave(name, 'hardcore', old?.cls || 'swordsman', old?.look || null, slot));
   }
 
   respawn() {
