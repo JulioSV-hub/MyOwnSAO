@@ -11,6 +11,7 @@ import { FURNITURE } from './housing.js';
 import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO } from './shopui.js';
 import { runeDef, FOODS } from './data.js';
 import { guildRank } from './guild.js';
+import { floorCompletion, completionReward, PARTS } from './completion.js';
 import { CLASSES, respecCost, classChangeCost } from './classes.js';
 import { renderTalents, spendTalent, respec, classPicker, classCards } from './talentui.js';
 import { getNpcConfig, setNpc, setGlobal, resetNpc, npcHeight, presence, PRESENCE_IDS, DEFAULT_H } from './npcconfig.js';
@@ -712,7 +713,9 @@ export class UI {
     let rows = '';
     for (let n = pr.highest; n >= 1; n--) {
       const f = getFloor(n), cur = n === pr.floor;
-      rows += `<div class="row ${cur ? 'eq' : ''}"><div><b>Andar ${n}</b> — ${esc(f.town)} <span class="muted">${esc(f.desc)}</span>${pr.cleared[n] ? ' <span class="tag ok">Concluído</span>' : ''}</div><div class="row-r">${cur ? '<span class="tag">Você está aqui</span>' : `<button class="btn sm" data-act="travel" data-n="${n}" ${can ? '' : 'disabled'}>Teleportar</button>`}</div></div>`;
+      const cp = floorCompletion(g.state, n);
+      rows += `<div class="row ${cur ? 'eq' : ''}"><div><b>Andar ${n}</b> — ${esc(f.town)} <span class="muted">${esc(f.desc)}</span>${pr.cleared[n] ? ' <span class="tag ok">Chefe derrotado</span>' : ''}
+        <div class="fcomp ${cp.pct >= 100 ? 'full' : ''}" title="${PARTS.map((pp) => `${pp.label}: ${cp.parts[pp.key].have}/${cp.parts[pp.key].need}`).join(' · ')}"><i style="width:${cp.pct}%"></i><span>${cp.pct >= 100 ? '★ 100% concluído' : `${cp.pct}% concluído`}</span></div></div><div class="row-r">${cur ? '<span class="tag">Você está aqui</span>' : `<button class="btn sm" data-act="travel" data-n="${n}" ${can ? '' : 'disabled'}>Teleportar</button>`}</div></div>`;
     }
     const msg = atGate ? 'Você está no Portal de Teletransporte. Escolha um destino.'
       : crystals ? `Viajar consumirá 1 Cristal de Teletransporte (você tem ${crystals}).`
@@ -726,6 +729,9 @@ export class UI {
       <div class="section">Teletransporte na cidade — Andar ${g.floor.n}</div>
       <div class="muted pad">${inTown ? 'Grátis dentro da cidade.' : crystals ? 'Fora da cidade: gasta 1 Cristal de Teletransporte.' : 'Fora da cidade você precisa de um Cristal de Teletransporte.'}${house ? ` Sua casa fica no Andar ${house.floor}.` : ''}</div>
       <div class="tpgrid">${tp}</div>
+      ${(() => { const cp = floorCompletion(g.state, g.floor.n), rw = completionReward(g.floor.n); return `<div class="section">Conclusão do Andar ${g.floor.n}: ${cp.pct}%</div><div class="compgrid">${PARTS.map((pp) => { const x = cp.parts[pp.key]; return `<div class="cpart ${x.have >= x.need ? 'ok' : ''}"><b>${pp.label}</b><span>${x.have}/${x.need}</span><small>${pp.w}%</small></div>`; }).join('')}</div>
+        ${cp.parts.quests.list.filter((q) => !q.done).length ? `<div class="muted pad">Missões que faltam: ${cp.parts.quests.list.filter((q) => !q.done).map((q) => esc(q.title)).join(' · ')}</div>` : ''}
+        <div class="muted pad">${cp.claimed ? '★ Recompensa de 100% já recebida neste andar.' : `Recompensa ao chegar a 100%: ${rw.col.toLocaleString('pt-BR')} Col, 1 Elixir e +1 ponto de talento bônus.`}</div>`; })()}
       <div class="section">Andares</div><div class="muted pad">${msg}</div>${rows}<div class="muted pad">Para liberar um andar novo, derrote o chefe na arena e entre pela porta do Labirinto.</div>`;
   }
 

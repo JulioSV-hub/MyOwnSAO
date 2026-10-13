@@ -5,6 +5,7 @@ import { toonMat } from './toon.js';
 import { mulberry32 } from './rng.js';
 import { GATHER, ITEMS, MONSTERS, RUNES, RUNE_TIER_FLOOR, weaponDef, armorDef, runeDef } from './data.js';
 import { Sfx } from './audio.js';
+import { checkCompletion } from './completion.js';
 
 const CHESTS = 12, NODES = 50, REFILL = 3;
 const TIERS = {
@@ -177,6 +178,9 @@ export class Loot {
       this.nodes.push({ i, kind, obj: g, pos: g.position });
     }
     this.game.scene.add(this.group);
+    const st = this.st;
+    st.nC = this.chests.length;
+    st.nL = (w.landmarks || []).length;
     this.refresh();
   }
 
@@ -242,6 +246,7 @@ export class Loot {
     g.ui.banner(TIERS[c.tier].name, got.join(' · '), 4);
     g.quests.onChest();
     g.save();
+    checkCompletion(g);
   }
 
   // ─────────── Chefe de Campo ───────────
@@ -250,6 +255,7 @@ export class Loot {
   onFieldBoss(e) {
     const g = this.game;
     this.st.fb = this.day;
+    this.st.fbEver = true;
     const got = this.grant('gold');
     const exp = Math.round((10 + 9 * e.level) * 8 * g.state.settings.xpRate);
     g.gainExp(exp);
@@ -333,6 +339,16 @@ export class Loot {
     this.visT -= dt;
     if (this.visT <= 0) {
       this.visT = 0.4;
+      // descobrir marcos do campo (conta para a conclusão do andar)
+      const lms = this.game.world.landmarks || [], st = this.st;
+      lms.forEach((lm, i) => {
+        if ((st.lm ||= []).includes(i) || Math.hypot(pl.x - lm.pos.x, pl.z - lm.pos.z) > 16) return;
+        st.lm.push(i);
+        this.game.ui.toast(`Marco descoberto: ${lm.name} (${st.lm.length}/${lms.length})`, 'skill');
+        Sfx.coin();
+        this.game.save();
+        checkCompletion(this.game);
+      });
       for (const n of this.nodes) if (n.obj.visible || this.nodeReady(n)) n.obj.visible = this.nodeReady(n) && Math.hypot(pl.x - n.pos.x, pl.z - n.pos.z) < 95;
     }
     for (const n of this.nodes) if (n.obj.visible) { const s = n.obj.userData.spark; s.position.y = 0.9 + Math.sin(t * 2.5 + n.i) * 0.12; s.rotation.y += dt * 2; }

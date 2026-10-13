@@ -61,6 +61,7 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 - **Time:** chame Kirito, Asuna, Klein ou Silica, contrate companheiros na Taverna ou chame membros da Guilda. Eles lutam, curam e podem ser atacados (*Menu → Time*). Companheiros usam sempre os bonecos do jogo, nunca os modelos `.vrm`.
 - **Pedidos do dia:** o Quadro de Missões e a Guilda sorteiam 3 pedidos novos a cada dia do jogo (caçadas, coleta, pesca, baús, patrulha, caçada noturna, procurados...). As missões dos personagens também mudam de andar para andar.
 - **Baús e coleta:** 12 baús por andar (madeira, prata, dourado) que reabastecem a cada 3 dias, e ervas, cogumelos, minérios e cristais espalhados pelos campos.
+- **Conclusão dos andares:** cada andar mostra no Mapa quanto já foi feito (chefe 25%, missões 35%, baús 15%, marcos 10%, Chefe de Campo 10%, pedidos do dia 5%). Ao chegar a 100%: Col, 1 Elixir e +1 ponto de talento bônus.
 - **Mapa:** mapa do andar inteiro com sua casa, lojas e missões, e teletransporte para qualquer ponto da cidade (grátis na cidade; no campo gasta 1 cristal).
 
 ## Modelos 3D (VRM) e música

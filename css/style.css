@@ -478,3 +478,14 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .tnode.legend { border: 1px dashed #d8b050; background: linear-gradient(180deg, #fff8e6, #fff); }
 .tnode.legend .tn-head b::before { content: '★ '; color: #e0a020; }
 .ttree { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+/* conclusão dos andares */
+.fcomp { position: relative; margin-top: 4px; height: 14px; width: 220px; background: #e0e2e6; border-radius: 7px; overflow: hidden; }
+.fcomp i { display: block; height: 100%; background: linear-gradient(90deg, #4fc3ff, #7adf8a); }
+.fcomp.full i { background: linear-gradient(90deg, #ffd54f, #f39c12); }
+.fcomp span { position: absolute; inset: 0; font-size: 10px; font-weight: 800; line-height: 14px; padding-left: 8px; color: #2a2d33; }
+.compgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.cpart { background: #fff; border-radius: 5px; padding: 6px 8px; border-left: 3px solid #c8ccd4; font-size: 12px; display: flex; flex-direction: column; }
+.cpart.ok { border-left-color: #4fbf6a; }
+.cpart span { font-weight: 800; }
+.cpart small { color: var(--ui-muted); }

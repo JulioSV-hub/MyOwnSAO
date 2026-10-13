@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { MONSTERS, weaponDef, armorDef, laReward, monDef } from './data.js';
 import { mulberry32 } from './rng.js';
 import { guildRank } from './guild.js';
+import { checkCompletion } from './completion.js';
 import { Sfx } from './audio.js';
 
 const pickMon = (floor, i) => floor.monsters[i % floor.monsters.length];
@@ -290,6 +291,7 @@ export class Quests {
     }
     delete this.st.active[q.id];
     this.st.done[q.id] = true;
+    if (q.daily) { const pr = g.state.progress; (pr.dailyDone ||= {})[q.floor] = (pr.dailyDone[q.floor] || 0) + 1; }
     if (r.col) p.col += r.col;
     for (const [id, qn] of Object.entries(r.items || {})) p.items[id] = (p.items[id] || 0) + qn;
     if (r.points) p.points += r.points;
@@ -302,6 +304,7 @@ export class Quests {
     g.ui.banner('Missão concluída!', `${q.title} — ${this.rewardText(q)}`, 3.5);
     this.refreshMarkers();
     g.save();
+    setTimeout(() => checkCompletion(g), 100);
     return true;
   }
 

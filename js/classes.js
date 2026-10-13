@@ -118,7 +118,7 @@ export const CLASS_BRANCH = {
 };
 
 export const branchesFor = (cls) => [...Object.entries(BRANCHES).map(([k, b]) => ({ key: k, ...b })), ...(CLASSES[cls] ? [{ key: 'cls', name: CLASSES[cls].name, color: CLASSES[cls].color, nodes: CLASS_BRANCH[cls] }] : [])];
-export const talentPoints = (p) => Math.max(0, p.level - 1) - Object.values(p.talents || {}).reduce((a, b) => a + b, 0);
+export const talentPoints = (p) => Math.max(0, p.level - 1) + (p.bonusTalents || 0) - Object.values(p.talents || {}).reduce((a, b) => a + b, 0);
 export const spentIn = (p, branch) => branch.nodes.reduce((a, n) => a + ((p.talents || {})[n.id] || 0), 0);
 
 // Soma do bônus da classe + talentos

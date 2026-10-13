@@ -477,6 +477,17 @@ export class NPCManager {
     }
   }
 
+  // anota quem deu missões neste andar (personagens no seu time também contam)
+  recordGivers() {
+    const g = this.game, n = g.floor.n;
+    g.state.loot ||= {};
+    const st = (g.state.loot[n] ||= { c: {}, g: {}, rev: [] });
+    const ids = new Set(this.list.map((x) => x.def.id).filter(Boolean));
+    for (const m of g.state.party || []) if (m.kind === 'cast') ids.add(m.id);
+    ids.add('board'); ids.add('chain');
+    st.givers = [...new Set([...(st.givers || []), ...ids])];
+  }
+
   update(dt) {
     const t = this.game.time;
     for (const n of this.list) n.update(dt, t);

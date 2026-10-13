@@ -31,6 +31,7 @@ import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armor
 import { isFish } from './fishing.js';
 import { guildRank, guildDiscount } from './guild.js';
 import { classBonus, CLASSES, normalizeTalents } from './classes.js';
+import { checkCompletion } from './completion.js';
 import { classPicker } from './talentui.js';
 import { adoptPrice, ADOPT_NAMES } from './shopui.js';
 import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord } from './save.js';
@@ -359,12 +360,14 @@ class Game {
     if (this.housing.room) this.housing.room.visible = false;
     this.quests.setFloor(this.floor);
     this.npcs.populate();
+    this.npcs.recordGivers();
     this.loot.setFloor(this.floor);
     this.party.spawn();
     this.pets.spawn();
     this.combat.reset();
     this.combat.setSheathed(!!this.state.settings.autoSheath, true);
     this.wasSafe = true;
+    setTimeout(() => checkCompletion(this), 2500);
     this.ui.banner(`Andar ${n}`, `${this.floor.town} — ${this.floor.desc}`, 3.5);
     if (this.floor.peaceful) setTimeout(() => this.ui.toast('Andar pacífico: nenhum monstro daqui ataca. Os animais fogem se você bater neles — e muitos podem ser domados (♥).', 'skill'), 1500);
     if (this.world.fieldBoss && this.loot.fieldBossReady()) { const fb = this.world.fieldBoss, w = this.world; setTimeout(() => { if (this.world === w) this.ui.toast(`Dizem que ${fb.def.name}, um Chefe de Campo, ronda ${fb.where}. (ponto vermelho no mapa)`); }, 3000); }
@@ -804,6 +807,7 @@ class Game {
     this.ui.toast(`+${Math.round(exp)} EXP · +${col} Col · +3 Poções`);
     this.gainExp(exp);
     this.save();
+    checkCompletion(this);
   }
 
   onEnemyKilled(e) {
@@ -829,7 +833,7 @@ class Game {
     if ((e.def.arch === 'quad' || e.def.arch === 'flyer') && Math.random() < 0.3) { const m = (p.mats['Carne Crua'] ||= { qty: 0, value: 8 }); m.qty++; msg += ' · Carne Crua'; }
     this.ui.toast(msg);
     this.gainExp(exp);
-    if (e.fieldBoss) this.loot.onFieldBoss(e);
+    if (e.fieldBoss) { this.loot.onFieldBoss(e); checkCompletion(this); }
   }
 
   gainExp(x) {
