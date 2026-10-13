@@ -30,7 +30,7 @@ import { smoothstep } from './rng.js';
 import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward, runeDef, FOODS, MERCS, mercPrice, runeSlotsFor, DISHES, INGREDIENTS, RUNES, RUNE_TIER_FLOOR } from './data.js';
 import { isFish } from './fishing.js';
 import { guildRank, guildDiscount } from './guild.js';
-import { classBonus, CLASSES } from './classes.js';
+import { classBonus, CLASSES, normalizeTalents } from './classes.js';
 import { classPicker } from './talentui.js';
 import { adoptPrice, ADOPT_NAMES } from './shopui.js';
 import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord } from './save.js';
@@ -419,6 +419,7 @@ class Game {
     this.state = state;
     const p = state.player;
     this.tod = state.world.tod ?? 0.32;
+    normalizeTalents(p);
     if (p.hp == null || p.hp <= 0) p.hp = this.stats().maxHp;
     this.mode = 'play';
     this.player.dead = false;
@@ -528,7 +529,7 @@ class Game {
 
   applyBuff(src, id) {
     const p = this.state.player, def = src === 'dish' ? DISHES[id] : FOODS[id], slot = def.cat || 'meal';
-    (p.buffs ||= {})[slot] = { src, id, until: this.state.playTime + def.mins * 60 };
+    (p.buffs ||= {})[slot] = { src, id, until: this.state.playTime + def.mins * 60 * (1 + this.stats().buffTime) };
     this.clampHp();
     this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), slot === 'drink' ? '#7ad0ff' : '#ffd27a', 1.3, 0.8, 1.5);
     this.ui.toast(`${def.name}: ${def.desc} por ${def.mins} min.`, 'skill');
@@ -601,6 +602,7 @@ class Game {
       speedMul: Math.max(0.7, 1 + Math.min(0.5, p.agi * 0.006) + (a.spd || 0) + b.spd),
       leech: b.leech, colMul: 1 + b.col, expMul: 1 + b.exp, regen: 1 + b.regen, resist: Math.min(0.6, b.resist || 0), stam: b.stam || 0,
       critDmg: b.critDmg || 0, skillDmg: b.skillDmg || 0, guard: b.guard || 0, parry: b.parry || 0, dodge: Math.min(0.6, b.dodge || 0),
+      execute: b.execute || 0, bossDmg: b.bossDmg || 0, post: Math.min(0.6, b.post || 0), buffTime: b.buffTime || 0, drop: b.drop || 0, secondWind: !!b.secondWind,
       potion: b.potion || 0, petDmg: b.petDmg || 0, petHeal: b.petHeal || 0, tame: b.tame || 0, partyDmg: b.partyDmg || 0, partyHp: b.partyHp || 0, aura: b.aura || 0,
     };
   }
@@ -629,6 +631,8 @@ class Game {
       let dmg = atk * h.mul * (0.9 + Math.random() * 0.2) * (a.skill ? 1 + st.skillDmg : 1);
       const crit = Math.random() < st.crit;
       if (crit) { dmg *= 1.8 + st.critDmg; anyCrit = true; }
+      if (st.execute && e.hp < e.maxHp * 0.3) dmg *= 1 + st.execute;
+      if (st.bossDmg && (e.boss || e.elite || e.fieldBoss)) dmg *= 1 + st.bossDmg;
       dmg = Math.max(1, Math.round((dmg * 60) / (60 + e.defense)));
       const kd = new THREE.Vector3(dx / d, 0, dz / d);
       const at = new THREE.Vector3(e.pos.x - kd.x * e.radius * 0.8, center + (Math.random() - 0.5) * 0.4, e.pos.z - kd.z * e.radius * 0.8);
@@ -680,6 +684,15 @@ class Game {
     this.ui.hurt(dmg / st.maxHp);
     Sfx.hurt();
     this.shake(0.3);
+    // nó lendário (Imortal, Fênix...): sobrevive a um golpe fatal a cada 2 minutos
+    if (p.hp <= 0 && st.secondWind && this.state.playTime - (this.lastSecondWind ?? -999) > 120) {
+      this.lastSecondWind = this.state.playTime;
+      p.hp = Math.round(st.maxHp * 0.3);
+      pl.iframes = 1.2;
+      this.effects.ring(pl.pos.clone().add(new THREE.Vector3(0, 0.5, 0)), '#ffd75a', 2.5, 1, 2.5);
+      this.ui.banner('Segunda Chance!', 'Um talento lendário salvou você de um golpe fatal', 2.5);
+      Sfx.levelUp();
+    }
     if (p.hp <= 0) { p.hp = 0; this.die(src?.def?.name); }
   }
 
@@ -805,7 +818,7 @@ class Game {
     const col = Math.round((5 + 3 * e.level) * (0.8 + Math.random() * 0.4) * st.colMul);
     p.col += col;
     let msg = `+${exp} EXP · +${col} Col`;
-    if (Math.random() < 0.4) {
+    if (Math.random() < 0.4 * (1 + st.drop)) {
       const [name, value] = e.def.drop;
       const m = (p.mats[name] ||= { qty: 0, value: Math.round(value * (1 + e.level * 0.15)) });
       m.qty++;

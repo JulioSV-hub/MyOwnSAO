@@ -11,41 +11,110 @@ export const CLASSES = {
   tamer: { name: 'Domador', icon: '♥', color: '#ff9ac8', desc: 'Luta junto com o mascote, como a Silica.', passive: 'mascote causa 2× dano e cura 50% mais · +25% chance de domar', bonus: { petDmg: 1, petHeal: 0.5, tame: 0.25 } },
 };
 
-// Nós: { id, name, max, req (pontos já gastos no ramo), per (bônus por ponto), desc }
-const N = (id, name, max, req, per, desc) => ({ id, name, max, req, per, desc });
+// Nós: { id, name, max, req (pontos já gastos no ramo), lvl (nível mínimo), per (bônus por ponto), desc }
+// 7 ramos × 8 nós = 210 pontos — mais do que você ganha até o andar 100, então é preciso escolher.
+// Os nós mais fundos só liberam nos níveis 40, 60, 90 e 120; o último de cada ramo é lendário.
+const REQ = [0, 3, 6, 9, 12, 16, 20, 24], LVL = [0, 0, 0, 0, 40, 60, 90, 120], MAX = [5, 5, 3, 3, 5, 5, 3, 1];
+const tier = (prefix, list) => list.map(([name, per, desc], i) => ({ id: `${prefix}${i + 1}`, name, max: MAX[i], req: REQ[i], lvl: LVL[i], per, desc, legend: i === 7 }));
 export const BRANCHES = {
-  off: { name: 'Ofensiva', color: '#ff7a5a', nodes: [
-    N('off1', 'Lâmina Afiada', 5, 0, { atk: 0.03 }, '+3% de ataque'),
-    N('off2', 'Golpe Preciso', 5, 3, { crit: 0.02 }, '+2% de crítico'),
-    N('off3', 'Golpe Devastador', 3, 6, { critDmg: 0.1 }, '+10% de dano crítico'),
-    N('off4', 'Fluxo de Combate', 3, 9, { cd: 0.04 }, '−4% de recarga das Sword Skills'),
-  ] },
-  def: { name: 'Defensiva', color: '#6ab0ff', nodes: [
-    N('def1', 'Vitalidade', 5, 0, { hp: 0.04 }, '+4% de HP máximo'),
-    N('def2', 'Armadura Viva', 5, 3, { defMul: 0.05 }, '+5% de defesa'),
-    N('def3', 'Defesa Firme', 3, 6, { guard: 0.06 }, 'defender bloqueia +6% do dano'),
-    N('def4', 'Reflexo de Parry', 3, 9, { parry: 0.04 }, '+0,04s na janela do parry'),
-  ] },
-  uti: { name: 'Utilidade', color: '#9ae07a', nodes: [
-    N('uti1', 'Passos Leves', 5, 0, { spd: 0.02 }, '+2% de velocidade'),
-    N('uti2', 'Fôlego', 3, 3, { dodge: 0.12 }, '−12% de stamina na esquiva e na corrida'),
-    N('uti3', 'Alquimia', 3, 6, { potion: 0.1 }, 'poções curam +10%'),
-    N('uti4', 'Fortuna', 5, 9, { col: 0.05, exp: 0.05 }, '+5% de Col e EXP'),
-  ] },
+  off: { name: 'Ofensiva', color: '#ff7a5a', nodes: tier('off', [
+    ['Lâmina Afiada', { atk: 0.03 }, '+3% de ataque'],
+    ['Golpe Preciso', { crit: 0.02 }, '+2% de crítico'],
+    ['Golpe Devastador', { critDmg: 0.1 }, '+10% de dano crítico'],
+    ['Fluxo de Combate', { cd: 0.04 }, '−4% de recarga das Sword Skills'],
+    ['Executor', { execute: 0.06 }, '+6% de dano em inimigos com menos de 30% de HP'],
+    ['Caçador de Chefes', { bossDmg: 0.05 }, '+5% de dano contra chefes e elites'],
+    ['Fio Implacável', { atk: 0.05 }, '+5% de ataque'],
+    ['Lâmina Lendária', { atk: 0.1, critDmg: 0.25 }, '+10% de ataque e +25% de dano crítico'],
+  ]) },
+  def: { name: 'Defensiva', color: '#6ab0ff', nodes: tier('def', [
+    ['Vitalidade', { hp: 0.04 }, '+4% de HP máximo'],
+    ['Armadura Viva', { defMul: 0.05 }, '+5% de defesa'],
+    ['Defesa Firme', { guard: 0.06 }, 'defender bloqueia +6% do dano'],
+    ['Reflexo de Parry', { parry: 0.04 }, '+0,04s na janela do parry'],
+    ['Pele de Pedra', { resist: 0.02 }, '−2% de dano recebido'],
+    ['Fortaleza', { hp: 0.05 }, '+5% de HP máximo'],
+    ['Muralha Viva', { defMul: 0.08 }, '+8% de defesa'],
+    ['Imortal', { secondWind: 1, defMul: 0.1 }, 'um golpe fatal te deixa com 30% de HP (1× a cada 2 min) e +10% de defesa'],
+  ]) },
+  uti: { name: 'Utilidade', color: '#9ae07a', nodes: tier('uti', [
+    ['Passos Leves', { spd: 0.02 }, '+2% de velocidade'],
+    ['Fôlego', { dodge: 0.12 }, '−12% de stamina na esquiva e na corrida'],
+    ['Alquimia', { potion: 0.1 }, 'poções curam +10%'],
+    ['Fortuna', { col: 0.05, exp: 0.05 }, '+5% de Col e EXP'],
+    ['Saqueador', { drop: 0.1 }, '+10% de chance de materiais dos monstros'],
+    ['Gourmet', { buffTime: 0.2 }, 'comidas e bebidas duram +20%'],
+    ['Pés de Vento', { spd: 0.04 }, '+4% de velocidade'],
+    ['Sorte Grande', { col: 0.25, exp: 0.15 }, '+25% de Col e +15% de EXP'],
+  ]) },
+  mas: { name: 'Maestria', color: '#c08aff', nodes: tier('mas', [
+    ['Técnica', { skillDmg: 0.04 }, 'Sword Skills causam +4% de dano'],
+    ['Recuperação', { cd: 0.03 }, '−3% de recarga das Sword Skills'],
+    ['Golpe Fluido', { post: 0.1 }, '−10% de post-motion delay'],
+    ['Encadeamento', { skillDmg: 0.06 }, 'Sword Skills causam +6% de dano'],
+    ['Estocada Mortal', { critDmg: 0.06 }, '+6% de dano crítico'],
+    ['Arte Marcial', { skillDmg: 0.05 }, 'Sword Skills causam +5% de dano'],
+    ['Mente Clara', { cd: 0.05 }, '−5% de recarga das Sword Skills'],
+    ['Espada Estelar', { skillDmg: 0.2, post: 0.25 }, 'Sword Skills +20% de dano e −25% de post-motion delay'],
+  ]) },
+  sur: { name: 'Sobrevivência', color: '#5ad8a0', nodes: tier('sur', [
+    ['Regeneração', { regen: 0.3 }, 'HP se regenera 30% mais rápido'],
+    ['Sangue Frio', { resist: 0.03 }, '−3% de dano recebido'],
+    ['Vampirismo', { leech: 0.01 }, '+1% de roubo de vida'],
+    ['Remédios', { potion: 0.1 }, 'poções curam +10%'],
+    ['Segundo Fôlego', { stam: 0.1 }, 'stamina volta 10% mais rápido'],
+    ['Couro Grosso', { resist: 0.02 }, '−2% de dano recebido'],
+    ['Sanguessuga', { leech: 0.015 }, '+1,5% de roubo de vida'],
+    ['Fênix', { secondWind: 1, regen: 1 }, 'um golpe fatal te deixa com 30% de HP (1× a cada 2 min) e regeneração 2×'],
+  ]) },
+  lead: { name: 'Liderança', color: '#ffb84a', nodes: tier('lead', [
+    ['Companheirismo', { partyDmg: 0.04 }, 'seu time causa +4% de dano'],
+    ['Proteção', { partyHp: 0.05 }, 'seu time ganha +5% de HP'],
+    ['Laço Animal', { petDmg: 0.15 }, 'mascote causa +15% de dano'],
+    ['Treinador', { petHeal: 0.1 }, 'cura do mascote +10%'],
+    ['Tática de Grupo', { partyDmg: 0.05 }, 'seu time causa +5% de dano'],
+    ['Escudo do Time', { partyHp: 0.06 }, 'seu time ganha +6% de HP'],
+    ['Grito de Guerra', { atk: 0.02, partyDmg: 0.04 }, '+2% de ataque e time +4% de dano'],
+    ['Comandante', { partyDmg: 0.2, partyHp: 0.2 }, 'seu time causa +20% de dano e ganha +20% de HP'],
+  ]) },
 };
 export const CLASS_BRANCH = {
-  swordsman: [N('sw1', 'Domínio da Espada', 5, 0, { atk: 0.04 }, '+4% de ataque'), N('sw2', 'Ímpeto', 5, 3, { skillDmg: 0.06 }, 'Sword Skills causam +6% de dano'),
-    N('sw3', 'Olho do Mestre', 3, 6, { crit: 0.03 }, '+3% de crítico'), N('sw4', 'Arte da Espada', 3, 9, { cd: 0.06 }, '−6% de recarga das Sword Skills')],
-  guardian: [N('gu1', 'Corpo de Aço', 5, 0, { hp: 0.05 }, '+5% de HP máximo'), N('gu2', 'Couraça', 5, 3, { defMul: 0.06 }, '+6% de defesa'),
-    N('gu3', 'Bloqueio Total', 3, 6, { guard: 0.08 }, 'defender bloqueia +8% do dano'), N('gu4', 'Muralha', 3, 9, { partyHp: 0.1 }, 'seu time ganha +10% de HP')],
-  duelist: [N('du1', 'Precisão', 5, 0, { crit: 0.03 }, '+3% de crítico'), N('du2', 'Ponto Vital', 5, 3, { critDmg: 0.1 }, '+10% de dano crítico'),
-    N('du3', 'Esquiva Ágil', 3, 6, { dodge: 0.15 }, '−15% de stamina na esquiva e na corrida'), N('du4', 'Reflexos', 3, 9, { parry: 0.05 }, '+0,05s na janela do parry')],
-  berserker: [N('be1', 'Força Bruta', 5, 0, { atk: 0.04 }, '+4% de ataque'), N('be2', 'Fúria', 5, 3, { lowHp: 0.08 }, 'até +8% de ataque quanto menor o seu HP'),
-    N('be3', 'Sede de Sangue', 3, 6, { leech: 0.015 }, '+1,5% de roubo de vida'), N('be4', 'Vigor Selvagem', 3, 9, { hp: 0.04 }, '+4% de HP máximo')],
-  cleric: [N('cl1', 'Bênção', 5, 0, { aura: 0.01 }, 'a aura cura +1% a mais'), N('cl2', 'Prece', 5, 3, { hp: 0.05 }, '+5% de HP máximo'),
-    N('cl3', 'Luz Protetora', 3, 6, { defMul: 0.05 }, '+5% de defesa'), N('cl4', 'Graça', 3, 9, { partyDmg: 0.1 }, 'seu time causa +10% de dano')],
-  tamer: [N('ta1', 'Laço', 5, 0, { petDmg: 0.15 }, 'mascote causa +15% de dano'), N('ta2', 'Instinto', 5, 3, { petHeal: 0.1 }, 'cura do mascote +10%'),
-    N('ta3', 'Matilha', 3, 6, { partyHp: 0.08 }, 'seu time ganha +8% de HP'), N('ta4', 'Comando', 3, 9, { partyDmg: 0.08 }, 'seu time causa +8% de dano')],
+  swordsman: tier('sw', [
+    ['Domínio da Espada', { atk: 0.04 }, '+4% de ataque'], ['Ímpeto', { skillDmg: 0.06 }, 'Sword Skills causam +6% de dano'],
+    ['Olho do Mestre', { crit: 0.03 }, '+3% de crítico'], ['Arte da Espada', { cd: 0.06 }, '−6% de recarga das Sword Skills'],
+    ['Lâmina Veloz', { atk: 0.03, cd: 0.02 }, '+3% de ataque e −2% de recarga'], ['Mestre Espadachim', { skillDmg: 0.05 }, 'Sword Skills causam +5% de dano'],
+    ['Corte Perfeito', { crit: 0.03, critDmg: 0.08 }, '+3% de crítico e +8% de dano crítico'], ['Espada do Herói', { atk: 0.12, cd: 0.1 }, '+12% de ataque e −10% de recarga'],
+  ]),
+  guardian: tier('gu', [
+    ['Corpo de Aço', { hp: 0.05 }, '+5% de HP máximo'], ['Couraça', { defMul: 0.06 }, '+6% de defesa'],
+    ['Bloqueio Total', { guard: 0.08 }, 'defender bloqueia +8% do dano'], ['Muralha', { partyHp: 0.1 }, 'seu time ganha +10% de HP'],
+    ['Baluarte', { resist: 0.02 }, '−2% de dano recebido'], ['Gigante', { hp: 0.05 }, '+5% de HP máximo'],
+    ['Contra-golpe', { parry: 0.05, guard: 0.05 }, '+0,05s de parry e bloqueio +5%'], ['Inquebrável', { secondWind: 1, defMul: 0.2 }, 'um golpe fatal te deixa com 30% de HP (1× a cada 2 min) e +20% de defesa'],
+  ]),
+  duelist: tier('du', [
+    ['Precisão', { crit: 0.03 }, '+3% de crítico'], ['Ponto Vital', { critDmg: 0.1 }, '+10% de dano crítico'],
+    ['Esquiva Ágil', { dodge: 0.15 }, '−15% de stamina na esquiva e na corrida'], ['Reflexos', { parry: 0.05 }, '+0,05s na janela do parry'],
+    ['Dança das Lâminas', { spd: 0.02, crit: 0.015 }, '+2% de velocidade e +1,5% de crítico'], ['Golpe Fatal', { critDmg: 0.08 }, '+8% de dano crítico'],
+    ['Sombra', { dodge: 0.1, spd: 0.03 }, 'esquiva −10% de stamina e +3% de velocidade'], ['Mil Cortes', { crit: 0.1, critDmg: 0.3 }, '+10% de crítico e +30% de dano crítico'],
+  ]),
+  berserker: tier('be', [
+    ['Força Bruta', { atk: 0.04 }, '+4% de ataque'], ['Fúria', { lowHp: 0.08 }, 'até +8% de ataque quanto menor o seu HP'],
+    ['Sede de Sangue', { leech: 0.015 }, '+1,5% de roubo de vida'], ['Vigor Selvagem', { hp: 0.04 }, '+4% de HP máximo'],
+    ['Sangue Fervendo', { lowHp: 0.06 }, 'até +6% de ataque quanto menor o seu HP'], ['Massacre', { atk: 0.04 }, '+4% de ataque'],
+    ['Banquete de Sangue', { leech: 0.015 }, '+1,5% de roubo de vida'], ['Ira Imortal', { secondWind: 1, atk: 0.15 }, 'um golpe fatal te deixa com 30% de HP (1× a cada 2 min) e +15% de ataque'],
+  ]),
+  cleric: tier('cl', [
+    ['Bênção', { aura: 0.01 }, 'a aura cura +1% a mais'], ['Prece', { hp: 0.05 }, '+5% de HP máximo'],
+    ['Luz Protetora', { defMul: 0.05 }, '+5% de defesa'], ['Graça', { partyDmg: 0.1 }, 'seu time causa +10% de dano'],
+    ['Santuário', { aura: 0.01 }, 'a aura cura +1% a mais'], ['Graça Divina', { potion: 0.1, regen: 0.3 }, 'poções +10% e regeneração +30%'],
+    ['Escudo Sagrado', { resist: 0.03 }, '−3% de dano recebido'], ['Milagre', { secondWind: 1, aura: 0.05 }, 'um golpe fatal te deixa com 30% de HP (1× a cada 2 min) e a aura cura +5%'],
+  ]),
+  tamer: tier('ta', [
+    ['Laço', { petDmg: 0.15 }, 'mascote causa +15% de dano'], ['Instinto', { petHeal: 0.1 }, 'cura do mascote +10%'],
+    ['Matilha', { partyHp: 0.08 }, 'seu time ganha +8% de HP'], ['Comando', { partyDmg: 0.08 }, 'seu time causa +8% de dano'],
+    ['Fera Leal', { petDmg: 0.15 }, 'mascote causa +15% de dano'], ['Vínculo', { petHeal: 0.1, partyHp: 0.03 }, 'cura do mascote +10% e time +3% de HP'],
+    ['Alfa', { petDmg: 0.2 }, 'mascote causa +20% de dano'], ['Rei das Feras', { petDmg: 0.6, partyDmg: 0.15 }, 'mascote +60% de dano e time +15% de dano'],
+  ]),
 };
 
 export const branchesFor = (cls) => [...Object.entries(BRANCHES).map(([k, b]) => ({ key: k, ...b })), ...(CLASSES[cls] ? [{ key: 'cls', name: CLASSES[cls].name, color: CLASSES[cls].color, nodes: CLASS_BRANCH[cls] }] : [])];
@@ -59,6 +128,17 @@ export function classBonus(p) {
   if (CLASSES[p.cls]) add(CLASSES[p.cls].bonus);
   for (const br of branchesFor(p.cls)) for (const n of br.nodes) { const r = (p.talents || {})[n.id] || 0; if (r) add(n.per, r); }
   return out;
+}
+
+// saves antigos: nós que ficaram com máximo menor devolvem os pontos que passaram do limite
+export function normalizeTalents(p) {
+  p.talents ||= {};
+  const all = [...Object.values(BRANCHES).flatMap((b) => b.nodes), ...Object.values(CLASS_BRANCH).flat()];
+  for (const [id, r] of Object.entries(p.talents)) {
+    const n = all.find((x) => x.id === id);
+    if (!n) delete p.talents[id];
+    else if (r > n.max) p.talents[id] = n.max;
+  }
 }
 
 export const respecCost = (p) => 150 * p.level;

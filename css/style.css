@@ -474,3 +474,7 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .ing.no { background: #fbe9e6; color: #c04a3a; }
 #party-hud .ph.buffrow b { color: #ffe0a0; min-width: 0; }
 #party-hud .ph.buffrow span { color: #c8d0d8; }
+
+.tnode.legend { border: 1px dashed #d8b050; background: linear-gradient(180deg, #fff8e6, #fff); }
+.tnode.legend .tn-head b::before { content: '★ '; color: #e0a020; }
+.ttree { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }

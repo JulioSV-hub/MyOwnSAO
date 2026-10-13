@@ -282,7 +282,7 @@ export class Combat {
       this.glow = a.color ? 1 : 0;
       if (a.t >= a.dur) {
         this.action = null;
-        if (a.skill) this.post = a.skill.post;
+        if (a.skill) this.post = a.skill.post * (1 - (this.game.stats().post || 0));
         this.comboT = 0.8;
         if (this.queued) { this.queued = false; this.basic(); }
       }

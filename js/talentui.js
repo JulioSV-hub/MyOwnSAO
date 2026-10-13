@@ -47,11 +47,11 @@ export function renderTalents(ui) {
   const cols = branchesFor(p.cls).map((br) => {
     const spent = spentIn(p, br);
     const nodes = br.nodes.map((n) => {
-      const r = p.talents?.[n.id] || 0, locked = spent < n.req, can = !locked && r < n.max && pts > 0;
-      return `<div class="tnode ${locked ? 'locked' : ''} ${r ? 'on' : ''} ${r >= n.max ? 'max' : ''}">
+      const r = p.talents?.[n.id] || 0, lvLock = p.level < (n.lvl || 0), locked = spent < n.req || lvLock, can = !locked && r < n.max && pts > 0;
+      return `<div class="tnode ${locked ? 'locked' : ''} ${r ? 'on' : ''} ${r >= n.max ? 'max' : ''} ${n.legend ? 'legend' : ''}">
         <div class="tn-head"><b>${esc(n.name)}</b><span>${r}/${n.max}</span></div>
         <div class="tn-desc">${esc(n.desc)} <span class="muted">por ponto</span></div>
-        ${locked ? `<div class="tn-lock">🔒 gaste ${n.req} pontos em ${esc(br.name)}</div>` : `<button class="btn sm" data-act="talent" data-id="${n.id}" ${can ? '' : 'disabled'}>+1</button>`}
+        ${locked ? `<div class="tn-lock">🔒 ${spent < n.req ? `gaste ${n.req} pontos em ${esc(br.name)}` : ''}${spent < n.req && lvLock ? ' e ' : ''}${lvLock ? `nível ${n.lvl}` : ''}</div>` : `<button class="btn sm" data-act="talent" data-id="${n.id}" ${can ? '' : 'disabled'}>+1</button>`}
       </div>`;
     }).join('<div class="tlink"></div>');
     return `<div class="tbranch" style="--bc:${br.color}"><div class="tb-head">${esc(br.name)} <span>${spent} pts</span></div>${nodes}</div>`;
@@ -59,18 +59,19 @@ export function renderTalents(ui) {
   return `<div class="classhead" style="--cc:${c.color}"><div class="ch-icon">${c.icon}</div><div><b>${esc(c.name)}</b><div class="muted">${esc(c.passive)}</div></div>
       <div class="ch-pts"><span>Pontos de talento</span><b>${pts}</b></div></div>
     <div class="ttree">${cols}</div>
-    <div class="muted pad">Você ganha 1 ponto de talento por nível. Cada ramo libera nós mais fortes conforme você investe nele.</div>
+    <div class="muted pad">Você ganha 1 ponto de talento por nível. Cada ramo libera nós mais fortes conforme você investe nele, e os mais fundos também pedem nível 40, 60, 90 e 120. O último nó de cada ramo é lendário (★). A árvore inteira tem 210 pontos — mais do que dá para juntar até o andar 100, então escolha seu caminho!</div>
     <div class="btns"><button class="btn" data-act="respec">Redistribuir pontos (${nf(respecCost(p))} Col)</button><button class="btn" data-act="changeClass">Trocar de classe (${nf(classChangeCost(p))} Col)</button></div>`;
 }
 
 export function spendTalent(g, id) {
   const p = g.state.player;
+  p.talents ||= {};
   if (talentPoints(p) <= 0) return;
   for (const br of branchesFor(p.cls)) {
     const n = br.nodes.find((x) => x.id === id);
     if (!n) continue;
     const r = p.talents[id] || 0;
-    if (r >= n.max || spentIn(p, br) < n.req) return;
+    if (r >= n.max || spentIn(p, br) < n.req || p.level < (n.lvl || 0)) return;
     p.talents[id] = r + 1;
     g.clampHp();
     g.combat.refresh();
