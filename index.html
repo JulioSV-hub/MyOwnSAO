@@ -11,8 +11,8 @@
   <script>
     // Versão dos arquivos: muda a cada atualização, para o navegador (inclusive o Safari) nunca usar arquivos antigos do cache.
     (function () {
-      var V = '202610131210';
-      var FILES = ["ambient", "audio", "characters", "classes", "combat", "completion", "data", "effects", "enemies", "fishing", "gear3d", "grass", "guild", "housing", "icons", "input", "localmodels", "loot", "main", "models", "monsters", "music", "npcconfig", "npcs", "party", "pets", "player", "quests", "rng", "save", "shops", "shopui", "stone", "talentui", "toon", "ui", "world"];
+      var V = '20261013122158';
+      var FILES = ["ambient", "audio", "characters", "classes", "combat", "completion", "data", "effects", "enemies", "fishing", "gear3d", "grass", "guild", "housing", "icons", "input", "localmodels", "loot", "main", "models", "monsters", "music", "npcconfig", "npcs", "party", "pets", "player", "quests", "rng", "save", "shops", "shopui", "spells", "stone", "talentui", "toon", "ui", "world"];
       var base = new URL('js/', location.href).href;
       var imports = {
         three: 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js',
@@ -41,6 +41,7 @@
       <div class="hp-sub"><span id="hp-text">0/0</span><span id="lv-text">Lv 1</span></div>
       <div class="mini-bar exp"><div id="exp-bar"></div></div>
       <div class="mini-bar st"><div id="st-bar"></div></div>
+      <div class="mini-bar mp hidden" id="mp-wrap"><div id="mp-bar"></div></div>
       <div id="hud-col"></div>
       <div id="tracker"></div>
       <div id="party-hud"></div>

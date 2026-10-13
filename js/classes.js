@@ -8,6 +8,7 @@ export const CLASSES = {
   duelist: { name: 'Duelista', icon: '✦', color: '#ffd84a', desc: 'Rápido e letal: críticos e esquivas.', passive: '+10% crítico · +30% dano crítico · +8% velocidade', bonus: { crit: 0.1, critDmg: 0.3, spd: 0.08 } },
   berserker: { name: 'Berserker', icon: '🔥', color: '#ff5a3a', desc: 'Dano bruto e roubo de vida, menos defesa.', passive: '+22% ataque · −15% defesa · 3% roubo de vida', bonus: { atk: 0.22, defMul: -0.15, leech: 0.03 } },
   cleric: { name: 'Clérigo', icon: '✚', color: '#7aff9a', desc: 'Cura você e o time em combate.', passive: 'aura cura você e o time (8% a cada 12s) · poções +50% · regeneração 3×', bonus: { aura: 0.08, potion: 0.5, regen: 2 } },
+  mage: { name: 'Mago', icon: '✴', color: '#9a7aff', desc: 'Cajado e livro: feitiços à distância no lugar das Sword Skills.', passive: 'feitiços +15% de dano · +30% de mana · magia ignora metade da defesa', bonus: { spellDmg: 0.15, mana: 0.3 } },
   tamer: { name: 'Domador', icon: '♥', color: '#ff9ac8', desc: 'Luta junto com o mascote, como a Silica.', passive: 'mascote causa 2× dano e cura 50% mais · +25% chance de domar', bonus: { petDmg: 1, petHeal: 0.5, tame: 0.25 } },
 };
 
@@ -108,6 +109,12 @@ export const CLASS_BRANCH = {
     ['Luz Protetora', { defMul: 0.05 }, '+5% de defesa'], ['Graça', { partyDmg: 0.1 }, 'seu time causa +10% de dano'],
     ['Santuário', { aura: 0.01 }, 'a aura cura +1% a mais'], ['Graça Divina', { potion: 0.1, regen: 0.3 }, 'poções +10% e regeneração +30%'],
     ['Escudo Sagrado', { resist: 0.03 }, '−3% de dano recebido'], ['Milagre', { secondWind: 1, aura: 0.05 }, 'um golpe fatal te deixa com 30% de HP (1× a cada 2 min) e a aura cura +5%'],
+  ]),
+  mage: tier('mg', [
+    ['Foco Arcano', { spellDmg: 0.04 }, 'feitiços causam +4% de dano'], ['Reserva de Mana', { mana: 0.08 }, '+8% de mana máxima'],
+    ['Fluxo de Mana', { manaRegen: 0.006 }, 'mana volta mais rápido'], ['Conjuração Rápida', { cd: 0.05 }, '−5% de recarga dos feitiços'],
+    ['Poder Elemental', { spellDmg: 0.05 }, 'feitiços causam +5% de dano'], ['Mente Arcana', { crit: 0.02, critDmg: 0.08 }, '+2% de crítico e +8% de dano crítico'],
+    ['Torrente', { manaRegen: 0.01, mana: 0.1 }, 'mais mana e regeneração'], ['Arquimago', { spellDmg: 0.25, cd: 0.1 }, 'feitiços +25% de dano e −10% de recarga'],
   ]),
   tamer: tier('ta', [
     ['Laço', { petDmg: 0.15 }, 'mascote causa +15% de dano'], ['Instinto', { petHeal: 0.1 }, 'cura do mascote +10%'],

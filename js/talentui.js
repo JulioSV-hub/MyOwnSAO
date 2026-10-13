@@ -1,6 +1,7 @@
 // Telas da classe: escolha de classe (diálogo), árvore de talentos (menu) e cartões da tela inicial.
 import { CLASSES, COMP_CLASSES, branchesFor, talentPoints, spentIn, respecCost, classChangeCost } from './classes.js';
 import { Sfx } from './audio.js';
+import { SPELLS } from './spells.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = (n) => Math.round(n).toLocaleString('pt-BR');
@@ -33,6 +34,14 @@ export function setClass(g, id) {
   if (old && old !== id) for (const br of branchesFor(old)) if (br.key === 'cls') for (const n of br.nodes) delete p.talents[n.id];
   p.cls = id;
   p.talents ||= {};
+  if (id === 'mage') {
+    // começa com os feitiços que o nível já permite
+    p.spellSlots ||= [null, null, null, null];
+    const known = SPELLS.filter((s) => s.lvl <= p.level).map((s) => s.id);
+    if (!p.spellSlots.some(Boolean)) p.spellSlots = [...known.slice(-4)].concat([null, null, null, null]).slice(0, 4);
+    p.mp = g.spells.maxMp();
+  }
+  g.ui.refreshSkillbar();
   g.clampHp();
   g.combat.refresh();
   g.party.spawn();

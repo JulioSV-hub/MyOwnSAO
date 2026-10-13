@@ -20,6 +20,7 @@ import { Fishing } from './fishing.js';
 import { Housing } from './housing.js';
 import { Party } from './party.js';
 import { Loot } from './loot.js';
+import { Spells, SPELLS } from './spells.js';
 import { loadModels } from './models.js';
 import { Effects } from './effects.js';
 import { UI } from './ui.js';
@@ -114,6 +115,7 @@ class Game {
     this.housing = new Housing(this);
     this.party = new Party(this);
     this.loot = new Loot(this);
+    this.spells = new Spells(this);
     this.indoor = null;
     this.effects = new Effects(this);
 
@@ -332,6 +334,7 @@ class Game {
     this.npcs.clear();
     this.party.despawn();
     this.loot.clear();
+    this.spells?.clear();
     this.effects.clear();
     this.ui.clearEnemyLabels();
     this.bossFight = null;
@@ -608,6 +611,7 @@ class Game {
       speedMul: Math.max(0.7, 1 + Math.min(0.5, p.agi * 0.006) + (a.spd || 0) + b.spd),
       leech: b.leech, colMul: 1 + b.col, expMul: 1 + b.exp, regen: 1 + b.regen, resist: Math.min(0.6, b.resist || 0), stam: b.stam || 0,
       critDmg: b.critDmg || 0, skillDmg: b.skillDmg || 0, guard: b.guard || 0, parry: b.parry || 0, dodge: Math.min(0.6, b.dodge || 0),
+      spellDmg: b.spellDmg || 0, mana: b.mana || 0, manaRegen: b.manaRegen || 0,
       execute: b.execute || 0, bossDmg: b.bossDmg || 0, post: Math.min(0.6, b.post || 0), buffTime: b.buffTime || 0, drop: b.drop || 0, secondWind: !!b.secondWind,
       potion: b.potion || 0, petDmg: b.petDmg || 0, petHeal: b.petHeal || 0, tame: b.tame || 0, partyDmg: b.partyDmg || 0, partyHp: b.partyHp || 0, aura: b.aura || 0,
     };
@@ -685,6 +689,8 @@ class Game {
       }
     }
     dmg = Math.max(1, Math.round(dmg * (1 - st.resist)));
+    dmg = Math.round(this.spells.absorb(dmg));
+    if (dmg <= 0) { this.ui.damageNumber(front, 'ESCUDO', 'miss'); return; }
     p.hp -= dmg;
     pl.lastHit = 0;
     this.ui.hurt(dmg / st.maxHp);
@@ -857,6 +863,13 @@ class Game {
     this.effects.levelUp(this.player.pos.clone());
     this.ui.banner('LEVEL UP!', `Nível ${p.level} · +3 pontos de atributo (menu → Status)`, 2.5);
     for (const s of SKILLS) if (s.lvl === p.level && (!s.dual || p.dualBlades)) this.unlockSkill(s);
+    if (p.cls === 'mage') for (const s of SPELLS) if (s.lvl === p.level) {
+      this.ui.toast(`Novo feitiço: ${s.name}!`, 'skill');
+      p.spellSlots ||= [null, null, null, null];
+      const i = p.spellSlots.indexOf(null);
+      if (i >= 0 && !p.spellSlots.includes(s.id)) p.spellSlots[i] = s.id;
+      this.ui.refreshSkillbar();
+    }
     if (p.level >= 25 && !p.dualBlades) this.unlockDual();
     for (const l of this.ui.enemyLabels) {
       const diff = l.e.level - p.level;
@@ -1235,8 +1248,14 @@ class Game {
     if (inp.pressed('Tab') || inp.pressed('KeyM')) { this.ui.openMenu('status'); return; }
     if (!inp.isLocked) return;
     if (this.indoor && this.housing.handleKeys(inp)) return;
-    if (inp.mouse.clicked.has(0)) this.combat.basic();
-    for (let i = 0; i < 4; i++) if (inp.pressed(`Digit${i + 1}`)) this.combat.skill(i);
+    if (this.spells.active) {
+      // Mago: clique lança o orbe mágico, 1–4 lançam os feitiços
+      if (inp.mouse.clicked.has(0) && !this.fishing?.active) this.spells.basic();
+      for (let i = 0; i < 4; i++) if (inp.pressed(`Digit${i + 1}`)) this.spells.cast(i);
+    } else {
+      if (inp.mouse.clicked.has(0)) this.combat.basic();
+      for (let i = 0; i < 4; i++) if (inp.pressed(`Digit${i + 1}`)) this.combat.skill(i);
+    }
     if (inp.pressed('KeyR')) this.quickPotion();
     if (inp.pressed('KeyH')) this.combat.toggleSheath();
     if (inp.pressed('KeyT')) this.quickTeleport();
@@ -1283,6 +1302,7 @@ class Game {
         this.fishing.update(dt);
         this.housing.update(dt);
         this.party.update(dt);
+        this.spells.update(dt);
         this.updateAura(dt);
         this.loot.update(dt);
         this.updateInteract();

@@ -80,6 +80,7 @@ export class Enemy {
   }
 
   moveTo(tx, tz, speed, dt, stop = 0) {
+    if (this.slowT > 0) speed *= 0.5;
     const dx = tx - this.pos.x, dz = tz - this.pos.z, d = Math.hypot(dx, dz);
     if (d > stop + 0.01) {
       const step = Math.min(speed * dt, d - stop);
@@ -93,6 +94,7 @@ export class Enemy {
 
   update(dt) {
     if (this.dead) return;
+    if (this.slowT > 0) this.slowT -= dt;
     const g = this.game, pl = g.player, w = g.world;
     const dx = pl.pos.x - this.pos.x, dz = pl.pos.z - this.pos.z, dist = Math.hypot(dx, dz);
     this.dist = dist;

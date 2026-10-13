@@ -157,7 +157,8 @@ export class Combat {
   }
 
   updateVisibility() {
-    const v = this.shown !== false && this.sheathAmt < 0.97;
+    // o Mago usa cajado e livro (spells.js) no lugar das espadas
+    const v = this.shown !== false && this.sheathAmt < 0.97 && !this.game.spells?.active;
     this.R.root.visible = v;
     this.L.root.visible = v && this.dual;
   }

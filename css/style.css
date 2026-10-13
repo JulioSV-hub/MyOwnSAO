@@ -489,3 +489,6 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .cpart.ok { border-left-color: #4fbf6a; }
 .cpart span { font-weight: 800; }
 .cpart small { color: var(--ui-muted); }
+
+/* mana do Mago */
+.mini-bar.mp div { background: linear-gradient(90deg, #7a5aff, #c8a0ff); }

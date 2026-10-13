@@ -54,7 +54,7 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 - **Casa própria:** compre pela placa na cidade e decore com 12 móveis (G). Para vender, fale com a placa (devolve 60% do preço + metade dos móveis); qualquer placa vende a casa que você tem, para comprar em outro andar.
 - **Town of Beginnings** no estilo do anime: Black Iron Palace, Monumento da Vida e torre do relógio.
 - **Rua do Comércio** (junto à muralha): Armaduras do Grimm (leves, médias e pesadas), Oficina de Runas da Mira, Toca dos Mascotes (filhotes e petiscos), Taverna do Javali Dourado (comidas com bônus, boatos de baús, contratar companheiros) e Guilda dos Aventureiros (postos F → S, contratos diários, bônus). A Lisbeth também vende armas forjadas.
-- **Classes e talentos:** Espadachim, Guardião, Duelista, Berserker, Clérigo ou Domador, escolhidos ao criar o mundo (troca na Guilda). 1 ponto de talento por nível numa árvore de 7 ramos (Ofensiva, Defensiva, Utilidade, Maestria, Sobrevivência, Liderança e o ramo da classe), 8 nós cada, com nós liberados nos níveis 40, 60, 90 e 120 e um nó lendário no fim — 210 pontos no total (*Menu → Talentos*). Companheiros de time também têm classe (incluindo Mago, que ataca de longe), arma própria da classe (escudo, espadão, rapieira + adaga, cajado, livro) e força que acompanha a sua; dá para pagar Treino na cidade para subir o nível de cada um (até +20).
+- **Classes e talentos:** Espadachim, Guardião, Duelista, Berserker, Clérigo, Domador ou **Mago** (cajado e livro, mana e 8 feitiços — Míssil Arcano, Bola de Fogo, Lança de Gelo, Cura Arcana, Corrente Elétrica, Escudo Arcano, Meteoro e Nevasca — no lugar das Sword Skills), escolhidos ao criar o mundo (troca na Guilda). 1 ponto de talento por nível numa árvore de 7 ramos (Ofensiva, Defensiva, Utilidade, Maestria, Sobrevivência, Liderança e o ramo da classe), 8 nós cada, com nós liberados nos níveis 40, 60, 90 e 120 e um nó lendário no fim — 210 pontos no total (*Menu → Talentos*). Companheiros de time também têm classe (incluindo Mago, que ataca de longe), arma própria da classe (escudo, espadão, rapieira + adaga, cajado, livro) e força que acompanha a sua; dá para pagar Treino na cidade para subir o nível de cada um (até +20).
 - **Agil's Store:** ofertas do dia (equipamento raro de andares acima do seu, runas, itens com desconto), Elixires (+1 atributo para sempre), Lingote de Cristalita (Lisbeth fortalece até +15), Mapa do Tesouro e Caixa Misteriosa. Paga 65% por equipamento raro.
 - **Culinária:** Restaurante Sabor de Aincrad (pratos prontos e ingredientes) e receitas para cozinhar lá ou na lareira de casa, com ingredientes coletados (ervas, cogumelos, trigo, frutas, mel, Carne Crua dos monstros e peixes). Pratos dão Força, Resistência, Defesa, Vigor, Sorte, Fôlego... por tempo limitado; 1 refeição + 1 bebida ativas ao mesmo tempo.
 - **Runas:** até 3 encaixes (níveis 1, 10 e 20) com bônus de ataque, defesa, HP, velocidade, crítico, roubo de vida, Col ou EXP. Equipe em *Menu → Equipamento*.
@@ -101,6 +101,7 @@ js/loot.js        Baús e itens de coleta
 js/guild.js       Postos da Guilda
 js/classes.js     Classes, árvore de talentos e classes do time
 js/talentui.js    Telas de classe e talentos
+js/spells.js      Feitiços do Mago
 js/save.js        Salvar / exportar / importar
 js/audio.js       Efeitos sonoros sintetizados
 ```

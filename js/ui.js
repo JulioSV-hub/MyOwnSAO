@@ -11,6 +11,7 @@ import { FURNITURE } from './housing.js';
 import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO } from './shopui.js';
 import { runeDef, FOODS } from './data.js';
 import { guildRank } from './guild.js';
+import { SPELLS, spellById } from './spells.js';
 import { floorCompletion, completionReward, PARTS } from './completion.js';
 import { CLASSES, respecCost, classChangeCost } from './classes.js';
 import { renderTalents, spendTalent, respec, classPicker, classCards } from './talentui.js';
@@ -79,9 +80,9 @@ export class UI {
   }
 
   refreshSkillbar() {
-    const p = this.g.state.player;
+    const p = this.g.state.player, mage = p.cls === 'mage';
     for (let i = 0; i < 4; i++) {
-      const s = p.slots[i] ? skillById(p.slots[i]) : null;
+      const s = mage ? spellById(p.spellSlots?.[i]) : p.slots[i] ? skillById(p.slots[i]) : null;
       const el = $(`slot${i}`);
       el.querySelector('.sname').textContent = s ? s.name : '—';
       el.style.setProperty('--sc', s ? s.color : '#888');
@@ -119,12 +120,15 @@ export class UI {
     }
     $('hp-panel').classList.toggle('danger', r < 0.25);
 
+    const mage = p.cls === 'mage';
+    $('mp-wrap').classList.toggle('hidden', !mage);
+    if (mage) $('mp-bar').style.width = `${Math.min(100, ((p.mp ?? 0) / g.spells.maxMp()) * 100).toFixed(1)}%`;
     for (let i = 0; i < 4; i++) {
-      const id = p.slots[i], el = $(`slot${i}`);
-      const s = id ? skillById(id) : null;
-      const cd = s ? g.combat.cd[id] || 0 : 0;
+      const id = mage ? p.spellSlots?.[i] : p.slots[i], el = $(`slot${i}`);
+      const s = id ? (mage ? spellById(id) : skillById(id)) : null;
+      const cd = s ? (mage ? g.spells.cd[id] : g.combat.cd[id]) || 0 : 0;
       el.querySelector('.cd').style.setProperty('--p', s && cd > 0 ? (cd / s.cd).toFixed(3) : 0);
-      el.classList.toggle('locked', !!s && (p.level < s.lvl || (!!s.dual && !g.combat.dual)));
+      el.classList.toggle('locked', !!s && (p.level < s.lvl || (!!s.dual && !g.combat.dual) || (mage && (p.mp ?? 0) < s.mp)));
       el.classList.toggle('ready', !!s && cd <= 0);
     }
     $('pot-count').textContent = (p.items.potion || 0) + (p.items.hipotion || 0);
@@ -564,7 +568,7 @@ export class UI {
   setPanel(id) {
     this.panel = id;
     document.querySelectorAll('.micon').forEach((b) => b.classList.toggle('on', b.dataset.panel === id));
-    $('mp-title').textContent = id === 'shop' ? SHOP_INFO[this.shopId || 'agil'].title : TITLES[id] || id;
+    $('mp-title').textContent = id === 'shop' ? SHOP_INFO[this.shopId || 'agil'].title : id === 'skills' && this.g.state?.player?.cls === 'mage' ? 'Grimório' : TITLES[id] || id;
     this.renderPanel();
   }
 
@@ -695,6 +699,18 @@ export class UI {
 
   pSkills() {
     const p = this.g.state.player;
+    if (p.cls === 'mage') {
+      p.spellSlots ||= [null, null, null, null];
+      const slots = p.spellSlots.map((id, i) => `<div class="sslot"><span class="key">${i + 1}</span>${id ? `<b style="color:${spellById(id).color}">${esc(spellById(id).name)}</b><button class="x" data-act="unspell" data-i="${i}">✕</button>` : '<span class="muted">vazio</span>'}</div>`).join('');
+      const list = SPELLS.map((s) => {
+        const ok = p.level >= s.lvl;
+        const right = ok ? [0, 1, 2, 3].map((i) => `<button class="btn sm ${p.spellSlots[i] === s.id ? 'on' : ''}" data-act="spellslot" data-id="${s.id}" data-i="${i}">${i + 1}</button>`).join('') : `<span class="tag">Nv ${s.lvl}</span>`;
+        return `<div class="row skill ${ok ? '' : 'locked'}"><div><b style="color:${s.color}">●</b> <b>${s.name}</b> <span class="muted">${s.mp} mana · recarga ${s.cd}s · Nv ${s.lvl}</span><div class="muted">${s.desc}</div></div><div class="row-r">${right}</div></div>`;
+      }).join('');
+      return `<div class="section">Feitiços nos atalhos (teclas 1–4)</div><div class="sslots">${slots}</div>
+        <div class="section">Grimório do Mago</div>${list}
+        <div class="muted pad">Clique lança o Orbe Mágico (sem mana). O poder dos feitiços vem da sua arma equipada, então upgrades da Lisbeth, armas raras, STR e runas continuam valendo. A mana (barra roxa) se recupera sozinha.</div>`;
+    }
     const slots = p.slots.map((id, i) => `<div class="sslot"><span class="key">${i + 1}</span>${id ? `<b style="color:${skillById(id).color}">${esc(skillById(id).name)}</b><button class="x" data-act="unslot" data-i="${i}">✕</button>` : '<span class="muted">vazio</span>'}</div>`).join('');
     const list = SKILLS.map((s) => {
       const ok = p.level >= s.lvl && (!s.dual || p.dualBlades);
@@ -899,6 +915,8 @@ export class UI {
           break;
         }
         case 'unslot': p.slots[+d.i] = null; this.refreshSkillbar(); break;
+        case 'spellslot': { const i = +d.i, prev = p.spellSlots.indexOf(d.id); if (prev >= 0) p.spellSlots[prev] = null; p.spellSlots[i] = d.id; this.refreshSkillbar(); break; }
+        case 'unspell': p.spellSlots[+d.i] = null; this.refreshSkillbar(); break;
         case 'travel': g.travel(+d.n); return;
         case 'save': g.save(true); break;
         case 'export': exportSave(g.state); this.toast('Mundo exportado!'); break;
