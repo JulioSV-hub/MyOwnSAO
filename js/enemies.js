@@ -516,7 +516,7 @@ export class Enemy {
     }
     // asas de quadrúpedes e humanoides batem devagar (mais rápido andando)
     if (a !== 'flyer' && p.wings?.length) {
-      const f = 0.25 + Math.sin(t * (mv ? 7 : 2.5) + this.walk) * (mv ? 0.55 : 0.2);
+      const f = (a === 'humanoid' ? 0.75 : 0.5) + Math.sin(t * (mv ? 7 : 2.5) + this.walk) * (mv ? 0.5 : 0.18);
       p.wings.forEach((wg, i) => { wg.rotation.z = i ? f : -f; });
     }
   }

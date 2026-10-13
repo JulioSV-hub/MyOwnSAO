@@ -4,6 +4,7 @@ import { isFish } from './fishing.js';
 import { ITEMS, MONSTERS, FOODS, RUNES, RUNE_TIER_FLOOR, MERCS, CAST_PARTY, weaponDef, armorDef, runeDef, shopStock, forgeKeysFor, forgeNote, WEAPON_TYPES, CLASS_WEAPONS, armorWeight, runeSlotsFor } from './data.js';
 import { icon } from './icons.js';
 import { weaponTypeNote } from './equipui.js';
+import { PETS, PET_TIERS, ABILITY_TXT, petInfo, petReqFail } from './petdata.js';
 import { CAST } from './characters.js';
 import { guildRank } from './guild.js';
 import { COMP_CLASSES } from './classes.js';
@@ -43,6 +44,20 @@ function recipeCard(g, id) {
   return `<div class="scard rcard"><img src="${icon('item', `dish_${id}`)}" alt="">
     <div class="sc-body"><div class="sc-name">${d.cat === 'drink' ? '🥤' : '🍖'} ${esc(d.name)}</div><div class="sc-line"><b>${esc(d.desc)}</b></div><div class="sc-desc">dura ${d.mins} min · ${d.cat === 'drink' ? 'bebida' : 'refeição'} · tem ${p.items[`dish_${id}`] || 0} na mochila</div><div class="ings">${ings}</div></div>
     <div class="sc-foot"><span class="sc-btns"><button class="btn sm" data-act="cook" data-id="${id}" ${can ? '' : 'disabled'}>Cozinhar</button><button class="btn sm" data-act="cook" data-id="${id}" data-q="5" ${can ? '' : 'disabled'}>×5</button></span></div></div>`;
+}
+
+// Seus mascotes: o que anda com você e os que descansam na Toca
+export function petStable(g) {
+  const cur = g.state.pet, st = g.state.stable || [];
+  const row = (rec, i) => {
+    const info = petInfo(rec), T = PET_TIERS[info.tier];
+    const act = i < 0
+      ? `<button class="btn sm" data-act="petName">Renomear</button><button class="btn sm" data-act="petRest">Descansar</button>`
+      : `<button class="btn sm" data-act="petUse" data-i="${i}">Levar comigo</button><button class="btn sm" data-act="petFreeSt" data-i="${i}">Libertar</button>`;
+    return `<div class="row ${i < 0 ? 'eq' : ''}"><div class="withicon"><img class="ico" src="${icon('pet', info.id)}" alt=""><b style="color:${T.color}">${'★'.repeat(T.stars)}</b> <b>${esc(rec.name)}</b> <span class="muted">${esc(info.name)} · nível ${rec.level}${info.perkTxt ? ` · ${esc(info.perkTxt)}` : ''}</span></div><div class="row-r">${i < 0 ? '<span class="tag ok">Com você</span>' : ''}${act}</div></div>`;
+  };
+  if (!cur && !st.length) return '<div class="muted pad">Você ainda não tem mascote.</div>';
+  return `<div class="section">Seus mascotes (${(cur ? 1 : 0) + st.length})</div>${cur ? row(cur, -1) : ''}${st.map(row).join('')}`;
 }
 
 function card(g, { kind, id, name, rar = 1, lines = [], desc = '', price, owned, btns, img, disabled }) {
@@ -155,12 +170,24 @@ export function renderShop(ui) {
     if (locked) html += `<div class="muted pad">Runas mais fortes chegam à oficina a partir do Andar ${locked}.</div>`;
   } else if (id === 'pet') {
     html += grid('Para o seu mascote', ['tame_treat', 'pet_snack'].map((i) => itemCard(g, i)));
-    const hi = g.state.progress.highest;
-    html += grid('Adotar um filhote', ADOPT.map(([mon, fl]) => {
-      const m = MONSTERS[mon], locked = hi < fl;
-      return card(g, { kind: 'adopt', id: mon, img: icon('pet', mon), name: ADOPT_NAMES[mon], lines: [`Filhote de <b>${esc(m.name)}</b>`], desc: locked ? `Disponível depois de chegar ao Andar ${fl}.` : 'Segue você, luta junto e cura quando seu HP estiver baixo.', price: g.priceOf('adopt', mon), disabled: locked, owned: g.state.pet?.mon === mon ? 'você tem um' : '' });
-    }));
-    html += `<div class="muted pad">${g.state.pet ? `Seu mascote atual: <b>${esc(g.state.pet.name)}</b> (nível ${g.state.pet.level}). Adotar outro manda o atual para a Toca.` : 'Você ainda não tem mascote.'}</div>`;
+    html += petStable(g);
+    const owned = new Set([g.state.pet, ...(g.state.stable || [])].filter(Boolean).map((x) => x.id || x.mon));
+    for (let t = 1; t <= 5; t++) {
+      const T = PET_TIERS[t];
+      const list = Object.values(PETS).filter((x) => x.tier === t);
+      html += grid(`<span style="color:${T.color}">${'★'.repeat(T.stars)} ${T.name}s</span> <span class="muted">— dano e cura ×${T.mul}${t >= 4 ? ' · habilidade especial' : ''}</span>`, list.map((pd) => {
+        const fail = petReqFail(g, pd), have = owned.has(pd.id);
+        const lines = [`<b style="color:${T.color}">${'★'.repeat(T.stars)} ${T.name}</b>`];
+        if (pd.perkTxt) lines.push(`Bônus: <b>${esc(pd.perkTxt)}</b>`);
+        if (pd.ability) lines.push(`<span class="up">${esc(ABILITY_TXT[pd.ability])}</span>`);
+        const r = pd.req || {};
+        const reqTxt = [r.floor && `Andar ${r.floor}`, r.level && `nível ${r.level}`, r.bosses && `${r.bosses} Chefes de Campo`].filter(Boolean).join(' · ');
+        return card(g, { kind: 'adopt', id: pd.id, img: icon('pet', pd.id), name: pd.name, rar: Math.min(2, t - 1), lines,
+          desc: have ? 'Já está com você ou na Toca.' : fail ? `Requisito: ${fail}.` : reqTxt ? `Requisitos cumpridos (${reqTxt}).` : 'Segue você, luta junto e cura quando seu HP estiver baixo.',
+          price: g.priceOf('adopt', pd.id), disabled: !!fail || have, owned: have ? 'seu' : '' });
+      }));
+    }
+    html += '<div class="muted pad">Os míticos também aparecem no Altar dos Cristais. Chefes de Campo derrotados contam para os requisitos dos lendários. Monstros dóceis (♥) dos campos podem ser domados com o Petisco de Domador.</div>';
   } else if (id === 'tavern') {
     html += buffsHtml(g);
     html += grid('Cardápio (come na hora)', Object.entries(FOODS).map(([fid, d]) => card(g, { kind: 'food', id: fid, name: d.name, lines: [`<b>${esc(d.desc)}</b>`, `<span class="muted">${d.cat === 'drink' ? 'bebida' : 'refeição'} · dura ${d.mins} min</span>`], price: g.priceOf('food', fid) })));

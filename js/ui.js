@@ -8,7 +8,7 @@ import { TOWN_R } from './world.js';
 import { registry, displayName } from './models.js';
 import { CAST } from './characters.js';
 import { FURNITURE } from './housing.js';
-import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO } from './shopui.js';
+import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO, petStable } from './shopui.js';
 import { runeDef, FOODS } from './data.js';
 import { guildRank } from './guild.js';
 import { renderEquip, weaponTypeNote } from './equipui.js';
@@ -611,7 +611,7 @@ export class UI {
       ${p.dualBlades ? '<div class="unique">Habilidade Única: <b>Dual Blades</b></div>' : ''}
       ${g.activeBuffs().map((e) => `<div class="unique">${e.slot === 'drink' ? '🥤 Bebida' : '🍖 Refeição'}: <b>${esc(e.def.name)}</b> — ${esc(e.def.desc)} (mais ${Math.ceil(e.left / 60)} min)</div>`).join('')}
       ${g.state.guild ? (() => { const r = guildRank(g.state.guild); return `<div class="unique">Guilda: <b>${esc(g.state.guild.name)}</b> · posto <b>${r.letter}</b> (${g.state.guild.pts} pts${r.next ? ` / ${r.next.pts} para ${r.next.letter}` : ''}) · +${Math.round(r.exp * 100)}% EXP · −${Math.round(r.discount * 100)}% nas lojas</div>`; })() : ''}
-      ${g.state.pet ? `<div class="section">Mascote</div><div class="row"><div class="withicon"><b>♥ ${esc(g.state.pet.name)}</b> <span class="muted">${esc(MONSTERS[g.state.pet.mon]?.name || '')} · nível ${g.state.pet.level} · ataca junto com você e cura quando seu HP está baixo</span></div><div class="row-r"><button class="btn sm" data-act="petName">Renomear</button><button class="btn sm" data-act="petFree">Libertar</button></div></div>` : '<div class="muted pad">Sem mascote. Procure monstros dóceis (♥ rosa) e ofereça um Petisco de Domador.</div>'}`;
+      ${g.state.pet || g.state.stable?.length ? petStable(g) : '<div class="muted pad">Sem mascote. Adote um na Toca dos Mascotes ou procure monstros dóceis (♥ rosa) e ofereça um Petisco de Domador.</div>'}`;
   }
 
   pItems() {
@@ -957,6 +957,9 @@ export class UI {
           break;
         }
         case 'petFree': if (confirm(`Libertar ${g.state.pet?.name}?`)) g.pets.release(); break;
+        case 'petRest': g.pets.rest(); break;
+        case 'petUse': g.pets.use(+d.i); break;
+        case 'petFreeSt': { const r = g.state.stable?.[+d.i]; if (r && confirm(`Libertar ${r.name}? Ele volta para a natureza.`)) g.pets.freeStable(+d.i); break; }
         case 'npcReset': resetNpc(d.id); g.npcs.applyHeights(); break;
         case 'npcCall': {
           const n = g.npcs.byId(d.id);

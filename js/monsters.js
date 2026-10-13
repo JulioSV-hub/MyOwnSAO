@@ -359,6 +359,9 @@ export function buildMonster(def, boss) {
     for (const s of [-1, 1]) {
       const pivot = new THREE.Group();
       pivot.position.set(s * wx, wy, wz);
+      pivot.rotation.y = -s * 0.4;
+      // humanoides (harpia): asas em pé nas costas, batendo para frente e para trás
+      if (def.arch === 'humanoid') pivot.rotation.x = Math.PI / 2 - 0.35;
       const m = M(wg, wm, 0, 0, 0);
       m.scale.set(s * (def.wingSpan || 1), 1, 1);
       pivot.add(m);

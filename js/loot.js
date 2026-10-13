@@ -256,6 +256,7 @@ export class Loot {
     const g = this.game;
     this.st.fb = this.day;
     this.st.fbEver = true;
+    g.state.player.fieldBossKills = (g.state.player.fieldBossKills || 0) + 1;
     const got = this.grant('gold');
     const exp = Math.round((10 + 9 * e.level) * 8 * g.state.settings.xpRate);
     g.gainExp(exp);

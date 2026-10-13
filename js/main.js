@@ -36,6 +36,7 @@ import { checkCompletion } from './completion.js';
 import { classPicker } from './talentui.js';
 import { adoptPrice, ADOPT_NAMES } from './shopui.js';
 import { Halls } from './halls.js';
+import { PETS, petInfo, petReqFail } from './petdata.js';
 import { TownLife } from './townlife.js';
 import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord, listSaves } from './save.js';
 
@@ -437,6 +438,9 @@ class Game {
     this.tod = state.world.tod ?? 0.32;
     normalizeTalents(p);
     this.fitWeapons(true);
+    // Chefes de Campo já vencidos antes do contador existir
+    if (p.fieldBossKills == null) p.fieldBossKills = Object.values(state.loot || {}).filter((x) => x?.fbEver).length;
+    if (state.pet && !state.pet.id) state.pet.id = state.pet.mon;
     if (p.hp == null || p.hp <= 0) p.hp = this.stats().maxHp;
     this.mode = 'play';
     this.player.dead = false;
@@ -546,6 +550,10 @@ class Game {
     if (rank) b.exp += rank.i * 0.03;
     // classe e árvore de talentos
     for (const [k, v] of Object.entries(classBonus(p))) b[k] = (b[k] || 0) + v;
+    // mascote raro ou melhor dá um bônus; o Rugido do Leão Alado dá +15% de dano
+    const pi = petInfo(this.state.pet);
+    if (pi?.perk) for (const [k, v] of Object.entries(pi.perk)) b[k] = (b[k] || 0) + v;
+    if (this.pets?.roarT > 0) { b.atk += 0.15; b.partyDmg = (b.partyDmg || 0) + 0.15; }
     return b;
   }
 
@@ -1076,7 +1084,7 @@ class Game {
     else if (kind === 'rune') base = runeDef(id).price;
     else if (kind === 'piece') base = pieceDef(id).price;
     else if (kind === 'food') base = Math.round(FOODS[id].price * (1 + (n - 1) * 0.3));
-    else if (kind === 'adopt') base = adoptPrice(id);
+    else if (kind === 'adopt') base = PETS[id]?.price ?? adoptPrice(id);
     else if (kind === 'merc') base = mercPrice(n);
     return Math.max(1, Math.round(base * (1 - guildDiscount(this.state))));
   }
@@ -1085,6 +1093,11 @@ class Game {
     const p = this.state.player;
     const cost = this.priceOf(kind, id) * q;
     if (p.col < cost) { this.ui.toast('Col insuficiente.', 'warn'); Sfx.error(); return false; }
+    if (kind === 'adopt' && PETS[id]) {
+      const fail = petReqFail(this, PETS[id]);
+      if (fail) { this.ui.toast(`Requisito: ${fail}.`, 'warn'); Sfx.error(); return false; }
+      if ([this.state.pet, ...(this.state.stable || [])].some((x) => x && (x.id || x.mon) === id)) { this.ui.toast('Você já tem esse mascote.', 'warn'); return false; }
+    }
     let name;
     if (kind === 'food') {
       this.applyBuff('food', id);
@@ -1106,11 +1119,10 @@ class Game {
       name = id;
       this.ui.toast(`Comprou ${q}× ${id}.`);
     } else if (kind === 'adopt') {
-      if (this.state.pet) this.ui.toast(`${this.state.pet.name} foi morar na Toca dos Mascotes. Até mais!`);
-      this.state.pet = { mon: id, name: ADOPT_NAMES[id] || MONSTERS[id].name.split(' ').pop(), level: 1, exp: 0 };
-      this.pets.spawn();
-      name = `filhote de ${MONSTERS[id].name}`;
-      this.ui.banner('Novo mascote!', `${this.state.pet.name} agora é seu companheiro. Dê um nome em Menu → Status.`, 3.5);
+      const pd = PETS[id];
+      this.pets.add({ id, mon: pd?.mon || id, name: pd?.name || ADOPT_NAMES[id] || MONSTERS[id].name.split(' ').pop(), level: 1, exp: 0 }, true);
+      name = pd?.name || id;
+      this.ui.banner(pd?.tier >= 4 ? `Mascote ${pd.tier === 5 ? 'MÍTICO' : 'LENDÁRIO'}!` : 'Novo mascote!', `${this.state.pet.name} agora é seu companheiro. Os outros ficam na Toca.`, 4);
     } else if (kind === 'merc') {
       const m = MERCS[id], r = Math.random;
       const names = { swordsman: ['Daren', 'Thoren', 'Kael', 'Rowan'], guardian: ['Borin', 'Gustav', 'Hallvard', 'Tor'], duelist: ['Sayu', 'Lyra', 'Vanya', 'Rin'],

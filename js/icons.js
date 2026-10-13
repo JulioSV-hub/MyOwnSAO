@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildSword, buildShield, buildArmor, buildItem, buildMaterial, buildRune, buildFood, buildPiece } from './gear3d.js';
+import { petMonDef } from './petdata.js';
 import { weaponDef, armorDef, runeDef, MONSTERS, MERCS, pieceDef } from './data.js';
 import { buildMonster } from './monsters.js';
 import { buildCharacter } from './characters.js';
@@ -65,7 +66,7 @@ export function icon(kind, id) {
     else if (kind === 'piece') url = render(buildPiece(pieceDef(id)).group, { spin: 0.5 });
     else if (kind === 'rune') url = render(buildRune(runeDef(id)).group, { spin: 0.2 });
     else if (kind === 'food') url = render(buildFood(id).group, { spin: 0.2 });
-    else if (kind === 'pet') url = render(buildMonster(MONSTERS[id], false).group, { spin: -0.7 });
+    else if (kind === 'pet') url = render(buildMonster(petMonDef({ id, mon: id }), false).group, { spin: -0.7 });
     else if (kind === 'merc') url = render(buildCharacter({ ...MERCS[id].look, skin: '#f4d8c0', eyes: '#3a2a1a', boots: '#2a2018' }).group, { spin: 0.35 });
     else url = render(buildMaterial(id).group, { spin: 0.6 });
   } catch (e) {
