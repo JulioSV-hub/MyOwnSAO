@@ -99,7 +99,8 @@ export class UI {
     bar.className = `hp-bar${r < 0.25 ? ' low' : r < 0.5 ? ' mid' : ''}`;
     $('hp-lag').style.width = `${(Math.max(r, this.hpLag) * 100).toFixed(2)}%`;
     $('hp-name').textContent = p.name;
-    $('hp-text').textContent = `${Math.ceil(p.hp)}/${st.maxHp}`;
+    $('hp-text').textContent = `HP ${nf(Math.ceil(p.hp))}/${nf(st.maxHp)}`;
+    $('exp-text').textContent = `EXP ${nf(p.exp)} / ${nf(expNeed(p.level))}`;
     $('lv-text').textContent = `Lv ${p.level}`;
     $('exp-bar').style.width = `${Math.min(100, (p.exp / expNeed(p.level)) * 100).toFixed(1)}%`;
     $('st-bar').style.width = `${pl.stamina.toFixed(1)}%`;

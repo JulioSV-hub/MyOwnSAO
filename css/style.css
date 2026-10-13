@@ -26,14 +26,14 @@ button { font-family: inherit; cursor: pointer; }
   position: relative; flex: 1; background: rgba(28, 30, 36, 0.78); border: 2px solid #ececee; border-left: none;
   clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%); padding: 5px 24px 5px 4px;
 }
-.hp-bar, .hp-lag { position: absolute; top: 5px; bottom: 5px; left: 4px; max-width: calc(100% - 28px); }
+.hp-bar, .hp-lag { position: absolute; top: 5px; bottom: 5px; left: 4px; max-width: calc(100% - 4px); }
 .hp-lag { background: rgba(255, 255, 255, 0.75); }
 .hp-bar { background: linear-gradient(#b4ff74, #5cc22a); transition: background 0.3s; clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
 .hp-bar.mid { background: linear-gradient(#ffe85a, #dcae00); }
 .hp-bar.low { background: linear-gradient(#ff7262, #cf1e14); }
 #hp-panel.danger .hp-name { animation: pulseRed 0.8s infinite alternate; }
 @keyframes pulseRed { to { background: linear-gradient(#ffe0dc, #ffb0a8); } }
-.hp-sub { display: flex; justify-content: flex-end; gap: 16px; font-size: 13px; font-weight: 600; margin-top: 3px; padding-right: 34px; text-shadow: 0 1px 3px #000; }
+.hp-sub { display: flex; justify-content: flex-end; align-items: baseline; gap: 16px; font-size: 13px; font-weight: 600; margin-top: 3px; padding-right: 34px; text-shadow: 0 1px 3px #000; }
 .mini-bar { height: 4px; background: rgba(0, 0, 0, 0.5); margin: 4px 0 0 120px; width: 280px; border-radius: 2px; overflow: hidden; }
 .mini-bar.st { height: 3px; margin-top: 3px; }
 #exp-bar { height: 100%; background: linear-gradient(90deg, #ffd54f, #ffb300); width: 0; transition: width 0.3s; }
@@ -492,3 +492,5 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 
 /* mana do Mago */
 .mini-bar.mp div { background: linear-gradient(90deg, #7a5aff, #c8a0ff); }
+
+#exp-text { font-size: 11px; font-weight: 600; color: #ffe08a; margin-right: auto; padding-left: 120px; }
