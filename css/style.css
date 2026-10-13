@@ -105,7 +105,7 @@ button { font-family: inherit; cursor: pointer; }
 .toast.skill { border-left-color: var(--accent); background: rgba(255, 248, 230, 0.96); }
 .toast.out { opacity: 0; transform: translateX(30px); }
 @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } }
-#banner { position: fixed; left: 0; right: 0; top: 24%; text-align: center; pointer-events: none; opacity: 0; }
+#banner { position: fixed; left: 0; right: 0; top: 24%; text-align: center; pointer-events: none; opacity: 0; padding: 8px 0 12px; background: linear-gradient(90deg, transparent, rgba(8, 12, 20, 0.6) 25%, rgba(8, 12, 20, 0.6) 75%, transparent); }
 #banner.show { animation: bannerIn 0.6s ease-out forwards; }
 .b-title { font-size: clamp(26px, 3.8vw, 46px); max-width: 82vw; margin: 0 auto; font-weight: 800; letter-spacing: 3px; text-shadow: 0 0 18px rgba(120, 200, 255, 0.8), 0 3px 6px #000; }
 .b-sub { font-size: 17px; margin-top: 6px; text-shadow: 0 2px 4px #000; opacity: 0.92; }

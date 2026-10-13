@@ -61,6 +61,8 @@ export class UI {
     this.buildSkillbar();
     this.buildMenu();
     this.bindPanel();
+    // avisos e faixas por cima do menu (ex.: o prêmio da Caixa Misteriosa usada pela Mochila)
+    for (const id of ['toasts', 'banner']) { const el = $(id); el.style.zIndex = 40; document.body.appendChild(el); }
     $('clicktoplay').addEventListener('click', () => { Sfx.unlock(); game.input.lock(); });
     $('respawn-btn').addEventListener('click', () => game.respawn());
     $('death-title-btn').addEventListener('click', () => game.logout());

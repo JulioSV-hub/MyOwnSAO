@@ -8,15 +8,25 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
-        "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js"
-      }
-    }
+  <script>
+    // Versão dos arquivos: muda a cada atualização, para o navegador (inclusive o Safari) nunca usar arquivos antigos do cache.
+    (function () {
+      var V = '202610131210';
+      var FILES = ["ambient", "audio", "characters", "classes", "combat", "completion", "data", "effects", "enemies", "fishing", "gear3d", "grass", "guild", "housing", "icons", "input", "localmodels", "loot", "main", "models", "monsters", "music", "npcconfig", "npcs", "party", "pets", "player", "quests", "rng", "save", "shops", "shopui", "stone", "talentui", "toon", "ui", "world"];
+      var base = new URL('js/', location.href).href;
+      var imports = {
+        three: 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js',
+        'three/addons/': 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/',
+        '@pixiv/three-vrm': 'https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js'
+      };
+      FILES.forEach(function (f) { imports[base + f + '.js'] = base + f + '.js?v=' + V; });
+      var im = document.createElement('script');
+      im.type = 'importmap';
+      im.textContent = JSON.stringify({ imports: imports });
+      document.head.appendChild(im);
+      window.__GAME_VERSION = V;
+      document.write('<link rel="stylesheet" href="css/style.css?v=' + V + '">');
+    })();
   </script>
 </head>
 <body>
@@ -120,6 +130,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <script>document.write('<script type="module" src="js/main.js?v=' + window.__GAME_VERSION + '"><\/script>');</script>
 </body>
 </html>
