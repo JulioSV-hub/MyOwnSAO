@@ -228,19 +228,21 @@ class NPC {
         const cost = g.upgradeCost(wid);
         const atkNow = g.weaponAtk(wid), atkNext = Math.round(wd.atk * (1 + 0.1 * (lv + 1)));
         const opts = [];
-        if (lv < 10) {
-          opts.push({ label: `Fortalecer para +${lv + 1}: ATK ${atkNow} → ${atkNext} (${cost.toLocaleString('pt-BR')} Col)`, run: () => {
+        if (lv < 15) {
+          const ingot = lv >= 10;
+          opts.push({ label: `Fortalecer para +${lv + 1}: ATK ${atkNow} → ${atkNext} (${cost.toLocaleString('pt-BR')} Col${ingot ? ' + 1 Lingote de Cristalita' : ''})`, run: () => {
             if (p.col < cost) { Sfx.error(); return say('Hmm... você não tem Col suficiente. Volte quando tiver juntado mais!'); }
+            if (ingot && !(p.items.cristalite > 0)) { Sfx.error(); return say('Acima de +10 o metal comum não aguenta! Preciso de um Lingote de Cristalita — o Agil às vezes tem para vender.'); }
             g.upgradeWeapon(wid);
             Sfx.coin();
             g.ui.toast(`${wd.name} +${lv + 1} — ATK ${atkNow} → ${atkNext}`, 'skill');
             return say(`*CLANG! CLANG!* ... Prontinho! ${wd.name} agora está +${lv + 1} — ATK ${atkNow} → ${atkNext}. Olha esse brilho! Não vai quebrar ela, viu?`, [{ label: 'Fortalecer de novo', run: () => this.dialog() }, close]);
           } });
-        } else opts.push({ label: 'Já está no máximo (+10)', run: () => say('Essa lâmina está perfeita. Nem eu consigo melhorar mais!') });
+        } else opts.push({ label: 'Já está no máximo (+15)', run: () => say('Essa lâmina está perfeita. Nem eu consigo melhorar mais!') });
         opts.push({ label: 'Comprar armas forjadas', run: () => { g.ui.closeDialog(false); g.ui.openShop('forge'); return undefined; } });
         opts.push({ label: 'Conversar', run: () => say(nextLine(['Uma espada feita com metal de cristal... um dia eu faço uma assim de novo.', 'Meu sonho é ter uma loja com uma roda d\'água no andar 48!', 'Se o fio da sua lâmina gastar, eu dou um jeito. É meu trabalho!'])) });
         opts.push(close);
-        return say(`Bem-vinda à Lisbeth's Smith Shop! Quer dizer... bem-vindo! Posso deixar sua arma mais forte. Na sua mão: ${wd.name} +${lv} (ATK ${atkNow}). Cada nível dá +10% de ataque à arma — e o nível fica na arma, não em você.`, opts);
+        return say(`Bem-vinda à Lisbeth's Smith Shop! Quer dizer... bem-vindo! Posso deixar sua arma mais forte. Na sua mão: ${wd.name} +${lv} (ATK ${atkNow}). Cada nível dá +10% de ataque à arma — e o nível fica na arma, não em você. Até +10 com Col; de +11 a +15 também preciso de Lingote de Cristalita.`, opts);
       }
       case 'info': {
         const pr = g.state.progress, paid = pr.info?.[n];
@@ -321,6 +323,14 @@ class NPC {
           { label: 'Ver armaduras', run: () => { g.ui.closeDialog(false); g.ui.openShop('armor'); return undefined; } },
           { label: 'Vender equipamento', run: () => { g.ui.closeDialog(false); g.ui.openShop('armor', 'sell'); return undefined; } },
           { label: 'Qual armadura escolher?', run: () => say('Leve: +6% de velocidade, menos defesa. Pesada: muita defesa e HP, mas −6% de velocidade. Média: o equilíbrio. Contra chefe, eu iria de pesada.') },
+          close,
+        ]);
+      case 'chef':
+        return say(`Bem-vindo ao Sabor de Aincrad! Comida boa deixa você mais forte por um tempo: força, resistência, defesa, vigor... Quer comer algo pronto ou usar a minha cozinha?`, [
+          { label: 'Cozinhar (receitas)', run: () => { g.ui.closeDialog(false); g.ui.openShop('cook', 'cook'); return undefined; } },
+          { label: 'Comprar pratos e ingredientes', run: () => { g.ui.closeDialog(false); g.ui.openShop('cook', 'buy'); return undefined; } },
+          { label: 'Onde acho ingredientes?', run: () => say('Ervas, cogumelos, trigo, frutas e mel brotam pelos campos (pontos brilhando no chão). Carne Crua sai de monstros de quatro patas e voadores. Peixe, no Lago de Pesca. E se você tiver uma lareira em casa, dá para cozinhar lá também!') },
+          { label: 'Refeição ou bebida?', run: () => say('Você pode ter UMA refeição e UMA bebida fazendo efeito ao mesmo tempo. Comer outra refeição troca a anterior. Combine, por exemplo, Espetinho (força) com Chá Revigorante (fôlego)!') },
           close,
         ]);
       case 'rune':
@@ -440,7 +450,7 @@ export class NPCManager {
       add(cdef, w.chainPos.x, w.chainPos.z, { role: 'chain', fixed: true, yaw: Math.atan2(w.chainPos.x, w.chainPos.z) });
     }
     // Lojistas da Rua do Comércio
-    const roleOf = { armor: 'armor', rune: 'rune', pet: 'petshop', tavern: 'tavern', guild: 'guild' };
+    const roleOf = { armor: 'armor', rune: 'rune', pet: 'petshop', tavern: 'tavern', guild: 'guild', food: 'chef' };
     for (const [key, sp] of Object.entries(w.shopSpots || {})) {
       const spec = SHOPS[key], def = { ...randomTownsfolk(mulberry32(g.floor.seed + key.length * 31), false), ...spec.npc, id: key === 'guild' ? 'guild' : undefined };
       add(def, sp.pos.x, sp.pos.z, { role: roleOf[key], fixed: true, yaw: sp.yaw });

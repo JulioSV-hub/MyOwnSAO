@@ -418,21 +418,55 @@ export function runeDef(id) {
 export const runeSlotsFor = (level) => 1 + (level >= 10 ? 1 : 0) + (level >= 20 ? 1 : 0);
 
 // ───────────────────────────── Taverna: comidas com bônus temporário ─────────────────────────────
+// cat: 'meal' (refeição) ou 'drink' (bebida) — dá para ter uma de cada ativa ao mesmo tempo
 export const FOODS = {
-  stew: { name: 'Ensopado de Javali', desc: '+12% de ataque', price: 60, mins: 8, buff: { atk: 0.12 } },
-  tea: { name: 'Chá de Ervas da Montanha', desc: '+15% de defesa', price: 50, mins: 8, buff: { def: 0.15 } },
-  mead: { name: 'Hidromel Dourado', desc: '+6% de crítico', price: 70, mins: 8, buff: { crit: 0.06 } },
-  pie: { name: 'Torta de Mel', desc: 'HP se regenera 3× mais rápido', price: 55, mins: 8, buff: { regen: 2 } },
-  bread: { name: 'Pão Preto com Creme', desc: '+10% de EXP', price: 45, mins: 10, buff: { exp: 0.1 } },
-  feast: { name: 'Banquete do Taverneiro', desc: '+8% ataque, +10% defesa e +10% EXP', price: 220, mins: 12, buff: { atk: 0.08, def: 0.1, exp: 0.1 } },
+  stew: { name: 'Ensopado de Javali', cat: 'meal', desc: '+12% de ataque', price: 60, mins: 8, buff: { atk: 0.12 } },
+  tea: { name: 'Chá de Ervas da Montanha', cat: 'drink', desc: '+15% de defesa', price: 50, mins: 8, buff: { defMul: 0.15 } },
+  mead: { name: 'Hidromel Dourado', cat: 'drink', desc: '+6% de crítico', price: 70, mins: 8, buff: { crit: 0.06 } },
+  pie: { name: 'Torta de Mel', cat: 'meal', desc: 'HP se regenera 3× mais rápido', price: 55, mins: 8, buff: { regen: 2 } },
+  bread: { name: 'Pão Preto com Creme', cat: 'meal', desc: '+10% de EXP', price: 45, mins: 10, buff: { exp: 0.1 } },
+  feast: { name: 'Banquete do Taverneiro', cat: 'meal', desc: '+8% ataque, +10% defesa e +10% EXP', price: 220, mins: 12, buff: { atk: 0.08, defMul: 0.1, exp: 0.1 } },
 };
+
+// ───────────────────────────── Culinária: pratos feitos com ingredientes coletados ─────────────────────────────
+// '*peixe' = qualquer peixe pescado. Os pratos vão para a mochila e você come quando quiser (Mochila → Usar).
+export const DISHES = {
+  skewer: { name: 'Espetinho de Carne', cat: 'meal', mins: 10, desc: 'Força: +18% de ataque', buff: { atk: 0.18 }, recipe: { 'Carne Crua': 2, 'Erva Medicinal': 1 }, price: 260, look: 'skewer' },
+  mushsoup: { name: 'Sopa de Cogumelos', cat: 'meal', mins: 10, desc: 'Resistência: −15% de dano recebido', buff: { resist: 0.15 }, recipe: { 'Cogumelo Luminoso': 2, 'Erva Medicinal': 1 }, price: 240, look: 'stew' },
+  herbfish: { name: 'Peixe Assado com Ervas', cat: 'meal', mins: 10, desc: 'Defesa: +25% de defesa', buff: { defMul: 0.25 }, recipe: { '*peixe': 2, 'Erva Medicinal': 1 }, price: 240, look: 'grilled' },
+  honeybread: { name: 'Pão de Mel', cat: 'meal', mins: 10, desc: 'Vigor: +20% de HP máximo', buff: { hp: 0.2 }, recipe: { 'Trigo Selvagem': 2, 'Mel Silvestre': 1 }, price: 220, look: 'bread' },
+  fruitpie: { name: 'Torta de Frutas Silvestres', cat: 'meal', mins: 10, desc: 'Sorte: +8% de crítico e +10% de Col', buff: { crit: 0.08, col: 0.1 }, recipe: { 'Frutas Silvestres': 2, 'Trigo Selvagem': 1, 'Mel Silvestre': 1 }, price: 300, look: 'pie' },
+  feast: { name: 'Banquete do Aventureiro', cat: 'meal', mins: 15, desc: '+12% ataque, +15% defesa, −10% dano recebido e +10% EXP', buff: { atk: 0.12, defMul: 0.15, resist: 0.1, exp: 0.1 },
+    recipe: { 'Carne Crua': 2, '*peixe': 1, 'Cogumelo Luminoso': 1, 'Trigo Selvagem': 1, 'Mel Silvestre': 1 }, price: 900, look: 'feast' },
+  herbtea: { name: 'Chá Revigorante', cat: 'drink', mins: 10, desc: 'Fôlego: stamina volta 50% mais rápido e a esquiva gasta −20%', buff: { stam: 0.5, dodge: 0.2 }, recipe: { 'Erva Medicinal': 2, 'Mel Silvestre': 1 }, price: 180, look: 'tea' },
+  juice: { name: 'Suco de Frutas Silvestres', cat: 'drink', mins: 10, desc: 'Agilidade: +8% de velocidade', buff: { spd: 0.08 }, recipe: { 'Frutas Silvestres': 3 }, price: 160, look: 'juice' },
+  strongmead: { name: 'Hidromel Forte', cat: 'drink', mins: 10, desc: 'Fúria: +6% de crítico e +15% de dano crítico', buff: { crit: 0.06, critDmg: 0.15 }, recipe: { 'Mel Silvestre': 2, 'Trigo Selvagem': 1 }, price: 260, look: 'mead' },
+};
+for (const [k, d] of Object.entries(DISHES)) {
+  ITEMS[`dish_${k}`] = { name: d.name, desc: `${d.desc} por ${d.mins} min (${d.cat === 'drink' ? 'bebida' : 'refeição'}).`, price: d.price, dish: k, noShop: true };
+}
+// Ingredientes vendidos no restaurante (os outros você coleta, pesca ou ganha de monstros)
+export const INGREDIENTS = { 'Trigo Selvagem': 14, 'Mel Silvestre': 24, 'Frutas Silvestres': 16, 'Erva Medicinal': 12, 'Carne Crua': 34, 'Cogumelo Luminoso': 22 };
+
+// Itens especiais do Agil
+Object.assign(ITEMS, {
+  elixir_str: { name: 'Elixir de Força', desc: '+1 ponto de STR para sempre. O preço sobe a cada elixir comprado.', price: 3000, elixir: 'str', noShop: true },
+  elixir_agi: { name: 'Elixir de Agilidade', desc: '+1 ponto de AGI para sempre. O preço sobe a cada elixir comprado.', price: 3000, elixir: 'agi', noShop: true },
+  elixir_vit: { name: 'Elixir de Vitalidade', desc: '+1 ponto de VIT para sempre. O preço sobe a cada elixir comprado.', price: 3000, elixir: 'vit', noShop: true },
+  cristalite: { name: 'Lingote de Cristalita', desc: 'Metal raro: a Lisbeth usa 1 por nível para fortalecer armas de +10 até +15.', price: 4000, tool: true, noShop: true },
+  treasure_map: { name: 'Mapa do Tesouro', desc: 'Revela no mapa todos os baús fechados do andar atual.', price: 900, noShop: true },
+  mystery_box: { name: 'Caixa Misteriosa', desc: 'Pode ter Col, runas, ingredientes, cristais... ou um equipamento raro!', price: 1500, noShop: true },
+});
 
 // ───────────────────────────── Coleta: itens espalhados pelos campos ─────────────────────────────
 export const GATHER = [
-  { name: 'Erva Medicinal', value: 6, color: '#5ac83a', w: 40 },
-  { name: 'Cogumelo Luminoso', value: 10, color: '#7ad8ff', w: 22 },
-  { name: 'Minério de Ferro', value: 12, color: '#8a8a94', w: 26 },
-  { name: 'Cristal Bruto', value: 26, color: '#c8a0ff', w: 12 },
+  { name: 'Erva Medicinal', value: 6, color: '#5ac83a', w: 30 },
+  { name: 'Cogumelo Luminoso', value: 10, color: '#7ad8ff', w: 17 },
+  { name: 'Minério de Ferro', value: 12, color: '#8a8a94', w: 20 },
+  { name: 'Cristal Bruto', value: 26, color: '#c8a0ff', w: 9 },
+  { name: 'Trigo Selvagem', value: 6, color: '#e0c060', w: 18 },
+  { name: 'Frutas Silvestres', value: 8, color: '#e04a6a', w: 18 },
+  { name: 'Mel Silvestre', value: 12, color: '#f0b030', w: 11 },
 ];
 
 // ───────────────────────────── Companheiros de time ─────────────────────────────

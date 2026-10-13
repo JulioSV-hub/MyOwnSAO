@@ -206,6 +206,8 @@ export class Housing {
   interact() {
     const pl = this.game.player.pos;
     if (Math.hypot(pl.x - BASE.x, pl.z - (BASE.z + ROOM.d / 2)) < 2) return { hint: '[E] Sair de casa', act: () => this.exit() };
+    const fire = this.colliders.find((c) => c.it.t === 'fireplace' && Math.hypot(pl.x - c.x, pl.z - c.z) < 2.4);
+    if (fire) return { hint: '[E] Cozinhar na lareira', act: () => this.game.ui.openShop('home', 'cook') };
     const bed = this.colliders.find((c) => c.it.t === 'bed' && Math.hypot(pl.x - c.x, pl.z - c.z) < 2.2);
     if (bed) return { hint: '[E] Dormir (grátis em casa)', act: () => this.game.sleep(this.game.night > 0.5 ? 0.27 : 0.8, 'Você descansou na sua própria cama.') };
     return { hint: this.decorating ? null : '[G] Decorar a casa', act: null };

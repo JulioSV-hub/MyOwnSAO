@@ -201,7 +201,16 @@ const ITEM_LOOK = {
   tame_treat: { kind: 'treat' },
   fishing_rod: { kind: 'rod' },
   grilled_fish: { kind: 'grilled' },
+  pet_snack: { kind: 'treat' },
+  elixir_str: { kind: 'bottle', liquid: '#ff5a3a', big: true },
+  elixir_agi: { kind: 'bottle', liquid: '#5ae0ff', big: true },
+  elixir_vit: { kind: 'bottle', liquid: '#5aff7a', big: true },
+  cristalite: { kind: 'ingot' },
+  treasure_map: { kind: 'scroll' },
+  mystery_box: { kind: 'box' },
 };
+// pratos da culinária usam os modelos de comida
+const DISH_LOOK = { skewer: 'skewer', mushsoup: 'stew', herbfish: 'grilled', honeybread: 'bread', fruitpie: 'pie', feast: 'feast', herbtea: 'tea', juice: 'juice', strongmead: 'mead' };
 
 function fishMesh(color) {
   const g = new THREE.Group();
@@ -216,8 +225,50 @@ function fishMesh(color) {
 }
 
 export function buildItem(id) {
+  if (id.startsWith('dish_')) {
+    const k = DISH_LOOK[id.slice(5)];
+    if (k === 'grilled') return buildItem('grilled_fish');
+    if (k === 'skewer') {
+      const group = new THREE.Group();
+      const stick = M(new THREE.CylinderGeometry(0.012, 0.012, 0.9, 6), std('#c8a070'));
+      stick.rotation.z = 0.6;
+      group.add(stick);
+      for (let i = 0; i < 4; i++) { const m = M(new THREE.SphereGeometry(0.09, 12, 10), std(i % 2 ? '#8a4a2a' : '#5a9a3a'), -0.2 + i * 0.13, 0.13 - i * 0.09, 0); m.scale.set(1, 0.85, 1); group.add(m); }
+      return { group };
+    }
+    if (k === 'juice') {
+      const group = new THREE.Group();
+      group.add(M(new THREE.CylinderGeometry(0.15, 0.12, 0.42, 16, 1, true), new THREE.MeshStandardMaterial({ color: '#e8f4ff', transparent: true, opacity: 0.35, side: THREE.DoubleSide })));
+      group.add(M(new THREE.CylinderGeometry(0.135, 0.11, 0.34, 16), std('#e04a6a', { emissive: '#401020' }), 0, -0.03, 0));
+      const straw = M(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 6), std('#ffffff'), 0.05, 0.2, 0);
+      straw.rotation.z = -0.25;
+      group.add(straw);
+      return { group };
+    }
+    return buildFood(k);
+  }
   const look = ITEM_LOOK[id] || { kind: 'bottle', liquid: '#7aff9a' };
   const group = new THREE.Group();
+  if (look.kind === 'ingot') {
+    const g = new THREE.CylinderGeometry(0.2, 0.26, 0.16, 4).rotateY(Math.PI / 4);
+    g.scale(1.6, 1, 0.8);
+    group.add(M(g, new THREE.MeshStandardMaterial({ color: '#9ae8ff', emissive: '#2a6a8a', metalness: 0.7, roughness: 0.15 })));
+    return { group };
+  }
+  if (look.kind === 'scroll') {
+    const paper = M(new THREE.PlaneGeometry(0.5, 0.4), std('#e8d8a8', { side: THREE.DoubleSide }));
+    paper.rotation.x = -0.4;
+    for (const y of [-0.2, 0.2]) { const r = M(new THREE.CylinderGeometry(0.04, 0.04, 0.56, 10), std('#8a5a32'), 0, y * Math.cos(0.4), -y * Math.sin(0.4)); r.rotation.z = Math.PI / 2; group.add(r); }
+    const x = M(new THREE.PlaneGeometry(0.08, 0.08), std('#c0262c', { side: THREE.DoubleSide }), 0.1, 0.02, 0.01);
+    x.rotation.x = -0.4;
+    group.add(paper, x);
+    return { group };
+  }
+  if (look.kind === 'box') {
+    group.add(M(new THREE.BoxGeometry(0.42, 0.36, 0.42), std('#6a3a8a')), M(new THREE.BoxGeometry(0.46, 0.08, 0.46), std('#f0c040'), 0, 0.2, 0));
+    group.add(M(new THREE.BoxGeometry(0.08, 0.37, 0.43), std('#f0c040')), M(new THREE.SphereGeometry(0.07, 10, 8), glow('#ffe08a', 2), 0, 0.27, 0));
+    return { group };
+  }
   if (look.kind === 'rod') {
     const r = M(new THREE.CylinderGeometry(0.012, 0.03, 0.9, 8), std('#7a5232'));
     r.rotation.z = -0.8;

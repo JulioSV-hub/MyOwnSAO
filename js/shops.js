@@ -22,6 +22,8 @@ export const SHOPS = {
     npc: { name: 'Kiko', title: 'Tratador de Mascotes', hair: 'spiky', hairColor: '#e0a040', top: '#6a9a4a', pants: '#4a3a2a', accent: '#ff9ac8' } },
   tavern: { sign: 'TAVERNA DO JAVALI', title: 'Taverna do Javali Dourado', color: '#8a4a2a', color2: '#f0d8a8', w: 8,
     npc: { name: 'Gorm', title: 'Taverneiro', hair: 'bald', top: '#8a6a4a', apron: '#f0e8d8', beard: true, big: true } },
+  food: { sign: 'RESTAURANTE', title: 'Restaurante Sabor de Aincrad', color: '#2a7a4a', color2: '#fff6e0', w: 6.4,
+    npc: { name: 'Teo', title: 'Chef de Cozinha', hair: 'short', hairColor: '#2a1e16', top: '#f4f4f0', apron: '#f4f4f0', hat: '#ffffff', accent: '#2a7a4a' } },
   guild: { sign: 'GUILDA DOS AVENTUREIROS', title: 'Guilda dos Aventureiros', color: '#a02a2a', color2: '#f4e8c8', w: 7.4,
     npc: { name: 'Elena', title: 'Recepcionista da Guilda', female: true, hair: 'ponytail', hairColor: '#3a2a1a', top: '#f4f0e8', skirt: '#8a2a2a', accent: '#d8b050' } },
 };
@@ -226,6 +228,25 @@ const goods = {
     g.add(lamp);
     // placa em forma de javali dourado
     add(new THREE.SphereGeometry(0.35, 14, 10), T('#e0b040'), -w / 2 + 0.2, 3.3, d / 2 + 0.5).scale.set(1.4, 0.9, 0.4);
+  },
+  food(add, g, spec, w, d) {
+    // fogão com panelas, legumes na vitrine e mesinhas na calçada
+    add(rbox(1.6, 0.9, 0.7), T('#4a4a52'), -w / 2 + 1.3, 0.45, -d / 2 + 0.6);
+    const fire = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.3, 8), glowMat('#ff8a3a', 2));
+    fire.position.set(-w / 2 + 1.3, 0.98, -d / 2 + 0.6);
+    g.add(fire);
+    const pot = add(new THREE.CylinderGeometry(0.3, 0.26, 0.34, 16), T('#8a8a94'), -w / 2 + 1.3, 1.1, -d / 2 + 0.6);
+    pot.scale.y = 1;
+    const veg = ['#e04a3a', '#f0c040', '#5ac83a', '#e08a2a', '#8a4ad8'];
+    for (let i = 0; i < 7; i++) add(new THREE.SphereGeometry(0.11, 10, 8), T(veg[i % veg.length]), -1.6 + i * 0.5, 1.2, d / 2 - 0.25);
+    for (let i = 0; i < 4; i++) add(new THREE.CylinderGeometry(0.2, 0.18, 0.12, 14), T('#f4f0e8'), 0.4 + (i % 2) * 0.6, i < 2 ? 1.36 : 2.26, -d / 2 + 0.42);
+    for (const s of [-1, 1]) {
+      const tx = s * 2.1, tz = d / 2 + 2.5;
+      add(new THREE.CylinderGeometry(0.55, 0.55, 0.06, 18), T('#f4f4f0'), tx, 0.78, tz);
+      add(new THREE.CylinderGeometry(0.06, 0.09, 0.76, 8), T('#3a3a3a'), tx, 0.38, tz);
+      add(new THREE.CylinderGeometry(0.18, 0.15, 0.06, 12), T('#ffffff'), tx, 0.83, tz);
+      for (const a of [0, Math.PI]) add(rbox(0.4, 0.45, 0.4), T('#2a7a4a'), tx + Math.cos(a) * 0.9, 0.23, tz + Math.sin(a) * 0.9);
+    }
   },
   guild(add, g, spec, w, d) {
     // estandartes, quadro de contratos e brasão

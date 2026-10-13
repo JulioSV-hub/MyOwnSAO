@@ -127,7 +127,7 @@ export class Player {
 
     if (!sprinting && this.dodge <= 0) {
       this.staminaCD -= dt;
-      if (this.staminaCD <= 0) this.stamina = Math.min(100, this.stamina + 24 * dt);
+      if (this.staminaCD <= 0) this.stamina = Math.min(100, this.stamina + 24 * (1 + st.stam) * dt);
     }
     this.stamina = Math.max(0, this.stamina);
     this.iframes = Math.max(0, this.iframes - dt);

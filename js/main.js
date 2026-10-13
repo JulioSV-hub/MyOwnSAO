@@ -27,7 +27,8 @@ import { Sfx } from './audio.js';
 import { windTime } from './toon.js';
 import { Music } from './music.js';
 import { smoothstep } from './rng.js';
-import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward, runeDef, FOODS, MERCS, mercPrice, runeSlotsFor } from './data.js';
+import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward, runeDef, FOODS, MERCS, mercPrice, runeSlotsFor, DISHES, INGREDIENTS, RUNES, RUNE_TIER_FLOOR } from './data.js';
+import { isFish } from './fishing.js';
 import { guildRank, guildDiscount } from './guild.js';
 import { classBonus, CLASSES } from './classes.js';
 import { classPicker } from './talentui.js';
@@ -504,13 +505,80 @@ class Game {
     const p = this.state.player, b = { atk: 0, def: 0, defMul: 0, hp: 0, spd: 0, crit: 0, leech: 0, col: 0, exp: 0, regen: 0 };
     const map = { fire: 'atk', stone: 'def', life: 'hp', wind: 'spd', eagle: 'crit', leech: 'leech', fortune: 'col', sage: 'exp' };
     for (const id of p.runeSlots || []) { const r = id && runeDef(id); if (r) b[map[r.key]] += r.value; }
-    const f = p.food && p.food.until > this.state.playTime ? FOODS[p.food.id] : null;
-    if (f) for (const [k, v] of Object.entries(f.buff)) b[k === 'def' ? 'defMul' : k] += v;
+    for (const e of this.activeBuffs()) for (const [k, v] of Object.entries(e.def.buff)) b[k] = (b[k] || 0) + v;
     const rank = guildRank(this.state.guild);
     if (rank) b.exp += rank.i * 0.03;
     // classe e árvore de talentos
     for (const [k, v] of Object.entries(classBonus(p))) b[k] = (b[k] || 0) + v;
     return b;
+  }
+
+  // Refeição e bebida ativas (da taverna, do restaurante ou feitas por você)
+  activeBuffs() {
+    const p = this.state.player, now = this.state.playTime;
+    if (p.food) { p.buffs = { ...(p.buffs || {}), meal: { src: 'food', id: p.food.id, until: p.food.until } }; p.food = null; }
+    const out = [];
+    for (const [slot, e] of Object.entries(p.buffs || {})) {
+      if (!e || e.until <= now) continue;
+      const def = e.src === 'dish' ? DISHES[e.id] : FOODS[e.id];
+      if (def) out.push({ slot, def, left: e.until - now });
+    }
+    return out;
+  }
+
+  applyBuff(src, id) {
+    const p = this.state.player, def = src === 'dish' ? DISHES[id] : FOODS[id], slot = def.cat || 'meal';
+    (p.buffs ||= {})[slot] = { src, id, until: this.state.playTime + def.mins * 60 };
+    this.clampHp();
+    this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), slot === 'drink' ? '#7ad0ff' : '#ffd27a', 1.3, 0.8, 1.5);
+    this.ui.toast(`${def.name}: ${def.desc} por ${def.mins} min.`, 'skill');
+  }
+
+  // Cozinhar: gasta os ingredientes da receita e põe o prato na mochila
+  canCook(id) {
+    const p = this.state.player, r = DISHES[id].recipe;
+    const fish = Object.entries(p.mats).filter(([n]) => isFish(n)).reduce((a, [, m]) => a + m.qty, 0);
+    return Object.entries(r).every(([ing, q]) => (ing === '*peixe' ? fish : p.mats[ing]?.qty || 0) >= q);
+  }
+
+  cook(id, q = 1) {
+    const p = this.state.player, d = DISHES[id];
+    let made = 0;
+    for (let i = 0; i < q && this.canCook(id); i++) {
+      for (const [ing, need] of Object.entries(d.recipe)) {
+        let left = need;
+        for (const [n, m] of Object.entries(p.mats)) {
+          if (left <= 0) break;
+          if (ing === '*peixe' ? !isFish(n) : n !== ing) continue;
+          const take = Math.min(left, m.qty);
+          m.qty -= take; left -= take;
+          if (m.qty <= 0) delete p.mats[n];
+        }
+      }
+      p.items[`dish_${id}`] = (p.items[`dish_${id}`] || 0) + 1;
+      made++;
+    }
+    if (!made) { Sfx.error(); this.ui.toast('Faltam ingredientes para essa receita.', 'warn'); return; }
+    Sfx.coin();
+    this.ui.toast(`🍳 Você cozinhou ${made}× ${d.name}! (na mochila)`, 'skill');
+    this.save();
+  }
+
+  // Ofertas do dia do Agil: 4 itens que mudam a cada dia (cada um pode ser comprado uma vez)
+  agilDeals() {
+    const n = this.floor.n, day = this.state.world.day || 0, hi = this.state.progress.highest;
+    let seed = (n * 7919 + day * 104729) >>> 0;
+    const r = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const tier = RUNE_TIER_FLOOR.filter((f) => n >= f).length;
+    const keys = Object.keys(RUNES);
+    const deals = [
+      { kind: 'weapon', id: `rare_${hi + 1 + Math.floor(r() * 2)}`, mul: 2.2 },
+      { kind: 'armor', id: `rarm_${hi + 1 + Math.floor(r() * 2)}`, mul: 2.2 },
+      { kind: 'rune', id: `rune_${keys[Math.floor(r() * keys.length)]}_${tier}`, mul: 0.75 },
+      { kind: 'item', id: ['heal_crystal', 'treasure_map', 'mystery_box', 'cristalite'][Math.floor(r() * 4)], mul: 0.7, q: 3 },
+    ];
+    const bought = this.state.agilDeals?.day === day && this.state.agilDeals.n === n ? this.state.agilDeals.b : [];
+    return deals.map((d, i) => ({ ...d, i, sold: bought.includes(i) }));
   }
 
   stats() {
@@ -531,7 +599,7 @@ class Game {
       cdMul: Math.max(0.4, (1 - Math.min(0.35, p.agi * 0.01)) * (1 - (b.cd || 0))),
       crit: Math.max(0, Math.min(0.7, 0.05 + p.agi * 0.008 + (w.crit || 0) + b.crit)),
       speedMul: Math.max(0.7, 1 + Math.min(0.5, p.agi * 0.006) + (a.spd || 0) + b.spd),
-      leech: b.leech, colMul: 1 + b.col, expMul: 1 + b.exp, regen: 1 + b.regen,
+      leech: b.leech, colMul: 1 + b.col, expMul: 1 + b.exp, regen: 1 + b.regen, resist: Math.min(0.6, b.resist || 0), stam: b.stam || 0,
       critDmg: b.critDmg || 0, skillDmg: b.skillDmg || 0, guard: b.guard || 0, parry: b.parry || 0, dodge: Math.min(0.6, b.dodge || 0),
       potion: b.potion || 0, petDmg: b.petDmg || 0, petHeal: b.petHeal || 0, tame: b.tame || 0, partyDmg: b.partyDmg || 0, partyHp: b.partyHp || 0, aura: b.aura || 0,
     };
@@ -606,7 +674,7 @@ class Game {
         this.effects.sparks(front, '#ffd080', 8);
       }
     }
-    dmg = Math.max(1, Math.round(dmg));
+    dmg = Math.max(1, Math.round(dmg * (1 - st.resist)));
     p.hp -= dmg;
     pl.lastHit = 0;
     this.ui.hurt(dmg / st.maxHp);
@@ -745,6 +813,7 @@ class Game {
       this.quests.onDrop(name);
     }
     if (Math.random() < 0.07) { p.items.potion = (p.items.potion || 0) + 1; msg += ' · Poção'; }
+    if ((e.def.arch === 'quad' || e.def.arch === 'flyer') && Math.random() < 0.3) { const m = (p.mats['Carne Crua'] ||= { qty: 0, value: 8 }); m.qty++; msg += ' · Carne Crua'; }
     this.ui.toast(msg);
     this.gainExp(exp);
     if (e.fieldBoss) this.loot.onFieldBoss(e);
@@ -800,6 +869,39 @@ class Game {
     const p = this.state.player, d = ITEMS[id];
     if (!d || !(p.items[id] > 0)) return false;
     if (id === 'teleport_crystal') { this.ui.setPanel('map'); return true; }
+    if (d.dish) { p.items[id]--; this.applyBuff('dish', d.dish); Sfx.menuOpen(); return true; }
+    if (d.elixir) {
+      p.items[id]--;
+      p[d.elixir]++;
+      this.clampHp();
+      this.combat.refresh();
+      Sfx.levelUp();
+      this.effects.levelUp(this.player.pos.clone());
+      this.ui.toast(`${d.name}: +1 ${d.elixir.toUpperCase()} para sempre!`, 'skill');
+      return true;
+    }
+    if (id === 'treasure_map') {
+      p.items[id]--;
+      const st = this.loot.st;
+      const n = this.loot.chests.filter((c) => this.loot.available(c) && !st.rev.includes(c.i)).map((c) => (st.rev.push(c.i), c)).length;
+      Sfx.coin();
+      this.ui.toast(n ? `Mapa do Tesouro: ${n} baú(s) marcados no mapa (pontos amarelos).` : 'Mapa do Tesouro: todos os baús deste andar já estão abertos ou marcados.', 'skill');
+      return true;
+    }
+    if (id === 'mystery_box') {
+      p.items[id]--;
+      const roll = Math.random();
+      let got;
+      if (roll < 0.08) { const w = Math.random() < 0.5, gid = `${w ? 'rare' : 'rarm'}_${this.state.progress.highest}`; (w ? p.weapons : p.armors).push(gid); got = `★ ${(w ? weaponDef(gid) : armorDef(gid)).name}`; }
+      else if (roll < 0.3) { const keys = Object.keys(RUNES), t = RUNE_TIER_FLOOR.filter((f) => this.floor.n >= f).length, rid = `rune_${keys[Math.floor(Math.random() * keys.length)]}_${t}`; p.runes ||= {}; p.runes[rid] = (p.runes[rid] || 0) + 1; got = runeDef(rid).name; }
+      else if (roll < 0.5) { p.items.heal_crystal = (p.items.heal_crystal || 0) + 2; got = '2× Cristal de Cura'; }
+      else if (roll < 0.7) { for (const ing of Object.keys(INGREDIENTS)) { const m = (p.mats[ing] ||= { qty: 0, value: 5 }); m.qty += 3; } got = 'uma cesta de ingredientes (3 de cada)'; }
+      else if (roll < 0.85) { p.items.cristalite = (p.items.cristalite || 0) + 1; got = 'Lingote de Cristalita'; }
+      else { const c = Math.round(800 + Math.random() * 3000 * (1 + this.floor.n * 0.05)); p.col += c; got = `${c.toLocaleString('pt-BR')} Col`; }
+      Sfx.victory();
+      this.ui.banner('Caixa Misteriosa', got, 3);
+      return true;
+    }
     if (d.pet) {
       if (!this.state.pet) { this.ui.toast('Você não tem um mascote.', 'warn'); return false; }
       p.items[id]--;
@@ -808,7 +910,7 @@ class Game {
       Sfx.menuOpen();
       return true;
     }
-    if (d.tool) { this.ui.toast(id === 'fishing_rod' ? 'Perto da água, aperte F para pescar.' : 'Use perto de um monstro dócil (♥) com a tecla E.'); return false; }
+    if (d.tool) { this.ui.toast(id === 'fishing_rod' ? 'Perto da água, aperte F para pescar.' : id === 'cristalite' ? 'Leve para a Lisbeth: ela usa para fortalecer armas acima de +10.' : 'Use perto de um monstro dócil (♥) com a tecla E.'); return false; }
     const st = this.stats(), max = st.maxHp, heal = d.heal * (1 + st.potion);
     if (p.hp >= max) { this.ui.toast('Seu HP já está cheio.'); return false; }
     p.items[id]--;
@@ -894,7 +996,9 @@ class Game {
   priceOf(kind, id) {
     const n = this.floor.n;
     let base;
-    if (kind === 'item') base = ITEMS[id].price;
+    if (kind === 'item') base = ITEMS[id].elixir ? Math.round(3000 * Math.pow(1.3, this.state.player.elixirsBought || 0)) : ITEMS[id].dish ? Math.round(ITEMS[id].price * (1 + (n - 1) * 0.12)) : ITEMS[id].price;
+    else if (kind === 'deal') { const d = this.agilDeals()[+id]; return Math.max(1, Math.round(this.priceOf(d.kind, d.id) * (d.q || 1) * d.mul * (1 - guildDiscount(this.state)))); }
+    else if (kind === 'ingredient') base = Math.round(INGREDIENTS[id] * (1 + (n - 1) * 0.1));
     else if (kind === 'weapon') base = weaponDef(id).price;
     else if (kind === 'armor') base = armorDef(id).price;
     else if (kind === 'rune') base = runeDef(id).price;
@@ -910,11 +1014,24 @@ class Game {
     if (p.col < cost) { this.ui.toast('Col insuficiente.', 'warn'); Sfx.error(); return false; }
     let name;
     if (kind === 'food') {
-      const f = FOODS[id];
-      p.food = { id, until: this.state.playTime + f.mins * 60 };
-      name = f.name;
-      this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#ffd27a', 1.3, 0.8, 1.5);
-      this.ui.toast(`${f.name}: ${f.desc} por ${f.mins} min.`, 'skill');
+      this.applyBuff('food', id);
+      name = FOODS[id].name;
+    } else if (kind === 'deal') {
+      const d = this.agilDeals()[+id];
+      if (d.sold) return false;
+      if (d.kind === 'item') p.items[d.id] = (p.items[d.id] || 0) + (d.q || 1);
+      else if (d.kind === 'rune') { p.runes ||= {}; p.runes[d.id] = (p.runes[d.id] || 0) + 1; }
+      else (d.kind === 'weapon' ? p.weapons : p.armors).push(d.id);
+      const day = this.state.world.day || 0;
+      if (this.state.agilDeals?.day !== day || this.state.agilDeals.n !== this.floor.n) this.state.agilDeals = { day, n: this.floor.n, b: [] };
+      this.state.agilDeals.b.push(d.i);
+      name = d.kind === 'item' ? `${d.q || 1}× ${ITEMS[d.id].name}` : d.kind === 'rune' ? runeDef(d.id).name : d.kind === 'weapon' ? weaponDef(d.id).name : armorDef(d.id).name;
+      this.ui.toast(`Oferta do dia: ${name}!`, 'skill');
+    } else if (kind === 'ingredient') {
+      const m = (p.mats[id] ||= { qty: 0, value: Math.max(1, Math.round(INGREDIENTS[id] * 0.3)) });
+      m.qty += q;
+      name = id;
+      this.ui.toast(`Comprou ${q}× ${id}.`);
     } else if (kind === 'adopt') {
       if (this.state.pet) this.ui.toast(`${this.state.pet.name} foi morar na Toca dos Mascotes. Até mais!`);
       this.state.pet = { mon: id, name: ADOPT_NAMES[id] || MONSTERS[id].name.split(' ').pop(), level: 1, exp: 0 };
@@ -928,7 +1045,7 @@ class Game {
       if (!this.party.add({ kind: 'merc', cls: id, name: names[Math.floor(r() * names.length)], seed: Math.floor(r() * 1e6) })) return false;
       name = m.name;
     } else {
-      if (kind === 'item') p.items[id] = (p.items[id] || 0) + q;
+      if (kind === 'item') { p.items[id] = (p.items[id] || 0) + q; if (ITEMS[id].elixir) p.elixirsBought = (p.elixirsBought || 0) + q; }
       else if (kind === 'rune') { p.runes ||= {}; p.runes[id] = (p.runes[id] || 0) + q; }
       else (kind === 'weapon' ? p.weapons : p.armors).push(id);
       name = kind === 'item' ? ITEMS[id].name : kind === 'rune' ? runeDef(id).name : kind === 'weapon' ? weaponDef(id).name : armorDef(id).name;
@@ -1000,8 +1117,9 @@ class Game {
   }
 
   upgradeWeapon(id) {
-    const p = this.state.player, cost = this.upgradeCost(id);
-    if (p.col < cost) return false;
+    const p = this.state.player, cost = this.upgradeCost(id), lv = this.upgradeLevel(id);
+    if (p.col < cost || lv >= 15) return false;
+    if (lv >= 10) { if (!(p.items.cristalite > 0)) return false; p.items.cristalite--; }
     p.col -= cost;
     (p.upgrades ||= {})[id] = ((p.upgrades[id]) || 0) + 1;
     this.combat.refresh();
@@ -1010,7 +1128,8 @@ class Game {
     return true;
   }
 
-  sellPrice(d) { return Math.max(10, Math.floor(d.price * 0.4)); }
+  // o Agil paga bem mais por equipamento raro
+  sellPrice(d) { return Math.max(10, Math.floor(d.price * (d.rarity === 2 ? 0.65 : 0.4))); }
 
   sellMat(name) {
     const p = this.state.player, m = p.mats[name];

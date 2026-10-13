@@ -110,6 +110,7 @@ export class UI {
     if (this.partyT <= 0) {
       this.partyT = 0.25;
       const rows = g.party.members.map((m) => `<div class="ph ${m.alive ? '' : 'down'}"><b>${esc(m.name.replace(/ \(.*\)$/, ''))}</b><i><s style="width:${((m.hp / m.maxHp) * 100).toFixed(0)}%"></s></i>${m.alive ? '' : `<em>${Math.ceil(m.down)}s</em>`}</div>`);
+      for (const e of g.activeBuffs()) rows.push(`<div class="ph buffrow">${e.slot === 'drink' ? '🥤' : '🍖'} <b>${esc(e.def.name)}</b><span>${Math.ceil(e.left / 60)} min</span></div>`);
       if (g.state.pet) rows.push(`<div class="ph pet"><b>♥ ${esc(g.state.pet.name)}</b><span>Lv ${g.state.pet.level}</span></div>`);
       $('party-hud').innerHTML = rows.join('');
     }
@@ -596,7 +597,7 @@ export class UI {
       <div class="section">Pontos de atributo: <b class="accent">${p.points}</b></div>
       ${statRow('str', 'STR', '+3% de dano da arma por ponto')}${statRow('agi', 'AGI', '+0,8% crítico, +0,6% velocidade, −1% recarga das skills')}${statRow('vit', 'VIT', '+2% HP máximo, +10 HP e defesa')}
       ${p.dualBlades ? '<div class="unique">Habilidade Única: <b>Dual Blades</b></div>' : ''}
-      ${p.food && p.food.until > g.state.playTime ? `<div class="unique">Refeição da taverna: <b>${esc(FOODS[p.food.id].name)}</b> — ${esc(FOODS[p.food.id].desc)} (mais ${Math.ceil((p.food.until - g.state.playTime) / 60)} min)</div>` : ''}
+      ${g.activeBuffs().map((e) => `<div class="unique">${e.slot === 'drink' ? '🥤 Bebida' : '🍖 Refeição'}: <b>${esc(e.def.name)}</b> — ${esc(e.def.desc)} (mais ${Math.ceil(e.left / 60)} min)</div>`).join('')}
       ${g.state.guild ? (() => { const r = guildRank(g.state.guild); return `<div class="unique">Guilda: <b>${esc(g.state.guild.name)}</b> · posto <b>${r.letter}</b> (${g.state.guild.pts} pts${r.next ? ` / ${r.next.pts} para ${r.next.letter}` : ''}) · +${Math.round(r.exp * 100)}% EXP · −${Math.round(r.discount * 100)}% nas lojas</div>`; })() : ''}
       ${g.state.pet ? `<div class="section">Mascote</div><div class="row"><div class="withicon"><b>♥ ${esc(g.state.pet.name)}</b> <span class="muted">${esc(MONSTERS[g.state.pet.mon]?.name || '')} · nível ${g.state.pet.level} · ataca junto com você e cura quando seu HP está baixo</span></div><div class="row-r"><button class="btn sm" data-act="petName">Renomear</button><button class="btn sm" data-act="petFree">Libertar</button></div></div>` : '<div class="muted pad">Sem mascote. Procure monstros dóceis (♥ rosa) e ofereça um Petisco de Domador.</div>'}`;
   }
@@ -655,7 +656,7 @@ export class UI {
       const d = ITEMS[id];
       title = d.name; rar = 1;
       lines = [d.desc, `Você tem ${p.items[id] || 0}`];
-      acts += `<button class="btn sm" data-act="use" data-id="${id}">Usar</button>`;
+      acts += `<button class="btn sm" data-act="use" data-id="${id}">${d.dish ? 'Comer' : 'Usar'}</button>`;
     } else {
       const m = p.mats[id];
       title = id;
@@ -948,6 +949,7 @@ export class UI {
         }
         case 'tab': this.shopTab = d.t; break;
         case 'runeOn': g.equipRune(d.id); break;
+        case 'cook': g.cook(d.id, +(d.q || 1)); break;
         case 'talent': spendTalent(g, d.id); break;
         case 'respec': if (confirm(`Redistribuir todos os pontos de talento por ${respecCost(p).toLocaleString('pt-BR')} Col?`)) respec(g); break;
         case 'changeClass': this.closeMenu(false); this.openDialog(classPicker(g, classChangeCost(p))); return;

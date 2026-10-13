@@ -463,3 +463,14 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .tn-desc { margin: 2px 0 4px; line-height: 1.25; }
 .tn-lock { color: var(--ui-muted); font-size: 10px; }
 .tlink { height: 8px; width: 2px; margin: 0 auto; background: var(--bc); opacity: 0.5; }
+
+/* ─────────── Culinária ─────────── */
+.buffs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0; }
+.buff { background: #fff; border-radius: 6px; padding: 6px 10px; border-left: 4px solid #ffb84a; font-size: 12px; display: flex; flex-direction: column; }
+.buff.drink { border-left-color: #4fc3ff; }
+.buff em { font-style: normal; color: var(--ui-muted); font-size: 11px; }
+.ings { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.ing { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #e8f6ec; color: #2a8a4a; font-weight: 700; }
+.ing.no { background: #fbe9e6; color: #c04a3a; }
+#party-hud .ph.buffrow b { color: #ffe0a0; min-width: 0; }
+#party-hud .ph.buffrow span { color: #c8d0d8; }

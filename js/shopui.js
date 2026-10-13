@@ -1,4 +1,6 @@
 // Janelas das lojas (cartões com ícone 3D, comparação de atributos e preço) e do Time.
+import { DISHES, INGREDIENTS } from './data.js';
+import { isFish } from './fishing.js';
 import { ITEMS, MONSTERS, FOODS, RUNES, RUNE_TIER_FLOOR, MERCS, CAST_PARTY, weaponDef, armorDef, runeDef, shopStock, FORGE_KEYS, forgeNote, armorWeight, runeSlotsFor } from './data.js';
 import { icon } from './icons.js';
 import { CAST } from './characters.js';
@@ -21,7 +23,26 @@ export const SHOP_INFO = {
   rune: { title: 'Oficina de Runas da Mira', say: () => '"Runas guardam o poder de Aincrad. Equipe-as nos seus encaixes — um encaixe novo no nível 10 e outro no 20."' },
   pet: { title: 'Toca dos Mascotes', say: () => '"Todo aventureiro merece um amigo! Adote um filhote ou compre petiscos para o seu."' },
   tavern: { title: 'Taverna do Javali Dourado', say: () => '"Senta aí, aventureiro! Comida quente dá força para a próxima luta. O efeito dura alguns minutos."' },
+  cook: { title: 'Restaurante Sabor de Aincrad', say: () => '"Cozinhe com os ingredientes que você trouxer, ou compre um prato pronto. Uma refeição e uma bebida podem fazer efeito ao mesmo tempo!"', sell: true, cook: true },
+  home: { title: 'Cozinha de casa', say: () => '"A lareira está acesa. Hora de cozinhar com o que você trouxe dos campos!"', cook: true, only: 'cook' },
 };
+
+// Bônus de comida ativos (refeição e bebida)
+export function buffsHtml(g) {
+  const list = g.activeBuffs();
+  if (!list.length) return '<div class="muted pad">Nenhuma refeição ou bebida fazendo efeito agora.</div>';
+  return `<div class="buffs">${list.map((e) => `<div class="buff ${e.slot}"><b>${e.slot === 'drink' ? '🥤 Bebida' : '🍖 Refeição'}: ${esc(e.def.name)}</b><span>${esc(e.def.desc)}</span><em>${Math.ceil(e.left / 60)} min</em></div>`).join('')}</div>`;
+}
+
+function recipeCard(g, id) {
+  const d = DISHES[id], p = g.state.player;
+  const fish = Object.entries(p.mats).filter(([n]) => isFish(n)).reduce((a, [, m]) => a + m.qty, 0);
+  const ings = Object.entries(d.recipe).map(([ing, q]) => { const have = ing === '*peixe' ? fish : p.mats[ing]?.qty || 0; return `<span class="ing ${have >= q ? 'ok' : 'no'}">${ing === '*peixe' ? 'Peixe (qualquer)' : esc(ing)} ${Math.min(have, 99)}/${q}</span>`; }).join('');
+  const can = g.canCook(id);
+  return `<div class="scard rcard"><img src="${icon('item', `dish_${id}`)}" alt="">
+    <div class="sc-body"><div class="sc-name">${d.cat === 'drink' ? '🥤' : '🍖'} ${esc(d.name)}</div><div class="sc-line"><b>${esc(d.desc)}</b></div><div class="sc-desc">dura ${d.mins} min · ${d.cat === 'drink' ? 'bebida' : 'refeição'} · tem ${p.items[`dish_${id}`] || 0} na mochila</div><div class="ings">${ings}</div></div>
+    <div class="sc-foot"><span class="sc-btns"><button class="btn sm" data-act="cook" data-id="${id}" ${can ? '' : 'disabled'}>Cozinhar</button><button class="btn sm" data-act="cook" data-id="${id}" data-q="5" ${can ? '' : 'disabled'}>×5</button></span></div></div>`;
+}
 
 function card(g, { kind, id, name, rar = 1, lines = [], desc = '', price, owned, btns, img, disabled }) {
   const p = g.state.player;
@@ -61,15 +82,42 @@ export function renderShop(ui) {
   const g = ui.g, p = g.state.player, n = g.floor.n, id = ui.shopId || 'agil', info = SHOP_INFO[id];
   const tab = (t, l) => `<button class="tab ${ui.shopTab === t ? 'on' : ''}" data-act="tab" data-t="${t}">${l}</button>`;
   const rank = guildRank(g.state.guild);
+  if (info.only) ui.shopTab = info.only;
   let html = `<div class="npc-say">${esc(info.say(n))}</div>
-    <div class="tabs">${tab('buy', 'Comprar')}${info.sell ? tab('sell', 'Vender') : ''}${rank?.discount ? `<span class="tag ok">Desconto da Guilda −${Math.round(rank.discount * 100)}%</span>` : ''}<span class="col">${nf(p.col)} Col</span></div>`;
+    <div class="tabs">${info.cook ? tab('cook', 'Cozinhar') : ''}${info.only ? '' : tab('buy', 'Comprar')}${info.sell ? tab('sell', 'Vender') : ''}${rank?.discount ? `<span class="tag ok">Desconto da Guilda −${Math.round(rank.discount * 100)}%</span>` : ''}<span class="col">${nf(p.col)} Col</span></div>`;
   if (ui.shopTab === 'sell' && info.sell) return html + sellHtml(ui);
   const grid = (title, cards) => (cards.length ? `<div class="section">${title}</div><div class="shopgrid">${cards.join('')}</div>` : '');
+  if (info.cook && ui.shopTab === 'cook') {
+    html += buffsHtml(g);
+    html += grid('Receitas — refeições', Object.keys(DISHES).filter((k) => DISHES[k].cat === 'meal').map((k) => recipeCard(g, k)));
+    html += grid('Receitas — bebidas', Object.keys(DISHES).filter((k) => DISHES[k].cat === 'drink').map((k) => recipeCard(g, k)));
+    html += '<div class="muted pad">Ingredientes: ervas, cogumelos, trigo, frutas e mel brotam pelos campos; Carne Crua vem de monstros de quatro patas e voadores; peixe, do Lago de Pesca. Os pratos vão para a mochila — coma quando quiser (Mochila → Usar).</div>';
+    return html;
+  }
+  if (id === 'cook') {
+    html += buffsHtml(g);
+    html += grid('Pratos prontos', Object.keys(DISHES).map((k) => itemCard(g, `dish_${k}`)));
+    html += grid('Ingredientes', Object.keys(INGREDIENTS).map((ing) => {
+      const price = g.priceOf('ingredient', ing);
+      const btns = `<button class="btn sm" data-act="buy" data-kind="ingredient" data-id="${esc(ing)}" ${p.col < price ? 'disabled' : ''}>×1</button><button class="btn sm" data-act="buy" data-kind="ingredient" data-id="${esc(ing)}" data-q="5" ${p.col < price * 5 ? 'disabled' : ''}>×5</button>`;
+      return card(g, { kind: 'mat', id: ing, name: ing, rar: 0, desc: 'Ingrediente de cozinha', price, owned: `tem ${p.mats[ing]?.qty || 0}`, btns });
+    }));
+    return html;
+  }
   if (id === 'agil') {
     const st = shopStock(n);
+    const deals = g.agilDeals().map((d) => {
+      const price = g.priceOf('deal', d.i), btns = `<button class="btn sm" data-act="buy" data-kind="deal" data-id="${d.i}" ${d.sold || p.col < price ? 'disabled' : ''}>${d.sold ? 'Vendido' : 'Comprar'}</button>`;
+      if (d.kind === 'weapon') { const w = weaponDef(d.id); return card(g, { kind: 'weapon', id: d.id, name: w.name, rar: 2, lines: [`ATK <b>${w.atk}</b> <span class="up">${w.atk > g.weaponAtk(p.weapon) ? '▲' : ''}</span>`], desc: `Arma rara do Andar ${w.floor} — antes do chefe de lá!`, price, btns }); }
+      if (d.kind === 'armor') { const a = armorDef(d.id); return card(g, { kind: 'armor', id: d.id, name: a.name, rar: 2, lines: [`DEF <b>${a.def}</b> · HP +${a.hp}`], desc: `Armadura rara do Andar ${a.floor}.`, price, btns }); }
+      if (d.kind === 'rune') { const r = runeDef(d.id); return card(g, { kind: 'rune', id: d.id, name: r.name, rar: r.rarity, lines: [`<b>${r.desc}</b>`], desc: '25% mais barata que na Mira.', price, btns }); }
+      return card(g, { kind: 'item', id: d.id, name: `${d.q}× ${ITEMS[d.id].name}`, desc: `${ITEMS[d.id].desc} (30% de desconto)`, price, btns });
+    });
+    html += grid(`Ofertas do dia <span class="muted">— mudam amanhã</span>`, deals);
+    html += grid('Especiais da Agil\'s Store', ['elixir_str', 'elixir_agi', 'elixir_vit', 'cristalite', 'treasure_map', 'mystery_box'].map((i) => itemCard(g, i)));
     html += grid('Consumíveis', st.items.filter((i) => !ITEMS[i].pet).map((i) => itemCard(g, i)));
-    html += grid('Equipamento do andar', [...st.weapons.map((w) => weaponCard(g, w)), ...st.armors.map((a) => armorCard(g, a))]);
-    html += '<div class="muted pad">Mais armaduras na loja do Grimm, armas forjadas com a Lisbeth e runas com a Mira — todas na Rua do Comércio, junto à muralha.</div>';
+    html += grid('Equipamento básico do andar', [...st.weapons.map((w) => weaponCard(g, w)), ...st.armors.map((a) => armorCard(g, a))]);
+    html += '<div class="muted pad">O Agil paga 65% do preço por equipamento raro (aba Vender). Elixires dão +1 ponto de atributo para sempre; o Lingote de Cristalita deixa a Lisbeth passar de +10.</div>';
   } else if (id === 'forge') {
     const floors = [n, n - 1].filter((f) => f >= 1);
     html += grid('Armas forjadas', floors.flatMap((f) => FORGE_KEYS.map((k) => weaponCard(g, `lw_${k}_${f}`))));
@@ -95,9 +143,8 @@ export function renderShop(ui) {
     }));
     html += `<div class="muted pad">${g.state.pet ? `Seu mascote atual: <b>${esc(g.state.pet.name)}</b> (nível ${g.state.pet.level}). Adotar outro manda o atual para a Toca.` : 'Você ainda não tem mascote.'}</div>`;
   } else if (id === 'tavern') {
-    const f = p.food && p.food.until > g.state.playTime ? FOODS[p.food.id] : null;
-    if (f) html += `<div class="unique">Efeito ativo: <b>${esc(f.name)}</b> — ${esc(f.desc)} (mais ${Math.ceil((p.food.until - g.state.playTime) / 60)} min)</div>`;
-    html += grid('Cardápio', Object.entries(FOODS).map(([fid, d]) => card(g, { kind: 'food', id: fid, name: d.name, lines: [`<b>${esc(d.desc)}</b>`, `<span class="muted">dura ${d.mins} min · substitui o efeito atual</span>`], price: g.priceOf('food', fid) })));
+    html += buffsHtml(g);
+    html += grid('Cardápio (come na hora)', Object.entries(FOODS).map(([fid, d]) => card(g, { kind: 'food', id: fid, name: d.name, lines: [`<b>${esc(d.desc)}</b>`, `<span class="muted">${d.cat === 'drink' ? 'bebida' : 'refeição'} · dura ${d.mins} min</span>`], price: g.priceOf('food', fid) })));
     html += '<div class="muted pad">Quer companhia nas batalhas? Fale com o Gorm para contratar um companheiro (menu <b>Time</b>).</div>';
   }
   return html;

@@ -6,7 +6,7 @@ import { mulberry32 } from './rng.js';
 import { GATHER, ITEMS, MONSTERS, RUNES, RUNE_TIER_FLOOR, weaponDef, armorDef, runeDef } from './data.js';
 import { Sfx } from './audio.js';
 
-const CHESTS = 12, NODES = 40, REFILL = 3;
+const CHESTS = 12, NODES = 50, REFILL = 3;
 const TIERS = {
   wood: { name: 'Baú de Madeira', body: '#8a5a32', trim: '#5a3a22', lock: '#c8a050' },
   silver: { name: 'Baú de Prata', body: '#6a6e78', trim: '#d8dde4', lock: '#9ad0ff' },
@@ -56,6 +56,30 @@ function nodeMesh(kind) {
     const f = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffffff').multiplyScalar(1.4) }));
     f.position.y = 0.38;
     g.add(f);
+  } else if (kind.name === 'Trigo Selvagem') {
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2, x = Math.cos(a) * 0.12, z = Math.sin(a) * 0.12;
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.015, 0.6, 5), toonMat('#c8a840'));
+      st.position.set(x, 0.3, z);
+      st.rotation.set(Math.sin(a) * 0.2, 0, -Math.cos(a) * 0.2);
+      const head = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.1, 3, 6), toonMat('#f0d060'));
+      head.position.set(x * 1.6, 0.65, z * 1.6);
+      g.add(st, head);
+    }
+  } else if (kind.name === 'Frutas Silvestres') {
+    const bush = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), toonMat('#3f8a3a'));
+    bush.scale.y = 0.75;
+    bush.position.y = 0.24;
+    g.add(bush);
+    for (let i = 0; i < 9; i++) { const a = i * 2.1, b = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(1.3) })); b.position.set(Math.cos(a) * 0.28, 0.2 + (i % 3) * 0.1, Math.sin(a) * 0.26); g.add(b); }
+  } else if (kind.name === 'Mel Silvestre') {
+    const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.4, 10), toonMat('#6a4428'));
+    stump.position.y = 0.2;
+    const hive = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), toonMat('#e0a030'));
+    hive.scale.y = 1.25;
+    hive.position.y = 0.62;
+    for (let i = 0; i < 3; i++) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.19 - Math.abs(i - 1) * 0.04, 0.02, 6, 16), toonMat('#b07a20')); band.rotation.x = Math.PI / 2; band.position.y = 0.5 + i * 0.12; g.add(band); }
+    g.add(stump, hive);
   } else if (kind.name === 'Cogumelo Luminoso') {
     for (const [x, z, s] of [[0, 0, 1], [0.16, 0.08, 0.7], [-0.12, 0.12, 0.6]]) {
       const st = new THREE.Mesh(new THREE.CylinderGeometry(0.03 * s, 0.04 * s, 0.2 * s, 8), toonMat('#f0ead8'));
