@@ -2,6 +2,7 @@
 // cel shading duro e contorno escuro. Frente do modelo = -Z. Altura ~1.7m.
 import * as THREE from 'three';
 import { animeMat, outlineMat, addOutlines } from './toon.js';
+import { hairLocks, chinify, torsoGeo, hipsGeo, limbGeo, handGeo, bootGeo } from './anime.js';
 
 const G = {};
 const geo = (k, fn) => G[k] || (G[k] = fn());
@@ -126,63 +127,24 @@ function buildHair(def, head, mat) {
   const back = M(geo('hairback', () => new THREE.SphereGeometry(r * 1.08, 22, 14, Math.PI * 1.5 + 1.25, Math.PI * 2 - 2.5)), mat, 0, -0.01, 0.02);
   back.scale.set(1, 0.97, 0.95);
   if (def.hair !== 'bald' && def.hair !== 'hood') head.add(cap, back);
-  // franja: mechas pontudas caindo sobre a testa
-  const bangs = (n, len, spread) => {
-    for (let i = 0; i < n; i++) {
-      const t = n === 1 ? 0 : i / (n - 1) - 0.5;
-      const b = M(CONE(0.045, len, 6), mat, t * spread, 0.085, -r * 0.92);
-      b.rotation.set(Math.PI - 0.35, 0, t * 0.8);
-      head.add(b);
-    }
-  };
-  const spikes = (n, len) => {
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 1.4 - Math.PI * 0.2;
-      const s = M(CONE(0.055, len * (0.8 + (i % 3) * 0.15), 6), mat, Math.cos(a) * r * 0.85, 0.05 + Math.sin(i * 1.7) * 0.03, Math.sin(a) * r * 0.75 + 0.05);
-      s.lookAt(s.position.clone().multiplyScalar(3).add(new THREE.Vector3(0, 0.15, 0.25)));
-      s.rotateX(Math.PI / 2);
-      head.add(s);
-    }
-  };
+  // mechas de anime (curvas, afinando na ponta), todas numa malha só
+  const lg = hairLocks(def.hair || 'short', r, !!def.female);
+  if (lg && def.hair !== 'hood') head.add(M(lg, mat));
   switch (def.hair) {
-    case 'spiky':
-      spikes(11, 0.2);
-      bangs(5, 0.15, 0.2);
-      for (const s of [-1, 1]) { const l = M(CONE(0.04, 0.16, 6), mat, s * r * 0.95, -0.04, -0.03); l.rotation.set(Math.PI, 0, s * 0.2); head.add(l); }
-      break;
-    case 'long': {
-      const tail = M(CAP(r * 0.85, 0.42), mat, 0, -0.3, 0.1);
-      tail.scale.set(1.05, 1, 0.45);
-      tail.rotation.x = 0.12;
-      head.add(tail);
-      bangs(6, 0.13, 0.22);
-      for (const s of [-1, 1]) { const l = M(CAP(0.035, 0.2, 8), mat, s * r * 0.98, -0.1, -0.05); l.rotation.z = s * 0.08; head.add(l); }
+    case 'long':
       if (def.name === 'Asuna') for (const s of [-1, 1]) { const b = M(CAP(0.03, 0.12, 8), mat, s * r * 0.75, 0.03, 0.12); b.rotation.z = s * 1.2; head.add(b); }
       break;
-    }
-    case 'ponytail': {
-      const pt = M(CAP(0.06, 0.32, 10), mat, 0, -0.08, r * 1.15);
-      pt.rotation.x = 0.5;
-      head.add(pt, M(SPH(0.05, 10, 8), mat, 0, 0.04, r * 1.05));
-      bangs(4, 0.11, 0.18);
+    case 'ponytail':
+      head.add(M(SPH(0.045, 10, 8), def.accent ? animeMat(def.accent) : mat, 0, 0.06, r * 1.02));
       break;
-    }
     case 'twintails':
-      for (const s of [-1, 1]) {
-        head.add(M(SPH(0.05, 10, 8), def.accent ? animeMat(def.accent) : mat, s * r * 0.95, 0.06, 0.04));
-        const t = M(CAP(0.055, 0.3, 10), mat, s * r * 1.15, -0.14, 0.05);
-        t.rotation.z = s * 0.25;
-        head.add(t);
-      }
-      bangs(5, 0.12, 0.2);
+      for (const s of [-1, 1]) head.add(M(SPH(0.045, 10, 8), def.accent ? animeMat(def.accent) : mat, s * r * 0.97, 0.07, 0.03));
       break;
     case 'bob': {
       // casca aberta na frente (o rosto fica livre), terminando na altura do queixo
-      const bob = M(geo('hairbob', () => new THREE.SphereGeometry(r * 1.17, 22, 14, Math.PI * 1.5 + 1.05, Math.PI * 2 - 2.1, 0, Math.PI * 0.74)), animeMat(def.hairColor || '#2a1e16', { side: THREE.DoubleSide }), 0, -0.01, 0.02);
+      const bob = M(geo('hairbob', () => new THREE.SphereGeometry(r * 1.13, 22, 14, Math.PI * 1.5 + 1.05, Math.PI * 2 - 2.1, 0, Math.PI * 0.7)), animeMat(def.hairColor || '#2a1e16', { side: THREE.DoubleSide }), 0, -0.01, 0.02);
       bob.scale.set(1.03, 0.95, 0.97);
       head.add(bob);
-      for (const s of [-1, 1]) { const l = M(CAP(0.045, 0.1, 8), mat, s * r * 1.02, -0.07, -0.06); l.rotation.z = s * 0.06; head.add(l); }
-      bangs(6, 0.12, 0.22);
       break;
     }
     case 'hood': {
@@ -190,12 +152,10 @@ function buildHair(def, head, mat) {
       const tip = M(CONE(0.07, 0.16, 8), hood.material, 0, 0.2, 0.08);
       tip.rotation.x = 0.6;
       head.add(hood, tip);
-      bangs(4, 0.1, 0.16);
+      const hb = hairLocks('hood', r, !!def.female);
+      if (hb) head.add(M(hb, mat));
       break;
     }
-    case 'short':
-      bangs(4, 0.09, 0.18);
-      break;
     default:
       break;
   }
@@ -232,19 +192,22 @@ export function buildCharacter(def) {
     const legMat = def.skirt && !def.pants ? skin : pants;
     const knee = new THREE.Group();
     knee.position.y = -0.39;
-    knee.add(M(CAP(0.062 * w, 0.24, 10), legMat, 0, -0.17, 0), M(CAP(0.07, 0.16, 10), boots, 0, -0.35, -0.02));
-    pivot.add(M(CAP(0.066 * w, 0.26, 10), legMat, 0, -0.19, 0), knee);
+    knee.add(M(limbGeo(0.058 * w, 0.044, 0.3), legMat, 0, 0, 0), M(bootGeo(), boots, 0, -0.28, 0));
+    pivot.add(M(limbGeo(0.078 * w, 0.06 * w, 0.38), legMat, 0, 0, 0), knee);
     inner.add(pivot);
     parts.legs.push(pivot);
     (parts.knees ||= []).push(knee);
   }
-  const torso = M(CAP(0.135, 0.3, 14), top, 0, 1.17, 0);
-  torso.scale.set(1.12 * w, 1, 0.72 * w);
-  const pelvis = M(SPH(0.14), def.skirt ? animeMat(def.skirt) : pants, 0, 0.92, 0);
-  pelvis.scale.set(1.15 * w, 0.62, 0.85 * w);
-  const belt = M(geo('belt', () => new THREE.CylinderGeometry(0.15, 0.15, 0.05, 18)), accent, 0, 0.99, 0);
-  belt.scale.set(w, 1, 0.82 * w);
-  inner.add(torso, pelvis, belt, M(CAP(0.05, 0.05, 8), skin, 0, 1.43, 0));
+  const torso = M(torsoGeo(!!def.female, w), top);
+  const pelvis = M(hipsGeo(!!def.female, w), def.skirt ? animeMat(def.skirt) : pants);
+  const belt = M(geo('belt', () => new THREE.CylinderGeometry(0.128, 0.13, 0.05, 20)), accent, 0, 0.995, 0);
+  belt.scale.set(w, 1, 0.72 * w);
+  // pescoço e gola
+  const neck = M(geo('neck', () => new THREE.CylinderGeometry(0.036, 0.044, 0.14, 12)), skin, 0, 1.47, 0);
+  const collar = M(geo('collar2', () => new THREE.TorusGeometry(0.06, 0.016, 6, 18)), def.coat ? animeMat(def.coat) : top, 0, 1.425, 0);
+  collar.rotation.x = Math.PI / 2;
+  collar.scale.set(w, 0.8, 1);
+  inner.add(torso, pelvis, belt, neck, collar);
   if (def.skirt) {
     const sk = M(geo('skirt', () => new THREE.CylinderGeometry(0.15, 0.27, 0.34, 18, 1, true)), animeMat(def.skirt, { side: THREE.DoubleSide }), 0, 0.82, 0);
     sk.scale.set(w, 1, 0.9 * w);
@@ -274,10 +237,17 @@ export function buildCharacter(def) {
   }
   for (const s of [-1, 1]) {
     const pivot = new THREE.Group();
-    pivot.position.set(s * 0.175 * w, 1.37, 0);
-    pivot.add(M(SPH(0.065, 12, 10), def.coat ? animeMat(def.coat) : top, 0, 0, 0));
-    pivot.add(M(CAP(0.046, 0.42, 10), def.coat ? animeMat(def.coat) : top, 0, -0.25, 0), M(SPH(0.048, 12, 10), def.gloves ? animeMat(def.gloves) : skin, 0, -0.52, 0));
-    if (def.gloves) pivot.add(M(geo('cuff', () => new THREE.CylinderGeometry(0.058, 0.055, 0.09, 12)), animeMat(def.glovesTrim || def.gloves), 0, -0.44, 0));
+    pivot.position.set(s * 0.178 * w, 1.37, 0);
+    const sleeve = def.coat ? animeMat(def.coat) : top;
+    pivot.add(M(SPH(0.058, 12, 10), sleeve, 0, -0.005, 0));
+    pivot.add(M(limbGeo(0.05, 0.042, 0.26), sleeve, 0, -0.01, 0));
+    const elbow = new THREE.Group();
+    elbow.position.y = -0.29;
+    elbow.add(M(limbGeo(0.042, 0.034, 0.19), def.coat ? sleeve : def.gloves ? animeMat(def.gloves) : sleeve, 0, 0, 0));
+    elbow.add(M(handGeo(s), def.gloves ? animeMat(def.gloves) : skin, 0, -0.235, 0));
+    if (def.gloves) elbow.add(M(geo('cuff', () => new THREE.CylinderGeometry(0.05, 0.047, 0.07, 12)), animeMat(def.glovesTrim || def.gloves), 0, -0.15, 0));
+    pivot.add(elbow);
+    (parts.elbows ||= []).push(elbow);
     pivot.rotation.z = s * 0.08;
     inner.add(pivot);
     parts.arms.push(pivot);
@@ -294,12 +264,13 @@ export function buildCharacter(def) {
 
   const head = new THREE.Group();
   head.position.set(0, 1.61, 0);
-  const skull = M(SPH(HEAD_R, 24, 18), skin);
+  const skull = M(geo('skull', () => chinify(new THREE.SphereGeometry(HEAD_R, 26, 20), HEAD_R)), skin);
   skull.scale.set(1, 1.04, 0.98);
   head.add(skull);
   const tex = faceTextures(def);
   const faceMat = animeMat('#ffffff', { map: tex.open, transparent: true, alphaTest: 0.08, depthWrite: false });
-  const face = new THREE.Mesh(geo('face', () => new THREE.SphereGeometry(HEAD_R * 1.006, 24, 16, Math.PI * 1.5 - 0.95, 1.9, Math.PI / 2 - 0.62, 1.12)), faceMat);
+  const face = new THREE.Mesh(geo('face2', () => chinify(new THREE.SphereGeometry(HEAD_R * 1.006, 24, 16, Math.PI * 1.5 - 0.95, 1.9, Math.PI / 2 - 0.62, 1.12), HEAD_R)), faceMat);
+  face.scale.set(1, 1.04, 0.98);
   face.renderOrder = 2;
   face.userData.face = true;
   head.add(face);
