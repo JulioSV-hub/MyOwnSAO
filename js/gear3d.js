@@ -49,8 +49,74 @@ function grip(len, r, mat, wrapMat) {
   return g;
 }
 
+// Machado, maça e cajado: haste na origem, cabeça apontando para +Y (como as espadas).
+function buildHafted(def) {
+  const t = def.type, group = new THREE.Group();
+  const color = new THREE.Color(def.blade || '#c8d0d8');
+  const bladeMat = new THREE.MeshStandardMaterial({ color, metalness: t === 'staff' ? 0.1 : 0.75, roughness: t === 'staff' ? 0.2 : 0.22 });
+  if (t === 'staff' || def.rarity === 2) bladeMat.emissive = color.clone().multiplyScalar(t === 'staff' ? 0.9 : 0.12);
+  bladeMat.userData.baseEmissive = bladeMat.emissive.clone();
+  const wood = std(def.grip || '#5a3a20', { metalness: 0, roughness: 0.8 });
+  const trim = std(def.guard || '#7a7a82', { metalness: 0.8, roughness: 0.3 });
+  let tipY = 1, baseY = 0.5;
+  if (t === 'axe') {
+    group.add(M(new THREE.CylinderGeometry(0.02, 0.024, 1.25, 12), wood, 0, 0.4, 0));
+    const s = new THREE.Shape();
+    s.moveTo(0, 0.07); s.quadraticCurveTo(0.12, 0.1, 0.22, 0.2); s.quadraticCurveTo(0.3, 0, 0.22, -0.2); s.quadraticCurveTo(0.12, -0.1, 0, -0.07); s.closePath();
+    const hg = new THREE.ExtrudeGeometry(s, { depth: 0.012, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 2, curveSegments: 10 });
+    hg.translate(0.02, 0, -0.006);
+    for (const side of [1, -1]) { const h = M(hg, bladeMat, 0, 0.88, 0); if (side < 0) h.rotation.y = PI; group.add(h); }
+    group.add(M(new THREE.CylinderGeometry(0.035, 0.035, 0.12, 12), trim, 0, 0.88, 0), M(new THREE.ConeGeometry(0.03, 0.1, 8), trim, 0, 1.06, 0));
+    tipY = 1.1; baseY = 0.7;
+  } else if (t === 'mace') {
+    group.add(M(new THREE.CylinderGeometry(0.019, 0.022, 0.72, 12), wood, 0, 0.2, 0));
+    group.add(M(new THREE.SphereGeometry(0.085, 16, 12), bladeMat, 0, 0.64, 0));
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * PI * 2, sp = M(new THREE.ConeGeometry(0.022, 0.07, 6), trim, Math.cos(a) * 0.085, 0.64 + (i % 2 ? 0.035 : -0.035), Math.sin(a) * 0.085);
+      sp.lookAt(sp.position.clone().multiplyScalar(2).setY(sp.position.y));
+      sp.rotateX(PI / 2);
+      group.add(sp);
+    }
+    group.add(M(new THREE.ConeGeometry(0.025, 0.08, 8), trim, 0, 0.75, 0), M(new THREE.TorusGeometry(0.03, 0.008, 6, 14).rotateX(PI / 2), trim, 0, 0.55, 0));
+    tipY = 0.76; baseY = 0.45;
+  } else {
+    // cajado: haste longa, garras douradas segurando uma esfera brilhante
+    group.add(M(new THREE.CylinderGeometry(0.018, 0.026, 1.55, 10), wood, 0, 0.35, 0));
+    group.add(M(new THREE.SphereGeometry(0.06, 16, 12), bladeMat, 0, 1.22, 0));
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * PI * 2, c = M(new THREE.CapsuleGeometry(0.009, 0.1, 4, 8), trim, Math.cos(a) * 0.05, 1.18, Math.sin(a) * 0.05);
+      c.rotation.set(Math.sin(a) * 0.45, 0, -Math.cos(a) * 0.45);
+      group.add(c);
+    }
+    group.add(M(new THREE.TorusGeometry(0.03, 0.009, 6, 14).rotateX(PI / 2), trim, 0, 1.1, 0));
+    tipY = 1.28; baseY = 0.9;
+  }
+  group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return { group, bladeMat, tipY, baseY };
+}
+
+// Escudo do Guardião (mão esquerda): face voltada para +Z
+export function buildShield(def) {
+  const group = new THREE.Group();
+  const color = new THREE.Color(def.blade || '#b8bcc4');
+  const bladeMat = new THREE.MeshStandardMaterial({ color: def.guard || '#7a6a50', metalness: 0.3, roughness: 0.5 });
+  bladeMat.userData.baseEmissive = bladeMat.emissive.clone();
+  const rimMat = new THREE.MeshStandardMaterial({ color, metalness: 0.85, roughness: 0.25 });
+  const s = new THREE.Shape();
+  s.moveTo(0, 0.2); s.quadraticCurveTo(0.17, 0.2, 0.17, 0.08); s.quadraticCurveTo(0.17, -0.12, 0, -0.24); s.quadraticCurveTo(-0.17, -0.12, -0.17, 0.08); s.quadraticCurveTo(-0.17, 0.2, 0, 0.2);
+  const face = new THREE.ExtrudeGeometry(s, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.014, bevelSegments: 2, curveSegments: 12 });
+  face.translate(0, 0, -0.01);
+  group.add(M(face, bladeMat));
+  const rim = M(new THREE.ExtrudeGeometry(s, { depth: 0.01, bevelEnabled: false, curveSegments: 12 }), rimMat, 0, 0, 0.012);
+  rim.scale.set(0.55, 0.55, 1);
+  group.add(rim, M(new THREE.SphereGeometry(0.035, 12, 10), rimMat, 0, 0.02, 0.03));
+  group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return { group, bladeMat, tipY: 0.2, baseY: -0.1 };
+}
+
 export function buildSword(def) {
-  const style = def.style || 'long';
+  if (def.type === 'axe' || def.type === 'mace' || def.type === 'staff') return buildHafted(def);
+  const style = def.type === 'dagger' ? 'dagger' : def.style || 'long';
   const group = new THREE.Group();
   const bladeColor = new THREE.Color(def.blade || '#c8d0d8');
   const bladeMat = new THREE.MeshStandardMaterial({ color: bladeColor, metalness: 0.75, roughness: 0.18 });
@@ -60,6 +126,7 @@ export function buildSword(def) {
   let L = 1.0, w = 0.028, t = 0.009, gripLen = 0.22, guardW = 0.2, opts = {};
   switch (style) {
     case 'basic': L = 0.82; w = 0.025; guardW = 0.15; gripLen = 0.18; break;
+    case 'dagger': L = 0.46; w = 0.03; t = 0.01; guardW = 0.13; gripLen = 0.15; opts = { tip: 0.28, taper: 0.8 }; break;
     case 'broad': L = 0.98; w = 0.042; t = 0.012; guardW = 0.28; break;
     case 'rapier': L = 1.1; w = 0.011; t = 0.007; opts = { tip: 0.3, taper: 0.7 }; guardW = 0.12; break;
     case 'katana': L = 1.12; w = 0.02; t = 0.008; gripLen = 0.3; opts = { curve: 1, tip: 0.08, taper: 0.95 }; break;

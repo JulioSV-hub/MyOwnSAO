@@ -543,3 +543,9 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .sr-cls { font-size: 18px; width: 20px; text-align: center; }
 .sr-btns { display: flex; gap: 4px; }
 .sr-btns .tbtn.small { padding: 5px 10px; font-size: 12px; margin: 0; }
+
+/* ataque carregado */
+#charge { position: fixed; left: 50%; top: calc(50% + 26px); width: 90px; height: 6px; transform: translateX(-50%); background: rgba(0, 0, 0, 0.45); border-radius: 3px; overflow: hidden; z-index: 6; pointer-events: none; }
+#charge i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffe0b0, #ff9a20); }
+#charge.full i { background: #ffd040; box-shadow: 0 0 8px #ffb030; animation: chgpulse 0.3s infinite alternate; }
+@keyframes chgpulse { from { opacity: 0.7; } to { opacity: 1; } }

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { toonMat } from './toon.js';
 import { mulberry32 } from './rng.js';
-import { GATHER, ITEMS, MONSTERS, RUNES, RUNE_TIER_FLOOR, weaponDef, armorDef, runeDef, pieceDef, randomPiece } from './data.js';
+import { GATHER, ITEMS, MONSTERS, RUNES, RUNE_TIER_FLOOR, weaponDef, armorDef, runeDef, pieceDef, randomPiece, classWeapon } from './data.js';
 import { Sfx } from './audio.js';
 import { checkCompletion } from './completion.js';
 
@@ -292,15 +292,15 @@ export class Loot {
       if (Math.random() < 0.35) item('teleport_crystal', 1);
       if (Math.random() < 0.35) rune(Math.max(1, maxTier - 1));
       if (Math.random() < 0.4) {
-        const id = Math.random() < 0.5 ? `gen_${n}` : `${Math.random() < 0.5 ? 'larm' : 'harm'}_${n}`;
-        if (id.startsWith('gen')) { p.weapons.push(id); got.push(weaponDef(id).name); } else { p.armors.push(id); got.push(armorDef(id).name); }
+        const wpn = Math.random() < 0.5, id = wpn ? classWeapon(p.cls, n) : `${Math.random() < 0.5 ? 'larm' : 'harm'}_${n}`;
+        if (wpn) { p.weapons.push(id); got.push(weaponDef(id).name); } else { p.armors.push(id); got.push(armorDef(id).name); }
       }
     } else {
       item(n >= 5 ? 'heal_crystal' : 'hipotion', 1);
       rune(maxTier);
       if (Math.random() < 0.65) {
         const w = Math.random() < 0.5;
-        const id = w ? `rare_${n}` : `rarm_${n}`;
+        const id = w ? classWeapon(p.cls, n, true) : `rarm_${n}`;
         (w ? p.weapons : p.armors).push(id);
         got.push(`★ ${(w ? weaponDef(id) : armorDef(id)).name}`);
       }

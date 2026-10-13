@@ -24,6 +24,7 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 | Espaço | Pular |
 | Q | Esquiva (invencível por um instante) |
 | Clique esquerdo | Ataque (combo de 3 golpes) |
+| Segurar o clique esquerdo | Ataque carregado: solte para um golpe pesado (gasta 20 de stamina; carga completa quebra o ataque do monstro). O Mago carrega um orbe que explode (15 de mana) |
 | Botão direito | Defender — no instante certo vira **Parry** e atordoa o inimigo |
 | 1–4 | Sword Skills |
 | R | Poção |

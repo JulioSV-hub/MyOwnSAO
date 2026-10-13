@@ -59,6 +59,9 @@ export class Spells {
 
   setVisible(v) { this.staff.visible = v; this.book.visible = v; }
 
+  // a esfera do cajado ganha a cor do cajado equipado
+  tint(def) { this.orbBase = new THREE.Color(def.type === 'staff' ? def.blade || '#b08aff' : '#b08aff').multiplyScalar(2.4); this.orbMat.color.copy(this.orbBase); }
+
   // ─── uso ───
   power(mul) {
     const st = this.game.stats();
@@ -84,6 +87,45 @@ export class Spells {
 
   aimDir() { return new THREE.Vector3(0, 0, -1).applyQuaternion(this.game.camera.quaternion); }
   handPos() { return this.orb.getWorldPosition(new THREE.Vector3()); }
+
+  // orbe carregado: segure o clique e solte (gasta mana; carga completa explode em área)
+  updateCharge(dt) {
+    const g = this.game, inp = g.input, pl = g.player, p = g.state.player;
+    const can = this.active && inp.isLocked && g.mode === 'play' && !g.ui.menuOpen && !g.ui.dialogOpen && !g.fishing?.active && !g.combat.sheathed && !pl.dead;
+    if (!(can && inp.mouse.buttons.has(0))) {
+      this.holdT = 0;
+      if (this.charging) this.releaseCharge();
+      return;
+    }
+    this.holdT = (this.holdT || 0) + dt;
+    if (!this.charging) {
+      if (this.holdT > 0.32 && this.basicCd <= 0.2) {
+        if ((p.mp ?? 0) < 15) { if (!this.noMpWarn) { this.noMpWarn = true; g.ui.toast('Mana insuficiente para o orbe carregado.', 'warn'); } return; }
+        this.noMpWarn = false;
+        this.charging = true;
+        this.charge = 0;
+        this.fullFx = false;
+        Sfx.skillStart();
+      }
+      return;
+    }
+    this.charge = Math.min(1, this.charge + dt / 1.0);
+    if (this.charge >= 1 && !this.fullFx) { this.fullFx = true; Sfx.levelUp(); }
+  }
+
+  releaseCharge() {
+    const c = this.charge, g = this.game, p = g.state.player;
+    this.charging = false;
+    this.charge = 0;
+    g.ui.setCharge(0);
+    if (c < 0.2) return;
+    p.mp = Math.max(0, (p.mp ?? 0) - 15);
+    this.basicCd = 0.5;
+    this.castAnim = 1;
+    const full = c >= 1, col = full ? '#ff9af0' : '#d8b0ff';
+    this.launch({ color: col, speed: 28, dmg: this.power(0.85 * (1.6 + 2.2 * c)), r: 0.18 + 0.22 * c, home: 0.8, aoe: full ? 3.2 : 0 });
+    Sfx.skillSwing();
+  }
 
   basic() {
     const g = this.game;
@@ -232,8 +274,10 @@ export class Spells {
     this.staff.position.set(0.3 - c * 0.06, -0.6 + c * 0.1 + Math.sin(t * 7) * 0.01 * sp, -0.62 - c * 0.15);
     this.staff.rotation.set(-0.62 - c * 0.5, 0, -0.22);
     this.book.position.y = -0.36 + Math.sin(t * 7 + 1) * 0.008 * sp;
-    this.orb.scale.setScalar(1 + Math.sin(t * 4) * 0.08 + c * 0.6);
-    this.orbMat.color.lerp(new THREE.Color('#b08aff').multiplyScalar(2.4), dt * 2);
+    this.updateCharge(dt);
+    if (this.active) g.ui.setCharge(this.charging ? this.charge : 0);
+    this.orb.scale.setScalar(1 + Math.sin(t * 4) * 0.08 + c * 0.6 + (this.charging ? this.charge * 1.6 + (this.charge >= 1 ? Math.sin(t * 20) * 0.15 : 0) : 0));
+    this.orbMat.color.lerp(this.orbBase || (this.orbBase = new THREE.Color('#b08aff').multiplyScalar(2.4)), dt * 2);
     this.sigil.rotation.y += dt * 1.5;
     // projéteis
     for (let i = this.bolts.length - 1; i >= 0; i--) {

@@ -41,6 +41,8 @@ export function setClass(g, id) {
     if (!p.spellSlots.some(Boolean)) p.spellSlots = [...known.slice(-4)].concat([null, null, null, null]).slice(0, 4);
     p.mp = g.spells.maxMp();
   }
+  g.fitWeapons();
+  if (id === 'swordsman' && p.level >= 25 && !p.dualBlades) g.unlockDual();
   g.ui.refreshSkillbar();
   g.clampHp();
   g.combat.refresh();

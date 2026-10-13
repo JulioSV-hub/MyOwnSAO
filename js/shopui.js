@@ -1,8 +1,9 @@
 // Janelas das lojas (cartões com ícone 3D, comparação de atributos e preço) e do Time.
 import { DISHES, INGREDIENTS, pieceDef, PIECE_ORDER } from './data.js';
 import { isFish } from './fishing.js';
-import { ITEMS, MONSTERS, FOODS, RUNES, RUNE_TIER_FLOOR, MERCS, CAST_PARTY, weaponDef, armorDef, runeDef, shopStock, FORGE_KEYS, forgeNote, armorWeight, runeSlotsFor } from './data.js';
+import { ITEMS, MONSTERS, FOODS, RUNES, RUNE_TIER_FLOOR, MERCS, CAST_PARTY, weaponDef, armorDef, runeDef, shopStock, forgeKeysFor, forgeNote, WEAPON_TYPES, CLASS_WEAPONS, armorWeight, runeSlotsFor } from './data.js';
 import { icon } from './icons.js';
+import { weaponTypeNote } from './equipui.js';
 import { CAST } from './characters.js';
 import { guildRank } from './guild.js';
 import { COMP_CLASSES } from './classes.js';
@@ -61,6 +62,8 @@ function weaponCard(g, id) {
   const lines = [cmp(d.atk, cur, 'ATK')];
   if (d.crit) lines.push(`Crítico <b class="${d.crit > 0 ? 'up' : 'down'}">${d.crit > 0 ? '+' : ''}${Math.round(d.crit * 100)}%</b>${curW.crit ? ` <span class="muted">(atual ${Math.round(curW.crit * 100)}%)</span>` : ''}`);
   const have = g.state.player.weapons.filter((x) => x === id).length;
+  const p = g.state.player, wn = weaponTypeNote(p.cls, id);
+  lines.unshift(wn.ok ? `<b>${wn.type}</b>` : `<b class="down">${wn.type} — só ${wn.who}</b>`);
   return card(g, { kind: 'weapon', id, name: d.name, rar: d.rarity, lines, desc: d.forged ? `Forjada pela Lisbeth — ${forgeNote(id.split('_')[1])}` : '', price: g.priceOf('weapon', id), owned: have ? `tem ${have}` : '' });
 }
 
@@ -118,7 +121,7 @@ export function renderShop(ui) {
     return html;
   }
   if (id === 'agil') {
-    const st = shopStock(n);
+    const st = shopStock(n, p.cls);
     const deals = g.agilDeals().map((d) => {
       const price = g.priceOf('deal', d.i), btns = `<button class="btn sm" data-act="buy" data-kind="deal" data-id="${d.i}" ${d.sold || p.col < price ? 'disabled' : ''}>${d.sold ? 'Vendido' : 'Comprar'}</button>`;
       if (d.kind === 'weapon') { const w = weaponDef(d.id); return card(g, { kind: 'weapon', id: d.id, name: w.name, rar: 2, lines: [`ATK <b>${w.atk}</b> <span class="up">${w.atk > g.weaponAtk(p.weapon) ? '▲' : ''}</span>`], desc: `Arma rara do Andar ${w.floor} — antes do chefe de lá!`, price, btns }); }
@@ -133,7 +136,8 @@ export function renderShop(ui) {
     html += '<div class="muted pad">O Agil paga 65% do preço por equipamento raro (aba Vender). Elixires dão +1 ponto de atributo para sempre; o Lingote de Cristalita deixa a Lisbeth passar de +10.</div>';
   } else if (id === 'forge') {
     const floors = [n, n - 1].filter((f) => f >= 1);
-    html += grid('Armas forjadas', floors.flatMap((f) => FORGE_KEYS.map((k) => weaponCard(g, `lw_${k}_${f}`))));
+    const types = (CLASS_WEAPONS[p.cls] || ['sword', 'rapier']).map((t) => WEAPON_TYPES[t].name.toLowerCase()).join(' e ');
+    html += grid(`Armas forjadas <span class="muted">— para a sua classe (${types})</span>`, floors.flatMap((f) => forgeKeysFor(p.cls).map((k) => weaponCard(g, `lw_${k}_${f}`))));
   } else if (id === 'armor') {
     html += grid(`Peças do Andar ${n} — elmo, capa, luvas, calça e botas`, PIECE_ORDER.filter((s) => s !== 'ring' && s !== 'amulet').map((s, i) => pieceCard(g, `p_${s}_${n}_${(n + i) % 5}`)));
     for (const f of [n, n - 1, n - 2].filter((x) => x >= 1)) html += grid(`Peitorais — Andar ${f}`, [`larm_${f}`, `arm_${f}`, `harm_${f}`].map((a) => armorCard(g, a)));

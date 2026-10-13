@@ -1,5 +1,6 @@
 // Menu Equipamento: seu personagem em 3D no meio e os espaços de equipamento em volta.
-import { weaponDef, armorDef, pieceDef, PIECE_SLOTS } from './data.js';
+import { weaponDef, armorDef, pieceDef, PIECE_SLOTS, canWield, classesFor, WEAPON_TYPES } from './data.js';
+import { CLASSES } from './classes.js';
 import { icon } from './icons.js';
 import { renderAvatar } from './avatar.js';
 import { pieceLines } from './shopui.js';
@@ -7,13 +8,19 @@ import { runeSlotsHtml } from './shopui.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// "Machado · só Berserker" — tipo da arma e quais classes podem usar
+export function weaponTypeNote(cls, id) {
+  const t = weaponDef(id).type, who = classesFor(t).map((c) => CLASSES[c]?.name).filter(Boolean).join(' / ');
+  return { type: WEAPON_TYPES[t]?.name || 'Espada', ok: canWield(cls, id), who };
+}
+
 const SLOT_LABEL = { weapon: 'Arma', offhand: 'Mão esquerda', armor: 'Peitoral', head: 'Elmo', cape: 'Capa', hands: 'Luvas', legs: 'Calça', feet: 'Botas', ring: 'Anel', amulet: 'Amuleto' };
 const LEFT = ['head', 'cape', 'armor', 'hands', 'ring'], RIGHT = ['weapon', 'offhand', 'legs', 'feet', 'amulet'];
 
 function slotInfo(g, s) {
   const p = g.state.player;
   if (s === 'weapon') return { id: p.weapon, kind: 'weapon', name: g.weaponLabel(p.weapon), rar: weaponDef(p.weapon).rarity };
-  if (s === 'offhand') return p.dualBlades ? (p.offhand ? { id: p.offhand, kind: 'weapon', name: g.weaponLabel(p.offhand), rar: weaponDef(p.offhand).rarity } : { empty: true }) : { locked: 'Dual Blades' };
+  if (s === 'offhand') return p.cls && p.cls !== 'swordsman' ? { locked: 'Espadachim' } : p.dualBlades ? (p.offhand ? { id: p.offhand, kind: 'weapon', name: g.weaponLabel(p.offhand), rar: weaponDef(p.offhand).rarity } : { empty: true }) : { locked: 'Dual Blades' };
   if (s === 'armor') return { id: p.armor, kind: 'armor', name: armorDef(p.armor).name, rar: armorDef(p.armor).rarity };
   const id = p.equip?.[s];
   if (!id) return { empty: true };
@@ -49,8 +56,9 @@ function slotList(ui) {
   const row = (kind, id, name, rar, lines, equipped, act, extra = '') => `<div class="row ${equipped ? 'eq' : ''}"><div class="withicon"><img class="ico" src="${icon(kind, id)}" alt=""><span class="rar r${rar}">◆</span> <b>${esc(name)}</b> <span class="muted">${lines}</span></div><div class="row-r">${equipped ? '<span class="tag">Equipado</span>' : act}${extra}</div></div>`;
   const uniq = (arr) => [...new Set(arr)];
   if (s === 'weapon' || s === 'offhand') {
-    const list = uniq(p.weapons).filter((id) => (s === 'weapon' ? true : id !== p.weapon));
-    let html = list.map((id) => { const d = weaponDef(id); return row('weapon', id, g.weaponLabel(id), d.rarity, `ATK ${g.weaponAtk(id)}`, s === 'weapon' ? id === p.weapon : id === p.offhand, `<button class="btn sm" data-act="${s === 'weapon' ? 'equipW' : 'equipL'}" data-id="${id}">Equipar</button>`); }).join('');
+    // primeiro as armas da sua classe; as outras aparecem no fim, bloqueadas
+    const list = uniq(p.weapons).filter((id) => (s === 'weapon' ? true : id !== p.weapon)).sort((a, b) => canWield(p.cls, b) - canWield(p.cls, a));
+    let html = list.map((id) => { const d = weaponDef(id), n = weaponTypeNote(p.cls, id); return row('weapon', id, g.weaponLabel(id), d.rarity, `${n.type} · ATK ${g.weaponAtk(id)}`, s === 'weapon' ? id === p.weapon : id === p.offhand, n.ok ? `<button class="btn sm" data-act="${s === 'weapon' ? 'equipW' : 'equipL'}" data-id="${id}">Equipar</button>` : `<span class="tag" title="Venda no Agil ou guarde na casa">Só ${esc(n.who)}</span>`); }).join('');
     if (s === 'offhand' && p.offhand) html = `<div class="btns"><button class="btn sm" data-act="unequipL">Tirar arma da mão esquerda</button></div>` + html;
     return html || '<div class="muted pad">Nenhuma arma.</div>';
   }

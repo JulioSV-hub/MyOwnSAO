@@ -11,7 +11,7 @@ import { FURNITURE } from './housing.js';
 import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO } from './shopui.js';
 import { runeDef, FOODS } from './data.js';
 import { guildRank } from './guild.js';
-import { renderEquip } from './equipui.js';
+import { renderEquip, weaponTypeNote } from './equipui.js';
 import { openLookEditor } from './lookui.js';
 import { pieceDef, defaultLook } from './data.js';
 import { SPELLS, spellById } from './spells.js';
@@ -651,9 +651,11 @@ export class UI {
       const d = weaponDef(id), up = p.upgrades?.[id] || 0;
       title = `${d.name}${up ? ` +${up}` : ''}`; rar = d.rarity;
       const styles = { basic: 'Espada curta', long: 'Espada longa', broad: 'Espada larga', rapier: 'Rapieira', katana: 'Katana', dark: 'Lâmina sombria', crystal: 'Lâmina de cristal', ornate: 'Espada ornamentada', holy: 'Espada sagrada' };
-      lines = [`${styles[d.style] || 'Espada'} · ATK ${this.g.weaponAtk(id)}${up ? ` (base ${d.atk}, +${up * 10}% pela Lisbeth)` : ''}`, d.floor ? `Origem: Andar ${d.floor}${d.rarity === 2 ? ' — item raro' : ''}` : 'Arma inicial'];
-      if (id !== p.weapon) acts += `<button class="btn sm" data-act="equipW" data-id="${id}">Equipar (mão direita)</button>`;
-      if (p.dualBlades && id !== p.weapon && id !== p.offhand) acts += `<button class="btn sm" data-act="equipL" data-id="${id}">Mão esquerda</button>`;
+      const wn = weaponTypeNote(p.cls, id);
+      lines = [`${d.type === 'sword' ? styles[d.style] || 'Espada' : wn.type} · ATK ${this.g.weaponAtk(id)}${up ? ` (base ${d.atk}, +${up * 10}% pela Lisbeth)` : ''}`, d.floor ? `Origem: Andar ${d.floor}${d.rarity === 2 ? ' — item raro' : ''}` : 'Arma inicial'];
+      lines.push(wn.ok ? `Arma de: ${wn.who}` : `<span class="down">Sua classe não usa esta arma — só ${wn.who}. Venda no Agil ou guarde na casa.</span>`);
+      if (id !== p.weapon && wn.ok) acts += `<button class="btn sm" data-act="equipW" data-id="${id}">Equipar (mão direita)</button>`;
+      if (p.dualBlades && wn.ok && (!p.cls || p.cls === 'swordsman') && id !== p.weapon && id !== p.offhand) acts += `<button class="btn sm" data-act="equipL" data-id="${id}">Mão esquerda</button>`;
     } else if (kind === 'armor') {
       const d = armorDef(id);
       title = d.name; rar = d.rarity;
@@ -895,8 +897,8 @@ export class UI {
       switch (d.act) {
         case 'stat': if (p.points > 0) { p[d.k]++; p.points--; } break;
         case 'use': g.useItem(d.id); break;
-        case 'equipW': p.weapon = d.id; if (p.offhand === p.weapon) p.offhand = null; g.combat.refresh(); break;
-        case 'equipL': p.offhand = d.id; g.combat.refresh(); break;
+        case 'equipW': if (!weaponTypeNote(p.cls, d.id).ok) break; p.weapon = d.id; if (p.offhand === p.weapon) p.offhand = null; g.combat.refresh(); break;
+        case 'equipL': if (!weaponTypeNote(p.cls, d.id).ok) break; p.offhand = d.id; g.combat.refresh(); break;
         case 'unequipL': p.offhand = null; g.combat.refresh(); break;
         case 'equipA': p.armor = d.id; g.clampHp(); break;
         case 'slot': {
@@ -1046,6 +1048,20 @@ export class UI {
   }
 
   // ─────────── Tela inicial ───────────
+  // barrinha do ataque carregado abaixo da mira
+  setCharge(v) {
+    if (!this._chg) {
+      if (!v) return;
+      this._chg = document.createElement('div');
+      this._chg.id = 'charge';
+      this._chg.innerHTML = '<i></i>';
+      document.body.appendChild(this._chg);
+    }
+    this._chg.style.display = v ? '' : 'none';
+    this._chg.firstChild.style.width = `${Math.round(v * 100)}%`;
+    this._chg.classList.toggle('full', v >= 1);
+  }
+
   showTitle() {
     $('title').classList.remove('hidden');
     this.showHUD(false);

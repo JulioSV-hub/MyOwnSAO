@@ -28,7 +28,7 @@ import { Sfx } from './audio.js';
 import { windTime } from './toon.js';
 import { Music } from './music.js';
 import { smoothstep } from './rng.js';
-import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward, runeDef, FOODS, MERCS, mercPrice, runeSlotsFor, DISHES, INGREDIENTS, RUNES, RUNE_TIER_FLOOR, pieceDef, randomPiece } from './data.js';
+import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward, runeDef, FOODS, MERCS, mercPrice, runeSlotsFor, DISHES, INGREDIENTS, RUNES, RUNE_TIER_FLOOR, pieceDef, randomPiece, canWield, adaptWeapon, classWeapon, WEAPON_TYPES, classesFor } from './data.js';
 import { isFish } from './fishing.js';
 import { guildRank, guildDiscount } from './guild.js';
 import { classBonus, CLASSES, normalizeTalents } from './classes.js';
@@ -430,6 +430,7 @@ class Game {
     const p = state.player;
     this.tod = state.world.tod ?? 0.32;
     normalizeTalents(p);
+    this.fitWeapons(true);
     if (p.hp == null || p.hp <= 0) p.hp = this.stats().maxHp;
     this.mode = 'play';
     this.player.dead = false;
@@ -448,6 +449,21 @@ class Game {
       setTimeout(() => this.ui.toast('Bem-vindo a Aincrad! Saia da cidade e enfrente os monstros dos campos.'), 3800);
       setTimeout(() => this.ui.toast('Clique = atacar · 1 = Sword Skill "Slant" · Esc = menu'), 5200);
     }
+  }
+
+  // cada classe usa as próprias armas: troca a arma atual pela equivalente da classe (mesmo andar e raridade)
+  fitWeapons(quiet = false) {
+    const p = this.state.player;
+    if (!p.cls) return;
+    if (!canWield(p.cls, p.weapon)) {
+      const old = p.weapon, id = adaptWeapon(p.cls, old);
+      if (!p.weapons.includes(id)) p.weapons.push(id);
+      p.upgrades ||= {};
+      if (p.upgrades[old] && !p.upgrades[id]) { p.upgrades[id] = p.upgrades[old]; delete p.upgrades[old]; }
+      p.weapon = id;
+      if (!quiet) this.ui.toast(`Sua arma agora é ${this.weaponLabel(id)} (arma de ${WEAPON_TYPES[weaponDef(id).type].name.toLowerCase()}).`, 'skill');
+    }
+    if (p.offhand && (p.cls !== 'swordsman' || !canWield(p.cls, p.offhand))) p.offhand = null;
   }
 
   logout() {
@@ -586,7 +602,7 @@ class Game {
     const tier = RUNE_TIER_FLOOR.filter((f) => n >= f).length;
     const keys = Object.keys(RUNES);
     const deals = [
-      { kind: 'weapon', id: `rare_${hi + 1 + Math.floor(r() * 2)}`, mul: 2.2 },
+      { kind: 'weapon', id: classWeapon(this.state.player.cls, hi + 1 + Math.floor(r() * 2), true), mul: 2.2 },
       { kind: 'armor', id: `rarm_${hi + 1 + Math.floor(r() * 2)}`, mul: 2.2 },
       { kind: 'rune', id: `rune_${keys[Math.floor(r() * keys.length)]}_${tier}`, mul: 0.75 },
       { kind: 'item', id: ['heal_crystal', 'treasure_map', 'mystery_box', 'cristalite'][Math.floor(r() * 4)], mul: 0.7, q: 3 },
@@ -643,6 +659,8 @@ class Game {
       const center = e.pos.y + (e.flyH ? 0 : e.height * 0.5);
       if (Math.abs(center - (pl.pos.y + 1.2)) > e.height * 0.5 + 2.2) continue;
       let dmg = atk * h.mul * (0.9 + Math.random() * 0.2) * (a.skill ? 1 + st.skillDmg : 1);
+      // carga completa interrompe o ataque que o monstro estava preparando
+      if (a.charged?.full && e.state === 'windup' && !e.boss) { e.state = 'recover'; e.t = -0.7; e.glow = 0; this.ui.damageNumber(e.pos.clone().setY(center + 0.8), 'QUEBROU!', 'crit'); }
       const crit = Math.random() < st.crit;
       if (crit) { dmg *= 1.8 + st.critDmg; anyCrit = true; }
       if (st.execute && e.hp < e.maxHp * 0.3) dmg *= 1 + st.execute;
@@ -650,7 +668,7 @@ class Game {
       dmg = Math.max(1, Math.round((dmg * 60) / (60 + e.defense)));
       const kd = new THREE.Vector3(dx / d, 0, dz / d);
       const at = new THREE.Vector3(e.pos.x - kd.x * e.radius * 0.8, center + (Math.random() - 0.5) * 0.4, e.pos.z - kd.z * e.radius * 0.8);
-      e.takeDamage(dmg, kd, a.skill ? 1.4 : 1);
+      e.takeDamage(dmg, kd, a.charged ? 1.4 + a.charged.c * 2.2 : a.skill ? 1.4 : 1);
       this.effects.sparks(at, color, a.skill ? 14 : 8);
       this.ui.damageNumber(at, dmg, crit ? 'crit' : a.skill ? 'skill' : '');
       hits++;
@@ -659,8 +677,14 @@ class Game {
     if (dealt && st.leech) { const p = this.state.player; p.hp = Math.min(st.maxHp, p.hp + dealt * st.leech); }
     if (hits) {
       Sfx.hit(anyCrit);
-      this.hitstop = Math.max(this.hitstop, a.skill ? 0.05 : 0.03);
-      this.shake(a.skill ? 0.18 : 0.1);
+      this.hitstop = Math.max(this.hitstop, a.charged ? 0.05 + a.charged.c * 0.05 : a.skill ? 0.05 : 0.03);
+      this.shake(a.charged ? 0.15 + a.charged.c * 0.25 : a.skill ? 0.18 : 0.1);
+    }
+    if (a.charged?.full) {
+      const at = pl.pos.clone().add(new THREE.Vector3(fx * 2.2, 0, fz * 2.2));
+      at.y = this.world.groundAt(at.x, at.z);
+      this.effects.shockwave?.(at, '#ffb030', 3);
+      if (!hits) this.shake(0.2);
     }
   }
 
@@ -809,7 +833,7 @@ class Game {
     const exp = (10 + 9 * e.level) * 25 * this.state.settings.xpRate;
     const col = Math.round((5 + 3 * e.level) * 30);
     p.col += col;
-    const la = laReward(n);
+    const la = laReward(n, p.cls);
     const d = la.kind === 'weapon' ? weaponDef(la.id) : armorDef(la.id);
     (la.kind === 'weapon' ? p.weapons : p.armors).push(la.id);
     p.items.potion = (p.items.potion || 0) + 3;
@@ -878,7 +902,7 @@ class Game {
       if (i >= 0 && !p.spellSlots.includes(s.id)) p.spellSlots[i] = s.id;
       this.ui.refreshSkillbar();
     }
-    if (p.level >= 25 && !p.dualBlades) this.unlockDual();
+    if (p.level >= 25 && !p.dualBlades && (!p.cls || p.cls === 'swordsman')) this.unlockDual();
     for (const l of this.ui.enemyLabels) {
       const diff = l.e.level - p.level;
       l.el.style.setProperty('--nc', diff >= 5 ? '#b0102a' : diff >= 2 ? '#ff3a3a' : diff >= -2 ? '#ff7a6a' : '#ffb8a8');
@@ -896,7 +920,7 @@ class Game {
   unlockDual() {
     const p = this.state.player;
     p.dualBlades = true;
-    const id = `rare_${Math.max(1, this.state.progress.highest)}`;
+    const id = adaptWeapon(p.cls, `rare_${Math.max(1, this.state.progress.highest)}`);
     p.weapons.push(id);
     if (p.weapon !== id) p.offhand = id;
     this.combat.refresh();
@@ -933,7 +957,7 @@ class Game {
       p.items[id]--;
       const roll = Math.random();
       let got;
-      if (roll < 0.08) { const w = Math.random() < 0.5, gid = `${w ? 'rare' : 'rarm'}_${this.state.progress.highest}`; (w ? p.weapons : p.armors).push(gid); got = `★ ${(w ? weaponDef(gid) : armorDef(gid)).name}`; }
+      if (roll < 0.08) { const w = Math.random() < 0.5, gid = w ? classWeapon(p.cls, this.state.progress.highest, true) : `rarm_${this.state.progress.highest}`; (w ? p.weapons : p.armors).push(gid); got = `★ ${(w ? weaponDef(gid) : armorDef(gid)).name}`; }
       else if (roll < 0.3) { const keys = Object.keys(RUNES), t = RUNE_TIER_FLOOR.filter((f) => this.floor.n >= f).length, rid = `rune_${keys[Math.floor(Math.random() * keys.length)]}_${t}`; p.runes ||= {}; p.runes[rid] = (p.runes[rid] || 0) + 1; got = runeDef(rid).name; }
       else if (roll < 0.5) { p.items.heal_crystal = (p.items.heal_crystal || 0) + 2; got = '2× Cristal de Cura'; }
       else if (roll < 0.7) { for (const ing of Object.keys(INGREDIENTS)) { const m = (p.mats[ing] ||= { qty: 0, value: 5 }); m.qty += 3; } got = 'uma cesta de ingredientes (3 de cada)'; }

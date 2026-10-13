@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildCharacter } from './characters.js';
-import { buildSword } from './gear3d.js';
+import { buildSword, buildShield } from './gear3d.js';
 import { armorDef, weaponDef, pieceDef, defaultLook } from './data.js';
 
 const W = 320, H = 420;
@@ -49,20 +49,18 @@ export function renderAvatar(p, angle = 0.4, look = null, withWeapon = true) {
   init();
   const def = playerCharDef(p, look);
   const c = buildCharacter(def);
-  if (withWeapon && p.weapon && p.cls !== 'mage') {
-    const sw = buildSword(weaponDef(p.weapon)).group;
+  if (withWeapon && p.weapon) {
+    const wd = weaponDef(p.weapon), sw = buildSword(wd).group;
     sw.scale.setScalar(0.85);
-    sw.position.set(0, -0.54, -0.02);
-    sw.rotation.x = -Math.PI / 2 + 0.6;
+    if (wd.type === 'staff') { sw.position.set(0, -0.5, 0.02); sw.rotation.x = -0.15; }
+    else { sw.position.set(0, -0.54, -0.02); sw.rotation.x = -Math.PI / 2 + 0.6; c.parts.arms[1].rotation.x = 0.35; }
     c.parts.arms[1].add(sw);
-    c.parts.arms[1].rotation.x = 0.35;
-  }
-  if (withWeapon && p.cls === 'mage') {
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 1.5, 8), new THREE.MeshStandardMaterial({ color: '#6a4428' }));
-    st.position.set(0, -0.5, 0);
-    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color('#b08aff').multiplyScalar(2) }));
-    orb.position.set(0, 0.25, 0);
-    c.parts.arms[1].add(st, orb);
+    if (wd.type === 'guard') {
+      const sh = buildShield(wd).group;
+      sh.position.set(0, -0.42, -0.1);
+      sh.rotation.y = Math.PI;
+      c.parts.arms[0].add(sh);
+    }
   }
   if (c.parts.face) c.parts.face.mat.map = c.parts.face.tex.open;
   const pivot = new THREE.Group();

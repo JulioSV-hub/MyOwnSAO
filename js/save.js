@@ -1,5 +1,7 @@
 // Salvamento local (localStorage) com dois mundos: Normal (renasce ao morrer) e Hardcore (morreu = recomeça do zero).
 // Também exporta/importa o mundo Normal em JSON.
+import { starterWeapon } from './data.js';
+
 const KEYS = { normal: 'sao-meu-mundo-save-v1', hardcore: 'sao-meu-mundo-save-hardcore-v1' };
 // 7 espaços por modo (um para cada classe). O espaço 0 usa a chave antiga, então saves existentes continuam no Espaço 1.
 export const SLOTS = 7;
@@ -17,8 +19,8 @@ export function newSave(name, mode = 'normal', cls = null, look = null, slot = 0
     player: {
       name, level: 1, exp: 0, col: 300, hp: null,
       str: 0, agi: 0, vit: 0, points: 0,
-      weapon: 'small_sword', offhand: null, armor: 'leather',
-      weapons: ['small_sword'], armors: ['leather'],
+      weapon: starterWeapon(cls), offhand: null, armor: 'leather',
+      weapons: [starterWeapon(cls)], armors: ['leather'],
       items: { potion: 5, teleport_crystal: 1 }, mats: {},
       slots: ['slant', null, null, null],
       dualBlades: false, kills: 0, deaths: 0,

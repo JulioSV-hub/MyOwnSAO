@@ -1,7 +1,7 @@
 // Ícones dos itens: cada arma, armadura, poção e material é renderizado em 3D e vira uma imagem (cache em memória).
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { buildSword, buildArmor, buildItem, buildMaterial, buildRune, buildFood, buildPiece } from './gear3d.js';
+import { buildSword, buildShield, buildArmor, buildItem, buildMaterial, buildRune, buildFood, buildPiece } from './gear3d.js';
 import { weaponDef, armorDef, runeDef, MONSTERS, MERCS, pieceDef } from './data.js';
 import { buildMonster } from './monsters.js';
 import { buildCharacter } from './characters.js';
@@ -55,7 +55,11 @@ export function icon(kind, id) {
   if (cache.has(key)) return cache.get(key);
   let url = '';
   try {
-    if (kind === 'weapon') url = render(buildSword(weaponDef(id)).group, { diagonal: true });
+    if (kind === 'weapon') {
+      const d = weaponDef(id), grp = buildSword(d).group;
+      if (d.type === 'guard') { const sh = buildShield(d).group; sh.position.set(0.12, 0.35, -0.05); sh.scale.setScalar(1.3); grp.add(sh); }
+      url = render(grp, { diagonal: true });
+    }
     else if (kind === 'armor') url = render(buildArmor(armorDef(id)).group, { spin: 0.4 });
     else if (kind === 'item') url = render(buildItem(id).group, { spin: 0.3 });
     else if (kind === 'piece') url = render(buildPiece(pieceDef(id)).group, { spin: 0.5 });

@@ -501,10 +501,55 @@ const RARE_POOL = [['Blue Rose Sword', '#a8c8ff'], ['Lambent Light', '#f4f4ff'],
 
 // Armas forjadas pela Lisbeth: o estilo muda o ataque e o crítico.
 const FORGE_STYLES = {
-  rapier: { base: 'Rapieira', atk: 0.92, crit: 0.06, note: 'leve e precisa (+6% crítico)' },
-  katana: { base: 'Katana', atk: 1.0, crit: 0.03, note: 'equilibrada (+3% crítico)' },
-  broad: { base: 'Montante', atk: 1.12, crit: -0.02, note: 'pesada e brutal (−2% crítico)' },
+  rapier: { base: 'Rapieira', type: 'rapier', atk: 0.92, crit: 0.06, note: 'leve e precisa (+6% crítico)' },
+  katana: { base: 'Katana', type: 'sword', atk: 1.0, crit: 0.03, note: 'equilibrada (+3% crítico)' },
+  broad: { base: 'Montante', type: 'sword', atk: 1.12, crit: -0.02, note: 'pesada e brutal (−2% crítico)' },
+  guard: { base: 'Lâmina e Escudo', type: 'guard', atk: 1.0, crit: 0, note: 'espada com escudo forjado junto' },
+  axe: { base: 'Machado Duplo', type: 'axe', atk: 1.1, crit: 0.02, note: 'golpes pesados (+2% crítico)' },
+  mace: { base: 'Martelo Sagrado', type: 'mace', atk: 1.04, crit: 0, note: 'abençoado e sólido' },
+  staff: { base: 'Báculo', type: 'staff', atk: 1.06, crit: 0.02, note: 'canaliza mais magia' },
+  dagger: { base: 'Punhal', type: 'dagger', atk: 0.94, crit: 0.08, note: 'rápido e certeiro (+8% crítico)' },
 };
+
+// ───────────────────────────── Armas de cada classe ─────────────────────────────
+// id: cw_<tipo>_<andar> (comum; andar 0 = arma inicial) e cr_<tipo>_<andar> (rara). As espadas usam gen_/rare_.
+export const WEAPON_TYPES = {
+  sword: { name: 'Espada' }, rapier: { name: 'Rapieira' }, guard: { name: 'Espada e Escudo' }, axe: { name: 'Machado' },
+  mace: { name: 'Maça' }, staff: { name: 'Cajado' }, dagger: { name: 'Adaga' },
+};
+export const CLASS_WEAPONS = { swordsman: ['sword', 'rapier'], guardian: ['guard'], duelist: ['rapier'], berserker: ['axe'], cleric: ['mace'], mage: ['staff'], tamer: ['dagger'] };
+const FAMILY = {
+  rapier: { base: 'Rapieira', starter: 'Rapieira de Treino', atk: 0.95, crit: 0.05, guard: '#c8c0a0', grip: '#6a2a2a',
+    rares: [['Lambent Light', '#f4f4ff'], ['Radiant Light', '#fff4d0'], ['Agulha de Prata', '#e0e4ea'], ['Rapieira do Cavaleiro', '#d8e0ff'], ['Flash Estelar', '#c8f0ff'], ['Ferrão de Cristal', '#a8f0ff'], ['Rapieira da Rosa', '#ffb0c8'], ['Relâmpago Branco', '#ffffff']] },
+  guard: { base: 'Espada e Escudo', starter: 'Espada e Escudo de Madeira', atk: 0.97, crit: 0, guard: '#7a6a50', grip: '#3a2a20',
+    rares: [['Égide do Cavaleiro', '#e8e0c0'], ['Muralha de Ferro', '#a8acb4'], ['Lâmina e Escudo Reais', '#f0d080'], ['Guardião Dourado', '#f0c050'], ['Égide Celeste', '#c0e0ff'], ['Escudo do Dragão', '#ff8a6a'], ['Juramento do Paladino', '#fff4d0'], ['Bastião Sagrado', '#e8e8ff']] },
+  axe: { base: 'Machado de Guerra', starter: 'Machadinha Gasta', atk: 1.08, crit: 0, guard: '#5a5a62', grip: '#5a3a20',
+    rares: [['Ceifador Carmesim', '#ff5a5a'], ['Machado Trovejante', '#c8e8ff'], ['Fúria de Titã', '#d8b080'], ['Machado do Vulcão', '#ff8a3a'], ['Lua Dupla', '#c0d0ff'], ['Rompe-Montanhas', '#a8a8b0'], ['Machado do Dragão Negro', '#3a3a48'], ['Grito de Guerra', '#ffd060']] },
+  mace: { base: 'Maça', starter: 'Maça de Madeira', atk: 1.0, crit: 0, guard: '#c8a050', grip: '#4a3424',
+    rares: [['Estrela da Manhã', '#ffe08a'], ['Cetro Sagrado', '#fff4d0'], ['Maça do Peregrino', '#d8d0c0'], ['Martelo da Aurora', '#ffc8a0'], ['Luz Divina', '#ffffff'], ['Martelo do Santuário', '#c0e0ff'], ['Maça do Julgamento', '#ffd060'], ['Bênção de Stacia', '#e8f4ff']] },
+  staff: { base: 'Cajado', starter: 'Cajado de Aprendiz', atk: 1.0, crit: 0.02, guard: '#d8b050', grip: '#6a4428',
+    rares: [['Cajado Estelar', '#8ab8ff'], ['Báculo do Arquimago', '#c08aff'], ['Cetro do Gelo Eterno', '#a8f0ff'], ['Cajado da Fênix', '#ff8a3a'], ['Báculo Abissal', '#6a3aff'], ['Cajado do Vento Celeste', '#8affd0'], ['Báculo da Aurora', '#ffd0f0'], ['Cajado do Dragão', '#ff5a5a']] },
+  dagger: { base: 'Adaga', starter: 'Faca de Caça', atk: 0.92, crit: 0.07, guard: '#8a7a5a', grip: '#3a2a20',
+    rares: [['Presa do Lobo Prateado', '#e0e4ea'], ['Adaga do Vento', '#c8ffe8'], ['Adaga Esmeralda', '#7aff9a'], ['Garra da Fera', '#d8b080'], ['Punhal das Sombras', '#3a3a48'], ['Adaga do Caçador Lunar', '#c0c8ff'], ['Ferrão da Vespa Rainha', '#ffd040'], ['Adaga Feérica', '#ffb0f0']] },
+};
+const classTypes = (cls) => CLASS_WEAPONS[cls] || ['sword', 'rapier'];
+export const mainWeaponType = (cls) => classTypes(cls)[0];
+export const canWield = (cls, id) => !cls || classTypes(cls).includes(weaponDef(id).type);
+export const classesFor = (type) => Object.keys(CLASS_WEAPONS).filter((c) => CLASS_WEAPONS[c].includes(type));
+export const starterWeapon = (cls) => (mainWeaponType(cls) === 'sword' ? 'small_sword' : `cw_${mainWeaponType(cls)}_0`);
+export const forgeKeysFor = (cls) => Object.keys(FORGE_STYLES).filter((k) => classTypes(cls).includes(FORGE_STYLES[k].type));
+// a arma equivalente (mesmo andar e raridade) para a sua classe
+export function classWeapon(cls, n, rare = false) {
+  const t = mainWeaponType(cls);
+  if (t === 'sword') return n <= 0 ? 'small_sword' : `${rare ? 'rare' : 'gen'}_${n}`;
+  return `${rare ? 'cr' : 'cw'}_${t}_${Math.max(0, n)}`;
+}
+export function adaptWeapon(cls, id) {
+  if (canWield(cls, id)) return id;
+  const d = baseWeaponDef(id), n = d.floor || 0;
+  if (d.forged) return `lw_${forgeKeysFor(cls)[0]}_${n}`;
+  return classWeapon(cls, n, d.rarity === 2);
+}
 const FORGE_MAT = [['de Ferro', '#c8d0d8'], ['de Aço', '#dde2e8'], ['de Bronze', '#d8b080'], ['de Mithril', '#c0e8ff'], ['de Cristal', '#a8f0ff'],
   ['Rúnica', '#d0c0ff'], ['Obsidiana', '#3a3a48'], ['do Vento', '#c8ffe8'], ['Celeste', '#e8f4ff'], ['Dracônica', '#ff9a7a']];
 export const FORGE_KEYS = Object.keys(FORGE_STYLES);
@@ -515,8 +560,19 @@ function baseWeaponDef(id) {
   const f = /^lw_([a-z]+)_(\d+)$/.exec(id);
   if (f && FORGE_STYLES[f[1]]) {
     const st = FORGE_STYLES[f[1]], n = +f[2], [mat, blade] = FORGE_MAT[(n - 1) % FORGE_MAT.length], tier = Math.floor((n - 1) / FORGE_MAT.length);
+    const sw = ['rapier', 'katana', 'broad'].includes(f[1]);
     return { id, name: `${st.base} ${mat}${tier ? ` +${tier}` : ''}`, atk: Math.round((14 + n * 8.5) * 1.08 * st.atk), crit: st.crit, price: Math.round(150 * Math.pow(n, 1.35)), rarity: 1, blade, floor: n,
-      style: f[1] === 'broad' ? 'broad' : f[1], guard: f[1] === 'katana' ? '#2a2a30' : '#b08040', grip: f[1] === 'rapier' ? '#8a2a2a' : '#3a2a20', forged: true };
+      type: st.type, style: sw ? f[1] : st.type === 'guard' ? 'long' : st.type, guard: f[1] === 'katana' ? '#2a2a30' : '#b08040', grip: f[1] === 'rapier' ? '#8a2a2a' : sw ? '#3a2a20' : '#5a3a20', forged: true };
+  }
+  const c = /^(cw|cr)_([a-z]+)_(\d+)$/.exec(id);
+  if (c && FAMILY[c[2]]) {
+    const fam = FAMILY[c[2]], n = +c[3], rare = c[1] === 'cr', t = c[2];
+    const look = { type: t, style: t === 'rapier' ? 'rapier' : t === 'guard' ? 'long' : t, guard: fam.guard, grip: fam.grip, crit: fam.crit || 0 };
+    if (n === 0) return { ...look, id, name: fam.starter, atk: 14, price: 30, rarity: 0, blade: '#b8bcc4', floor: 0 };
+    const atk = Math.round((14 + n * 8.5) * (rare ? 1.35 : 1) * fam.atk);
+    if (rare) { const [name, blade] = fam.rares[n % fam.rares.length]; return { ...look, id, name, atk, price: Math.round(150 * Math.pow(n, 1.35)), rarity: 2, blade, gem: blade, floor: n }; }
+    const i = (n - 1) % FORGE_MAT.length, tier = Math.floor((n - 1) / FORGE_MAT.length), [mat, blade] = FORGE_MAT[i];
+    return { ...look, id, name: `${fam.base} ${mat}${tier ? ` +${tier}` : ''}`, atk, price: Math.round(120 * Math.pow(n, 1.35)), rarity: 1, blade, floor: n };
   }
   const m = /^(gen|rare)_(\d+)$/.exec(id);
   if (!m) return baseWeaponDef('small_sword');
@@ -559,15 +615,15 @@ function baseArmorDef(id) {
 }
 
 // Last Attack Bonus: item raro para quem desfere o golpe final no chefe.
-export function laReward(n) {
+export function laReward(n, cls) {
   if (n === 1) return { kind: 'armor', id: 'rarm_1' };
-  if (RARE_W[n]) return { kind: 'weapon', id: `rare_${n}` };
-  return n % 2 ? { kind: 'armor', id: `rarm_${n}` } : { kind: 'weapon', id: `rare_${n}` };
+  if (RARE_W[n]) return { kind: 'weapon', id: adaptWeapon(cls, `rare_${n}`) };
+  return n % 2 ? { kind: 'armor', id: `rarm_${n}` } : { kind: 'weapon', id: adaptWeapon(cls, `rare_${n}`) };
 }
 
-export function shopStock(n) {
+export function shopStock(n, cls) {
   const items = Object.entries(ITEMS).filter(([, d]) => !d.noShop && (!d.minFloor || n >= d.minFloor)).map(([id]) => id);
-  return { items, weapons: [`gen_${n}`], armors: [`arm_${n}`] };
+  return { items, weapons: [classWeapon(cls, n)], armors: [`arm_${n}`] };
 }
 
 // ───────────────────────────── Aparência (modelos 3D e ícones) ─────────────────────────────
@@ -634,7 +690,9 @@ const baseName = (n) => n.replace(/ \+\d+$/, '');
 
 export function weaponDef(id) {
   const d = baseWeaponDef(id);
-  return { ...(W_LOOK[baseName(d.name)] || { style: 'long', guard: '#7a7a82', grip: '#3a2a20' }), ...d };
+  const out = { ...(W_LOOK[baseName(d.name)] || { style: 'long', guard: '#7a7a82', grip: '#3a2a20' }), ...d };
+  out.type ||= out.style === 'rapier' ? 'rapier' : 'sword';
+  return out;
 }
 
 export function armorDef(id) {

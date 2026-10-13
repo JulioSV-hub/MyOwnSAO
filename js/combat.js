@@ -2,11 +2,18 @@
 import * as THREE from 'three';
 import { skillById, weaponDef } from './data.js';
 import { Sfx } from './audio.js';
-import { buildSword } from './gear3d.js';
+import { buildSword, buildShield } from './gear3d.js';
 
 const PI = Math.PI;
 const IDLE = { tilt: 0, yaw: 0.25, pitch: -0.55, px: 0.42, py: -0.45, pz: -0.62 };
 const GUARD = { tilt: -0.15, yaw: 1.45, pitch: -1.45, px: 0.3, py: -0.2, pz: -0.6 };
+// escudo do Guardião: parado no canto esquerdo e erguido na frente ao defender
+const SHIELD_IDLE = { tilt: 0.1, yaw: 0.35, pitch: -0.2, px: -0.46, py: -0.4, pz: -0.7 };
+const SHIELD_GUARD = { tilt: 0, yaw: 0.1, pitch: -0.05, px: -0.12, py: -0.3, pz: -0.55 };
+// ataque carregado: segure o clique, a arma sobe para trás do ombro; solte para o golpe pesado
+const CHARGE_POSE = { tilt: -0.25, yaw: -0.75, pitch: -0.15, px: 0.55, py: -0.22, pz: -0.42 };
+const CHARGE_COST = 20;
+const CHARGE_COL = [new THREE.Color('#ffe0b0'), new THREE.Color('#ff9a20')];
 const KEYS = ['tilt', 'yaw', 'pitch', 'px', 'py', 'pz'];
 const mirror = (p) => ({ tilt: -p.tilt, yaw: -p.yaw, pitch: p.pitch, px: -p.px, py: p.py, pz: p.pz });
 const TRAIL_WHITE = new THREE.Color('#dfefff');
@@ -53,14 +60,14 @@ class SwordRig {
   }
 
   // troca o modelo 3D da arma (cada estilo tem lâmina, guarda e cabo próprios)
-  setWeapon(def, lv = 0) {
-    if (this.weaponId === `${def.id}+${lv}`) return;
-    this.weaponId = `${def.id}+${lv}`;
+  setWeapon(def, lv = 0, shield = false) {
+    if (this.weaponId === `${def.id}+${lv}${shield ? 's' : ''}`) return;
+    this.weaponId = `${def.id}+${lv}${shield ? 's' : ''}`;
     if (this.model) {
       this.aim.remove(this.model);
       this.model.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); });
     }
-    const w = buildSword(def);
+    const w = shield ? buildShield(def) : buildSword(def);
     this.model = w.group;
     this.bladeMat = w.bladeMat;
     // arma fortalecida pela Lisbeth brilha um pouco mais a cada nível
@@ -145,9 +152,61 @@ export class Combat {
     this.prevL = false;
     this._a = new THREE.Vector3();
     this._b = new THREE.Vector3();
+    this.holdT = 0;
+    this.charge = 0;
+    this.charging = false;
   }
 
-  get dual() { const p = this.game.state?.player; return !!(p && p.dualBlades && p.offhand); }
+  // tempo para carregar por completo (o Berserker carrega mais rápido)
+  get chargeTime() { return this.game.state?.player?.cls === 'berserker' ? 0.75 : 1.0; }
+
+  updateCharge(dt) {
+    const g = this.game, inp = g.input, pl = g.player;
+    const can = inp.isLocked && g.mode === 'play' && !g.ui.menuOpen && !g.ui.dialogOpen && !g.fishing?.active && !this.sheathed && !pl.dead && !g.spells?.active;
+    if (!(can && inp.mouse.buttons.has(0))) {
+      this.holdT = 0;
+      if (this.charging) this.releaseCharge();
+      return;
+    }
+    this.holdT += dt;
+    if (!this.charging) {
+      // o clique já deu o golpe normal; se continuar segurando depois dele, começa a carregar
+      if (this.holdT > 0.32 && !this.action && this.post <= 0 && !this.guard) {
+        if (pl.stamina < CHARGE_COST) { if (!this.noStamWarn) { this.noStamWarn = true; g.ui.toast('Stamina insuficiente para o ataque carregado.', 'warn'); } return; }
+        this.noStamWarn = false;
+        this.charging = true;
+        this.charge = 0;
+        this.fullFx = false;
+        Sfx.skillStart();
+      }
+      return;
+    }
+    this.charge = Math.min(1, this.charge + dt / this.chargeTime);
+    if (this.charge >= 1 && !this.fullFx) {
+      this.fullFx = true;
+      Sfx.levelUp();
+      g.effects.ring(pl.pos.clone().add(new THREE.Vector3(0, 0.15, 0)), '#ffb030', 1.6, 0.4, 0);
+    }
+  }
+
+  releaseCharge() {
+    const c = this.charge, g = this.game, pl = g.player;
+    this.charging = false;
+    this.charge = 0;
+    g.ui.setCharge(0);
+    if (c < 0.2 || this.action) return;
+    pl.stamina = Math.max(0, pl.stamina - CHARGE_COST);
+    pl.staminaCD = 0.8;
+    const full = c >= 1;
+    this.start([{ type: 'slash', hand: 'R', tilt: PI / 2 - 0.25, from: -1.35, to: 1.3, dur: 0.22, wind: 0.04, mul: 1.5 + 2 * c + (full ? 0.5 : 0), reach: 3.6 + 1.1 * c, arc: 0.45 - 0.25 * c, lunge: 5 + 8 * c }], full ? '#ffb030' : '#ffe0b0', null);
+    this.action.charged = { c, full };
+    this.comboT = 0;
+    this.combo = 0;
+    Sfx.skillSwing();
+  }
+
+  get dual() { const p = this.game.state?.player; return !!(p && p.dualBlades && p.offhand && !this.shieldOn); }
+  get shieldOn() { const p = this.game.state?.player; return !!p && weaponDef(p.weapon).type === 'guard'; }
   get busy() { return !!this.action || this.post > 0; }
   get locked() { return this.post > 0 || !!(this.action && !this.action.basic); }
 
@@ -160,7 +219,7 @@ export class Combat {
     // o Mago usa cajado e livro (spells.js) no lugar das espadas
     const v = this.shown !== false && this.sheathAmt < 0.97 && !this.game.spells?.active;
     this.R.root.visible = v;
-    this.L.root.visible = v && this.dual;
+    this.L.root.visible = v && (this.dual || this.shieldOn);
   }
 
   // Guardar / sacar a espada (tecla H). Atacar com a espada guardada saca automaticamente.
@@ -181,7 +240,9 @@ export class Combat {
     const p = this.game.state.player;
     const lv = (id) => (p.upgrades && p.upgrades[id]) || 0;
     this.R.setWeapon(weaponDef(p.weapon), lv(p.weapon));
-    if (p.offhand) this.L.setWeapon(weaponDef(p.offhand), lv(p.offhand));
+    if (this.shieldOn) this.L.setWeapon(weaponDef(p.weapon), 0, true);
+    else if (p.offhand) this.L.setWeapon(weaponDef(p.offhand), lv(p.offhand));
+    this.game.spells?.tint?.(weaponDef(p.weapon));
     this.updateVisibility();
   }
 
@@ -249,7 +310,7 @@ export class Combat {
     }
     t += 0.18;
     keys.R.push({ t, p: { ...IDLE } });
-    keys.L.push({ t, p: mirror(IDLE) });
+    keys.L.push({ t, p: this.shieldOn ? { ...SHIELD_IDLE } : mirror(IDLE) });
     this.action = { keys, hits, lunges, sounds, dur: t, t: 0, color: color ? new THREE.Color(color) : null, skill, basic: !skill, si: 0 };
     if (color) this.glowColor.set(color);
   }
@@ -292,7 +353,15 @@ export class Combat {
       if (wantGuard && !this.guard) { this.guard = true; this.guardT = 0; }
       if (!wantGuard) this.guard = false;
       if (this.guard) this.guardT += dt;
-      const tR = this.guard ? GUARD : IDLE, tL = mirror(tR);
+      let tR = this.guard ? GUARD : IDLE;
+      if (this.charging) {
+        const e = 1 - Math.pow(1 - this.charge, 2), sh = this.charge >= 1 ? Math.sin(g.time * 60) * 0.006 : 0;
+        tR = {};
+        for (const kk of KEYS) tR[kk] = IDLE[kk] + (CHARGE_POSE[kk] - IDLE[kk]) * e;
+        tR.px += sh;
+        tR.py += sh;
+      }
+      const tL = this.shieldOn ? (this.guard ? SHIELD_GUARD : SHIELD_IDLE) : mirror(tR);
       const k = 1 - Math.exp(-dt * 14);
       const sp = Math.min(1, Math.hypot(g.player.vel.x, g.player.vel.z) / 5);
       this.bob += dt * sp * 7;
@@ -303,7 +372,13 @@ export class Combat {
         this.L.pose[kk] += (tL[kk] + (offL[kk] || 0) - this.L.pose[kk]) * k;
       }
       this.glow = Math.max(0, this.glow - dt * 3);
+      if (this.charging) {
+        this.glowColor.copy(CHARGE_COL[0]).lerp(CHARGE_COL[1], this.charge);
+        this.glow = this.charge * 0.7 + (this.charge >= 1 ? 0.25 + Math.sin(g.time * 14) * 0.15 : 0);
+      }
     }
+    this.updateCharge(dt);
+    if (!g.spells?.active) g.ui.setCharge(this.charging ? this.charge : 0);
     // animação de guardar/sacar: a espada desce para fora da tela e some
     this.sheathAmt += ((this.sheathed ? 1 : 0) - this.sheathAmt) * Math.min(1, dt * 9);
     if (Math.abs(this.sheathAmt - (this.sheathed ? 1 : 0)) < 0.002) this.sheathAmt = this.sheathed ? 1 : 0;
@@ -325,7 +400,7 @@ export class Combat {
       if (!this.prevR) this.trailR.cut(life);
       this.trailR.push(this.R.baseWorld(this._a), this.R.tipWorld(this._b), col, strength);
     }
-    if (swingL && this.L.root.visible) {
+    if (swingL && this.L.root.visible && this.dual) {
       if (!this.prevL) this.trailL.cut(life);
       this.trailL.push(this.L.baseWorld(this._a), this.L.tipWorld(this._b), col, strength);
     }

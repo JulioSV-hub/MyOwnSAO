@@ -2,7 +2,7 @@
 // Tipos: kill (derrotar monstros) · deliver (entregar materiais) · explore (visitar pontos marcados)
 //        skill (usar Sword Skills) · parry (aparar ataques) · upgrade (fortalecer arma) · talk (conversar) · boss
 import * as THREE from 'three';
-import { MONSTERS, weaponDef, armorDef, laReward, monDef } from './data.js';
+import { MONSTERS, weaponDef, armorDef, laReward, monDef, adaptWeapon } from './data.js';
 import { mulberry32 } from './rng.js';
 import { guildRank } from './guild.js';
 import { checkCompletion } from './completion.js';
@@ -265,7 +265,7 @@ export class Quests {
     if (r.exp) parts.push(`${r.exp} EXP`);
     if (r.points) parts.push(`+${r.points} pontos de atributo`);
     if (r.upgrade) parts.push('arma +1 de graça');
-    if (r.gear) parts.push((r.gear.kind === 'weapon' ? weaponDef(r.gear.id) : armorDef(r.gear.id)).name);
+    if (r.gear) parts.push((r.gear.kind === 'weapon' ? weaponDef(adaptWeapon(this.game.state.player.cls, r.gear.id)) : armorDef(r.gear.id)).name);
     if (r.heal) parts.push('HP restaurado');
     if (r.guild) parts.push(`${r.guild} pontos de guilda`);
     const names = { potion: 'Poção', hipotion: 'Poção Superior', heal_crystal: 'Cristal de Cura', teleport_crystal: 'Cristal de Teletransporte' };
@@ -297,7 +297,7 @@ export class Quests {
     if (r.points) p.points += r.points;
     if (r.heal) p.hp = g.stats().maxHp;
     if (r.upgrade) { (p.upgrades ||= {})[p.weapon] = Math.min(10, g.upgradeLevel(p.weapon) + r.upgrade); g.combat.refresh(); }
-    if (r.gear) { (r.gear.kind === 'weapon' ? p.weapons : p.armors).push(r.gear.id); }
+    if (r.gear) { if (r.gear.kind === 'weapon') p.weapons.push(adaptWeapon(p.cls, r.gear.id)); else p.armors.push(r.gear.id); }
     if (r.exp) g.gainExp(r.exp);
     Sfx.victory();
     g.effects.ring(g.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#ffd54f', 1.6, 1.2, 1.8);

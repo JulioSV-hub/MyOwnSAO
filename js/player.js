@@ -64,6 +64,7 @@ export class Player {
     const sprinting = inp.held('ShiftLeft') && f > 0 && this.stamina > 1 && !g.combat.guard && canMove;
     if (sprinting) { speed *= 1.65; this.stamina -= 14 * (1 - st.dodge) * dt; this.staminaCD = 0.8; }
     if (g.combat.guard) speed *= 0.45;
+    if (g.combat.charging || g.spells?.charging) speed *= 0.55;
     if (g.combat.action?.basic) speed *= 0.55;
     const water = w.inWater(this.pos);
     if (water) speed *= 0.65;
