@@ -482,7 +482,7 @@ export class NPCManager {
     const roleOf = { armor: 'armor', rune: 'rune', pet: 'petshop', tavern: 'tavern', guild: 'guild', food: 'chef' };
     for (const [key, sp] of Object.entries(w.shopSpots || {})) {
       if (sp.hall) continue;
-      const spec = SHOPS[key], def = { ...randomTownsfolk(mulberry32(g.floor.seed + key.length * 31), false), ...spec.npc, id: key === 'guild' ? 'guild' : undefined };
+      const spec = SHOPS[key], def = { ...randomTownsfolk(mulberry32(g.floor.seed + key.length * 31), false), ...spec.npc };
       add(def, sp.pos.x, sp.pos.z, { role: roleOf[key], fixed: true, yaw: sp.yaw });
     }
     // Taverna e Guilda: vendedor e frequentadores lá dentro

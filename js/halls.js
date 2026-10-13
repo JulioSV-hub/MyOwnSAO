@@ -299,7 +299,7 @@ export class Halls {
       const R = this.room(kind), S = HALLS[kind], rand = mulberry32(this.game.floor.seed * 7 + kind.length);
       const opts = (o) => ({ fixed: true, noTurn: true, hall: { y: S.base.y + (o.y || 0) }, pose: o.pose, phase: o.phase ?? rand() * 6, yaw: o.yaw });
       const spec = SHOPS[kind];
-      const vendor = { ...randomTownsfolk(mulberry32(this.game.floor.seed + kind.length * 31), false), ...spec.npc, id: kind === 'guild' ? 'guild' : undefined };
+      const vendor = { ...randomTownsfolk(mulberry32(this.game.floor.seed + kind.length * 31), false), ...spec.npc };
       add(vendor, S.base.x + R.vendor.x, S.base.z + R.vendor.z, { role: kind, fixed: true, yaw: R.vendor.yaw, hall: { y: S.base.y } });
       const lines = kind === 'guild' ? GUILD_LINES : TAVERN_LINES;
       for (const s of [...R.seats, ...R.standers]) {

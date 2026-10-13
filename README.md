@@ -27,8 +27,7 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 | Segurar o clique esquerdo | Ataque carregado: solte para um golpe pesado (gasta 20 de stamina; carga completa quebra o ataque do monstro). O Mago carrega um orbe que explode (15 de mana) |
 | Botão direito | Defender — no instante certo vira **Parry** e atordoa o inimigo |
 | 1–4 | Sword Skills |
-| R | Poção |
-| T | Cristal de Teletransporte (abre a lista de andares) |
+| R / T / Y / Z | Atalhos rápidos (padrão: Poção, Cristal de Teletransporte, Poção Superior, Cristal de Cura) — troque em Sistema → Atalhos rápidos |
 | H | Guardar / sacar a espada |
 | V | Câmera em terceira pessoa (roda do mouse aproxima/afasta) — veja sua skin |
 | F | Pescar (perto da água, com Vara de Pesca) |
@@ -118,3 +117,9 @@ js/audio.js       Efeitos sonoros sintetizados
 - **Altar dos Cristais** (praça): gacha com três estandartes — Mascotes, Arsenal (armas e peças da sua classe) e Visuais (skins). 1 giro = 10 💎, 10 giros = 90 💎. Épico garantido a cada 10 giros e Lendário a cada 80. Um giro grátis por dia no estandarte de Mascotes.
 - **Cristais de Memória (💎)**: chefe de andar (+30 na primeira vitória), Chefe de Campo (+6), baús de ouro (+3) e prata (+1), missões diárias (+2), cada nível (+3), andar 100% concluído (+50) e o pacote do Agil.
 - **Skins**: 16 visuais colecionáveis (Samurai, Ninja, Divino, Lorde Demônio, Imperador Celestial, Sombra Abissal...). Use em Menu → Equipamento; só mudam a aparência.
+
+## Bolsa de cura e time
+
+- Fora da cidade dá para usar, por saída: **5 Poções, 2 Poções Superiores e 1 Cristal de Cura** (a mochila não tem limite). Ao voltar para a cidade a bolsa recarrega. Os limites ficam em Sistema → Bolsa de cura.
+- Teleportar durante a luta contra o chefe encerra a luta: o chefe volta com a vida cheia.
+- Cada companheiro tem o próprio nível, que **não sobe sozinho**: treine na cidade (menu Time) até, no máximo, o seu nível.

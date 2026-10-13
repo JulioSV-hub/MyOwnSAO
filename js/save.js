@@ -32,7 +32,7 @@ export function newSave(name, mode = 'normal', cls = null, look = null, slot = 0
     party: [],
     loot: {},
     progress: { floor: 1, highest: 1, cleared: {} },
-    settings: { difficulty: 'normal', bossMul: 1, eliteMul: 1, sens: 1, fov: 75, volume: 0.5, music: 0.45, bloom: true, shadows: true, grass: true, autoSheath: true, xpRate: 1, dayMinutes: 20, dayLen: 12, nightLen: 5, invertY: false },
+    settings: { difficulty: 'normal', bossMul: 1, eliteMul: 1, sens: 1, fov: 75, volume: 0.5, music: 0.45, bloom: true, shadows: true, grass: true, autoSheath: true, xpRate: 1, dayMinutes: 20, dayLen: 12, nightLen: 5, invertY: false, limitHeal: true, limPotion: 5, limHipotion: 2, limCrystal: 1 },
     world: { tod: 0.32, day: 0 },
   };
 }

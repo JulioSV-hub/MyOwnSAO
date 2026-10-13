@@ -1005,6 +1005,12 @@ class Game {
       return true;
     }
     if (d.tool) { this.ui.toast(id === 'fishing_rod' ? 'Perto da água, aperte F para pescar.' : id === 'cristalite' ? 'Leve para a Lisbeth: ela usa para fortalecer armas acima de +10.' : 'Use perto de um monstro dócil (♥) com a tecla E.'); return false; }
+    // limite por saída (fora da cidade)
+    if (d.heal && !this.world.inSafeZone(this.player.pos)) {
+      const left = this.healLeft(id);
+      if (left === 0) { Sfx.error(); this.ui.toast(`Limite de ${d.name} por saída atingido. Volte à cidade para recarregar a bolsa de cura.`, 'warn'); return false; }
+      if (left != null) { const p2 = this.state.player; (p2.healUsed ||= {})[id] = (p2.healUsed[id] || 0) + 1; }
+    }
     const st = this.stats(), max = st.maxHp, heal = d.heal * (1 + st.potion);
     if (p.hp >= max) { this.ui.toast('Seu HP já está cheio.'); return false; }
     p.items[id]--;
@@ -1013,6 +1019,36 @@ class Game {
     this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#7aff9a', 1.2, 0.8, 1.5);
     Sfx.menuOpen();
     return true;
+  }
+
+  // ─── Bolsa de cura: fora da cidade dá para usar só um tanto de poções e cristais; volta à cidade para recarregar ───
+  healLimit(id) {
+    const s = this.state.settings;
+    if (!s.limitHeal) return null;
+    return { potion: s.limPotion ?? 5, hipotion: s.limHipotion ?? 2, heal_crystal: s.limCrystal ?? 1 }[id] ?? null;
+  }
+  healLeft(id) {
+    const lim = this.healLimit(id);
+    if (lim == null) return null;
+    const used = this.state.player.healUsed?.[id] || 0;
+    return Math.max(0, lim - used);
+  }
+  // na cidade a bolsa de cura volta a ficar cheia
+  refillHeal() {
+    const p = this.state.player;
+    if (!p.healUsed || !Object.values(p.healUsed).some((v) => v > 0)) return;
+    p.healUsed = {};
+    this.ui.toast('Bolsa de cura recarregada na cidade (poções e cristais prontos de novo).', 'skill');
+  }
+
+  // atalhos R, T, Y e Z: cada um usa o item que você escolheu (Sistema → Atalhos ou na Mochila)
+  useQuick(i) {
+    const p = this.state.player, id = (p.quick ||= ['potion', 'teleport_crystal', 'hipotion', 'heal_crystal'])[i];
+    if (!id) { this.ui.toast('Atalho vazio — escolha um item em Menu → Sistema → Atalhos rápidos.', 'warn'); return; }
+    if (id === 'teleport_crystal') { this.quickTeleport(); return; }
+    if (!(p.items[id] > 0)) { Sfx.error(); this.ui.toast(`Sem ${ITEMS[id]?.name || 'item'} na mochila.`, 'warn'); return; }
+    if (ITEMS[id]?.heal && this.player.hot) return;
+    this.useItem(id);
   }
 
   quickPotion() {
@@ -1194,6 +1230,7 @@ class Game {
       p.items.teleport_crystal--;
     }
     this.ui.closeMenu(false);
+    if (this.bossFight) { this.endBossFight(false); this.ui.toast('Você fugiu da arena — o chefe recupera toda a vida.', 'warn'); }
     Sfx.teleport();
     this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#6fd0ff', 1.6, 0.6, 2);
     this.ui.fade(() => {
@@ -1291,6 +1328,7 @@ class Game {
   // ─────────── Interação ───────────
   updateInteract() {
     const pl = this.player.pos, w = this.world, n = this.floor.n, pr = this.state.progress;
+    if (!this.indoor && w.inSafeZone(pl)) this.refillHeal();
     let hint = null, act = null;
     if (this.indoor) {
       let r = (this.indoor.ctl || this.housing).interact();
@@ -1376,10 +1414,9 @@ class Game {
       if (inp.mouse.clicked.has(0)) this.combat.basic();
       for (let i = 0; i < 4; i++) if (inp.pressed(`Digit${i + 1}`)) this.combat.skill(i);
     }
-    if (inp.pressed('KeyR')) this.quickPotion();
+    ['KeyR', 'KeyT', 'KeyY', 'KeyZ'].forEach((k, i) => { if (inp.pressed(k)) this.useQuick(i); });
     if (inp.pressed('KeyH')) this.combat.toggleSheath();
     if (inp.pressed('KeyV')) this.tp.toggle();
-    if (inp.pressed('KeyT')) this.quickTeleport();
     if (inp.pressed('KeyF')) this.fishing.press();
   }
 

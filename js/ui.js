@@ -7,6 +7,7 @@ import { icon } from './icons.js';
 import { TOWN_R } from './world.js';
 import { registry, displayName } from './models.js';
 import { CAST } from './characters.js';
+import { SHOPS } from './shops.js';
 import { FURNITURE } from './housing.js';
 import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO, petStable } from './shopui.js';
 import { runeDef, FOODS } from './data.js';
@@ -44,7 +45,7 @@ const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento
 const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja', npcs: 'NPCs da cidade', quests: 'Missões', party: 'Time', talents: 'Classe e Talentos' };
 const SET_FMT = {
   sens: (v) => (+v).toFixed(2), fov: (v) => `${v}°`, volume: (v) => `${Math.round(v * 100)}%`,
-  xpRate: (v) => `${v}×`, bossMul: (v) => `${v}×`, eliteMul: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`, dayLen: (v) => `${v} min`, nightLen: (v) => `${v} min`,
+  xpRate: (v) => `${v}×`, limPotion: (v) => `${v}`, limHipotion: (v) => `${v}`, limCrystal: (v) => `${v}`, bossMul: (v) => `${v}×`, eliteMul: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`, dayLen: (v) => `${v} min`, nightLen: (v) => `${v} min`,
 };
 
 export class UI {
@@ -79,8 +80,7 @@ export class UI {
   buildSkillbar() {
     const bar = $('skillbar');
     bar.innerHTML = [0, 1, 2, 3].map((i) => `<div class="slot" id="slot${i}"><span class="key">${i + 1}</span><span class="sname"></span><div class="cd"></div></div>`).join('')
-      + '<div class="slot potion" id="slot-pot"><span class="key">R</span><span class="sname">Poção</span><span class="count" id="pot-count">0</span></div>'
-      + '<div class="slot tp" id="slot-tp"><span class="key">T</span><span class="sname">Cristal</span><span class="count" id="tp-count">0</span></div>';
+      + ['R', 'T', 'Y', 'Z'].map((k, i) => `<div class="slot quick" id="q${i}"><span class="key">${k}</span><span class="sname"></span><span class="count"></span><span class="lim"></span></div>`).join('');
   }
 
   refreshSkillbar() {
@@ -136,9 +136,15 @@ export class UI {
       el.classList.toggle('locked', !!s && (p.level < s.lvl || (!!s.dual && !g.combat.dual) || (mage && (p.mp ?? 0) < s.mp)));
       el.classList.toggle('ready', !!s && cd <= 0);
     }
-    $('pot-count').textContent = (p.items.potion || 0) + (p.items.hipotion || 0);
-    $('tp-count').textContent = p.items.teleport_crystal || 0;
-    $('slot-tp').classList.toggle('locked', !(p.items.teleport_crystal > 0) && !g.nearGate());
+    const town = g.world.inSafeZone(g.player.pos);
+    (p.quick ||= ['potion', 'teleport_crystal', 'hipotion', 'heal_crystal']).forEach((id, i) => {
+      const el = $(`q${i}`), d = id && ITEMS[id], have = id ? p.items[id] || 0 : 0, left = id ? g.healLeft(id) : null;
+      const short = { potion: 'Poção', hipotion: 'Superior', heal_crystal: 'Cr. Cura', teleport_crystal: 'Teleporte' }[id] || (d ? d.name.split(' ')[0] : '—');
+      el.querySelector('.sname').textContent = short;
+      el.querySelector('.count').textContent = id ? have : '';
+      el.querySelector('.lim').textContent = left != null && !town ? `${left}/${g.healLimit(id)}` : '';
+      el.classList.toggle('locked', !id || (id === 'teleport_crystal' ? !(have > 0) && !g.nearGate() : have <= 0 || (left === 0 && !town)));
+    });
 
     const boss = g.bossFight?.boss;
     $('boss-bar').classList.toggle('hidden', !boss || boss.dead);
@@ -802,6 +808,11 @@ export class UI {
       <div class="row"><span>Força dos monstros e chefes <span class="muted">(vale para os monstros que aparecerem a partir de agora)</span></span><select data-set="difficulty">${[['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil'], ['sao', 'Death Game (muito difícil)']].map(([v, l]) => `<option value="${v}" ${diff === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       ${range('bossMul', 'Força dos chefes do andar (HP ×, dano um pouco menos)', 1, 10, 0.5)}
       ${range('eliteMul', 'Força de elites e Chefes de Campo', 1, 6, 0.5)}
+      <div class="section">Bolsa de cura <span class="muted">— fora da cidade; recarrega ao voltar</span></div>
+      ${check('limitHeal', 'Limitar poções e cristais por saída')}
+      ${range('limPotion', 'Poções por saída', 0, 20, 1)}${range('limHipotion', 'Poções Superiores por saída', 0, 10, 1)}${range('limCrystal', 'Cristais de Cura por saída', 0, 5, 1)}
+      <div class="section">Atalhos rápidos</div>
+      ${this.quickRows()}
       <div class="muted pad">Vale para os próximos chefes que aparecerem. Com 3× ou mais, você vai precisar subir de nível, fortalecer a arma, treinar o time e usar comida e runas para vencer.</div>
       <div class="section">Configurações</div>
       ${range('sens', 'Sensibilidade do mouse', 0.2, 3, 0.05)}
@@ -823,7 +834,13 @@ export class UI {
       <div class="muted pad">Modelos, altura e presença de cada personagem ficam em <b>Menu → NPCs</b>.</div>
       ${Object.keys(registry.credits).length ? `<div class="section">Créditos dos modelos 3D</div>${Object.entries(registry.credits).map(([f, c]) => `<div class="row"><div><b>${esc(c.title)}</b> <span class="muted">por</span> <b>${esc(c.author)}</b>${c.contact ? `<div class="muted">${/^https?:\/\//.test(c.contact) ? `<a href="${esc(c.contact)}" target="_blank" rel="noopener">${esc(c.contact)}</a>` : esc(c.contact)}</div>` : ''}</div><div class="row-r"><span class="muted">${esc(displayName(f))}</span>${f.startsWith('local:') ? `<button class="btn sm" data-act="creditEdit" data-key="${esc(f)}">Editar</button>` : ''}</div></div>`).join('')}<div class="muted pad">Modelos usados conforme as condições de uso de cada autor: sem redistribuição, sem alterações e sem atos violentos.</div>` : ''}
       <div class="section">Controles</div>
-      <div class="keys"><b>WASD</b> mover · <b>Shift</b> correr · <b>Espaço</b> pular · <b>Q</b> esquiva · <b>Clique</b> atacar (combo) · <b>Botão direito</b> defender (no tempo certo = <i>parry</i>) · <b>1–4</b> Sword Skills · <b>R</b> poção · <b>T</b> Cristal de Teletransporte · <b>H</b> guardar/sacar espada · <b>E</b> interagir · <b>Tab/Esc</b> menu</div>`;
+      <div class="keys"><b>WASD</b> mover · <b>Shift</b> correr · <b>Espaço</b> pular · <b>Q</b> esquiva · <b>Clique</b> atacar (combo) · <b>Botão direito</b> defender (no tempo certo = <i>parry</i>) · <b>1–4</b> Sword Skills · <b>R T Y Z</b> atalhos (poção, teleporte, poção superior, cristal de cura — configuráveis acima) · <b>V</b> terceira pessoa · <b>H</b> guardar/sacar espada · <b>E</b> interagir · <b>Tab/Esc</b> menu</div>`;
+  }
+
+  quickRows() {
+    const g = this.g, p = g.state.player, q = (p.quick ||= ['potion', 'teleport_crystal', 'hipotion', 'heal_crystal']);
+    const usable = Object.entries(ITEMS).filter(([id, d]) => d.heal || d.dish || d.pet || ['teleport_crystal', 'treasure_map', 'mystery_box'].includes(id));
+    return ['R', 'T', 'Y', 'Z'].map((k, i) => `<div class="row"><span>Tecla <b>${k}</b></span><select data-quick="${i}"><option value="">— vazio —</option>${usable.map(([id, d]) => `<option value="${id}" ${q[i] === id ? 'selected' : ''}>${esc(d.name)}${p.items[id] ? ` (${p.items[id]})` : ''}</option>`).join('')}</select></div>`).join('');
   }
 
   pQuests() {
@@ -853,8 +870,10 @@ export class UI {
       const v = presence(id), o = (val, l) => `<option value="${val}" ${v === val ? 'selected' : ''}>${l}</option>`;
       return `<label class="muted">Aparece: <select data-npcp="${id}">${o('always', 'Sempre')}${o('sometimes', 'Às vezes')}${o('never', 'Nunca')}</select></label>`;
     };
-    const cards = Object.entries(CAST).map(([id, c]) => {
-      const key = local.personagens[id], h = npcHeight(id), here = !!g.npcs.byId(id);
+    // elenco do anime + lojistas da cidade (Grimm, Mira, Kiko, Gorm, Teo, Elena, Hana)
+    const shopkeepers = Object.values(SHOPS).map((s) => [s.npc.id, { name: s.npc.name, title: `${s.npc.title} · ${s.title}` }]).concat([['inn', { name: 'Hana', title: 'Pousada do Sino Dourado' }]]);
+    const cards = [...Object.entries(CAST), ...shopkeepers].map(([id, c]) => {
+      const key = local.personagens[id], h = npcHeight(id), npc = g.npcs.byId(id), here = !!npc && !npc.hall;
       return `<div class="npccard">
         <div class="nc-head"><b>${esc(c.name)}</b> <span class="muted">${esc(c.title || '')}</span> ${src(id)}</div>
         <div class="nc-row"><span class="muted">Altura</span><input type="range" min="0.9" max="2.3" step="0.01" value="${h}" data-npch="${id}"><span class="num" id="npch-${id}">${h.toFixed(2)} m</span>
@@ -873,6 +892,7 @@ export class UI {
       </div>`;
     return `<div class="muted pad">Ajuste cada personagem do seu jeito. Arraste a altura e veja na hora — use <b>Chamar aqui</b> para trazer o personagem até você. Modelos .vrm ficam guardados só neste navegador.</div>
       <div class="npcgrid">${cards}</div>
+      <div class="muted pad">Os frequentadores da Taverna e da Guilda usam bonecos, porque ficam sentados, comendo e bebendo (modelos .vrm não fazem essas poses).</div>
       <div class="section">Moradores e crianças</div>
       <div class="npcgrid">${group('moradores', 'Moradores', 'folkScale', 'Modelos distribuídos em rodízio — quanto mais arquivos, mais variados.')}${group('criancas', 'Crianças', 'kidScale', 'Cada criança usa um modelo diferente desta lista.')}</div>`;
   }
@@ -994,7 +1014,7 @@ export class UI {
         case 'pickClass': this.closeMenu(false); this.openDialog(classPicker(g, 0)); return;
         case 'runeOff': g.unequipRune(+d.i); break;
         case 'dismiss': g.party.dismiss(+d.i); break;
-        case 'train': g.party.train(+d.i); break;
+        case 'train': g.party.train(+d.i, +(d.n || 1)); break;
         case 'talkMember': {
           const m = g.party.members[+d.i];
           if (!m || m.data.kind !== 'cast') break;
@@ -1029,6 +1049,12 @@ export class UI {
         setGlobal(el.dataset.npcg, +el.value);
         $(`npcg-${el.dataset.npcg}`).textContent = `${Math.round(+el.value * 100)}%`;
         this.g.npcs.applyHeights();
+        return;
+      }
+      if (el.dataset.quick !== undefined) {
+        const p = this.g.state.player;
+        (p.quick ||= ['potion', 'teleport_crystal', 'hipotion', 'heal_crystal'])[+el.dataset.quick] = el.value || null;
+        this.g.save();
         return;
       }
       if (el.dataset.pcls) {

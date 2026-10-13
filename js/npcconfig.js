@@ -1,7 +1,7 @@
 // Configuração dos NPCs feita pelo jogador (aba NPCs do menu): altura, presença nos andares e escala dos moradores.
 const KEY = 'sao-meu-mundo-npcs';
 
-export const DEFAULT_H = { kirito: 1.72, asuna: 1.64, klein: 1.74, agil: 1.92, lisbeth: 1.63, silica: 1.6, argo: 1.58, yui: 1.25 };
+export const DEFAULT_H = { kirito: 1.72, asuna: 1.64, klein: 1.74, agil: 1.92, lisbeth: 1.63, silica: 1.6, argo: 1.58, yui: 1.25, grimm: 1.9, mira: 1.62, kiko: 1.7, gorm: 1.92, teo: 1.74, guild: 1.64, inn: 1.62 };
 const DEFAULT_PRESENCE = { kirito: 'always', asuna: 'always', klein: 'sometimes', silica: 'sometimes', yui: 'sometimes' };
 export const PRESENCE_IDS = Object.keys(DEFAULT_PRESENCE);
 

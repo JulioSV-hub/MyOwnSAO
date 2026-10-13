@@ -26,6 +26,8 @@ class Companion {
     const cc = COMP_CLASSES[data.cls], cast = data.kind === 'cast' ? CAST_PARTY[data.id] : null;
     this.spec = { ...cc, dmg: cc.dmg * (cast?.dmg || 1), hp: cc.hp * (cast?.hp || 1) };
     data.rank ||= 0;
+    // nível próprio: não sobe sozinho com você; só treinando (e nunca passa do seu nível)
+    if (data.lv == null) data.lv = data.joined ? Math.max(1, Math.round(this.game.state.player.level * 0.7)) : this.game.state.player.level;
     const def = data.kind === 'cast'
       ? { ...CAST[data.id], id: undefined, ...(cc.pet ? { pet: true } : {}) }
       : { ...randomTownsfolk(mulberry32(data.seed || 7), false), ...MERCS[data.cls].look, name: data.name, kid: false };
@@ -54,14 +56,15 @@ class Companion {
   }
 
   get alive() { return this.down <= 0; }
-  get level() { return this.game.state.player.level + this.data.rank; }
+  get level() { return Math.min(this.data.lv || 1, this.game.state.player.level); }
 
-  // Força acompanha a sua (HP, defesa e ataque) + treino pago (nível do companheiro)
+  // Força: proporcional ao nível do companheiro comparado ao seu (no seu nível ≈ 90% da sua força de base)
   refreshStats() {
-    const st = this.game.stats(), r = this.data.rank || 0, sp = this.spec, old = this.maxHp;
-    this.maxHp = Math.round(st.maxHp * sp.hp * (0.75 + 0.045 * r) * (1 + (st.partyHp || 0)));
-    this.defense = st.def * (0.75 + 0.035 * r) * (sp.taunt ? 1.35 : 1);
-    this.atk = st.atkR * 0.32 * sp.dmg * (1 + 0.06 * r) * (1 + (st.partyDmg || 0));
+    const st = this.game.stats(), sp = this.spec, old = this.maxHp;
+    const k = Math.min(1, this.level / Math.max(1, this.game.state.player.level)), f = 0.25 + 0.65 * Math.pow(k, 1.6);
+    this.maxHp = Math.round(st.maxHp * sp.hp * f * (1 + (st.partyHp || 0)));
+    this.defense = st.def * f * (sp.taunt ? 1.35 : 1);
+    this.atk = st.atkR * 0.32 * sp.dmg * f * 1.1 * (1 + (st.partyDmg || 0));
     if (old && this.hp != null) this.hp = Math.min(this.maxHp, this.hp * (this.maxHp / old));
   }
 
@@ -330,6 +333,7 @@ export class Party {
   add(data) {
     const g = this.game;
     if (this.list.length >= this.maxSize()) { g.ui.toast(`Seu time está cheio (máximo ${this.maxSize()}). Dispense alguém no menu Time.`, 'warn'); return false; }
+    data.joined = true;
     g.state.party.push(data);
     this.members.push(new Companion(this, data, this.list.length - 1));
     Sfx.levelUp();
@@ -390,14 +394,22 @@ export class Party {
   }
 
   // Treino: pagar para subir o nível de um companheiro (fica mais forte)
-  trainCost(i) { const d = this.list[i]; return Math.round(400 * Math.pow((d?.rank || 0) + 1, 1.35) * (1 + this.game.floor.n * 0.12)); }
-  train(i) {
+  // custo de treinar n níveis a partir do nível atual
+  trainCost(i, n = 1) {
+    const d = this.list[i];
+    let c = 0;
+    for (let k = 0; k < n; k++) c += Math.round(120 * Math.pow((d?.lv || 1) + k, 1.45) * (1 + this.game.floor.n * 0.04));
+    return c;
+  }
+  trainMax(i) { const d = this.list[i]; return Math.max(0, this.game.state.player.level - (d?.lv || 1)); }
+  train(i, n = 1) {
     const g = this.game, d = this.list[i], m = this.members[i];
-    if (!d || (d.rank || 0) >= 20) return;
-    const cost = this.trainCost(i);
+    n = Math.min(n, this.trainMax(i));
+    if (!d || n <= 0) { g.ui.toast('Já está no seu nível — suba de nível para treinar mais.', 'warn'); return; }
+    const cost = this.trainCost(i, n);
     if (g.state.player.col < cost) { Sfx.error(); g.ui.toast('Col insuficiente para o treino.', 'warn'); return; }
     g.state.player.col -= cost;
-    d.rank = (d.rank || 0) + 1;
+    d.lv = (d.lv || 1) + n;
     if (m) { m.refreshStats(); m.hp = m.maxHp; g.effects.levelUp(m.pos.clone()); }
     Sfx.levelUp();
     g.ui.toast(`${m?.name || 'Companheiro'} treinou e subiu para o nível ${m?.level}!`, 'skill');

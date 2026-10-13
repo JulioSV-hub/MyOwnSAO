@@ -15,17 +15,17 @@ const glowMat = (c, k = 2) => new THREE.MeshBasicMaterial({ color: new THREE.Col
 
 export const SHOPS = {
   armor: { sign: 'ARMADURAS', title: 'Armaduras do Grimm', color: '#3a5a8a', color2: '#e8e0d0', w: 6,
-    npc: { name: 'Grimm', title: 'Armadureiro', hair: 'short', hairColor: '#5a3a2a', top: '#5a5a62', apron: '#6a4a2a', beard: true, big: true } },
+    npc: { id: 'grimm', name: 'Grimm', title: 'Armadureiro', hair: 'short', hairColor: '#5a3a2a', top: '#5a5a62', apron: '#6a4a2a', beard: true, big: true } },
   rune: { sign: 'RUNAS', title: 'Oficina de Runas da Mira', color: '#5a3a8a', color2: '#e8dcff', w: 5.6,
-    npc: { name: 'Mira', title: 'Runista', female: true, hair: 'long', hairColor: '#c8c8f0', top: '#4a3a7a', skirt: '#2a2050', accent: '#b08aff' } },
+    npc: { id: 'mira', name: 'Mira', title: 'Runista', female: true, hair: 'long', hairColor: '#c8c8f0', top: '#4a3a7a', skirt: '#2a2050', accent: '#b08aff' } },
   pet: { sign: 'TOCA DOS MASCOTES', title: 'Toca dos Mascotes', color: '#d86a8a', color2: '#fff0f4', w: 6,
-    npc: { name: 'Kiko', title: 'Tratador de Mascotes', hair: 'spiky', hairColor: '#e0a040', top: '#6a9a4a', pants: '#4a3a2a', accent: '#ff9ac8' } },
+    npc: { id: 'kiko', name: 'Kiko', title: 'Tratador de Mascotes', hair: 'spiky', hairColor: '#e0a040', top: '#6a9a4a', pants: '#4a3a2a', accent: '#ff9ac8' } },
   tavern: { sign: 'TAVERNA DO JAVALI', title: 'Taverna do Javali Dourado', color: '#8a4a2a', color2: '#f0d8a8', w: 8,
-    npc: { name: 'Gorm', title: 'Taverneiro', hair: 'bald', top: '#8a6a4a', apron: '#f0e8d8', beard: true, big: true } },
+    npc: { id: 'gorm', name: 'Gorm', title: 'Taverneiro', hair: 'bald', top: '#8a6a4a', apron: '#f0e8d8', beard: true, big: true } },
   food: { sign: 'RESTAURANTE', title: 'Restaurante Sabor de Aincrad', color: '#2a7a4a', color2: '#fff6e0', w: 6.4,
-    npc: { name: 'Teo', title: 'Chef de Cozinha', hair: 'short', hairColor: '#2a1e16', top: '#f4f4f0', apron: '#f4f4f0', hat: '#ffffff', accent: '#2a7a4a' } },
+    npc: { id: 'teo', name: 'Teo', title: 'Chef de Cozinha', hair: 'short', hairColor: '#2a1e16', top: '#f4f4f0', apron: '#f4f4f0', hat: '#ffffff', accent: '#2a7a4a' } },
   guild: { sign: 'GUILDA DOS AVENTUREIROS', title: 'Guilda dos Aventureiros', color: '#a02a2a', color2: '#f4e8c8', w: 7.4,
-    npc: { name: 'Elena', title: 'Recepcionista da Guilda', female: true, hair: 'ponytail', hairColor: '#3a2a1a', top: '#f4f0e8', skirt: '#8a2a2a', accent: '#d8b050' } },
+    npc: { id: 'guild', name: 'Elena', title: 'Recepcionista da Guilda', female: true, hair: 'ponytail', hairColor: '#3a2a1a', top: '#f4f0e8', skirt: '#8a2a2a', accent: '#d8b050' } },
 };
 
 export function signTexture(text, bg, fg) {

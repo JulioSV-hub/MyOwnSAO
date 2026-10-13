@@ -594,3 +594,9 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .skin img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top; border-radius: 6px; background: radial-gradient(circle at 50% 40%, #ffffff, #dfe6ef 70%); }
 .skin b { font-size: 12px; line-height: 1.2; }
 .skin small { font-size: 11px; }
+
+/* atalhos rápidos com limite por saída */
+.slot.quick .lim { position: absolute; left: 6px; bottom: 4px; font-size: 10px; font-weight: 800; color: #2a7ad8; }
+.slot.quick.locked .lim { color: #c0392b; }
+.slot.quick { width: 70px; border-bottom-color: #7aff9a; }
+.tag.warn { background: #fff0e0; color: #c0602a; }
