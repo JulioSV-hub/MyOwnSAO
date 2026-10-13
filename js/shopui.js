@@ -3,6 +3,8 @@ import { ITEMS, MONSTERS, FOODS, RUNES, RUNE_TIER_FLOOR, MERCS, CAST_PARTY, weap
 import { icon } from './icons.js';
 import { CAST } from './characters.js';
 import { guildRank } from './guild.js';
+import { COMP_CLASSES } from './classes.js';
+import { compClassSelect } from './talentui.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = (n) => Math.round(n).toLocaleString('pt-BR');
@@ -132,12 +134,12 @@ export function renderParty(ui) {
   const g = ui.g, list = g.state.party || [], max = g.party.maxSize(), rank = guildRank(g.state.guild);
   const rows = g.party.members.map((m, i) => {
     const hp = Math.max(0, m.hp / m.maxHp);
-    return `<div class="row"><div class="withicon"><b>${esc(m.name)}</b> <span class="muted">${m.data.kind === 'cast' ? 'amigo' : esc(MERCS[m.data.cls].role)}</span>
+    return `<div class="row"><div class="withicon"><b>${esc(m.name)}</b> <span class="muted">${m.data.kind === 'cast' ? 'amigo · ' : ''}</span>${compClassSelect(i, m.data.cls)}
       <div class="bar-line"><div class="pbar hp"><i style="width:${(hp * 100).toFixed(0)}%"></i></div><span class="muted">${m.alive ? `${Math.ceil(m.hp)}/${m.maxHp}` : `volta em ${Math.ceil(m.down)}s`}</span></div></div>
       <div class="row-r">${m.data.kind === 'cast' ? `<button class="btn sm" data-act="talkMember" data-i="${i}">Conversar</button>` : ''}<button class="btn sm" data-act="dismiss" data-i="${i}">Dispensar</button></div></div>`;
   }).join('');
   const atTavern = g.npcs.nearest(g.player.pos, 4)?.role === 'tavern';
-  const merc = Object.entries(MERCS).map(([cls, m]) => card(g, { kind: 'merc', id: cls, img: icon('merc', cls), name: m.name, lines: [`<b>${esc(m.role)}</b>`, `Dano ${Math.round(m.dmg * 100)}% · HP ${Math.round(m.hp * 100)}%`], price: g.priceOf('merc', cls), disabled: !atTavern || list.length >= max }));
+  const merc = Object.entries(COMP_CLASSES).map(([cls, m]) => card(g, { kind: 'merc', id: cls, img: icon('merc', cls), name: m.name, lines: [`<b>${esc(m.role)}</b>`, `Dano ${Math.round(m.dmg * 100)}% · HP ${Math.round(m.hp * 100)}%`], price: g.priceOf('merc', cls), disabled: !atTavern || list.length >= max }));
   const friends = Object.keys(CAST_PARTY).map((id) => `<span class="tag ${g.party.has(id) ? 'ok' : ''}">${esc(CAST[id].name)}</span>`).join(' ');
   return `<div class="muted pad">Seu time luta ao seu lado: cada companheiro escolhe um monstro que está brigando com você, e alguns também curam. Se o HP de um companheiro zerar, ele foge com um cristal e volta depois de 45 segundos.</div>
     <div class="section">Seu time (${list.length}/${max})</div>${rows || '<div class="muted pad">Ninguém no time ainda.</div>'}

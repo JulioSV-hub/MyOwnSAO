@@ -62,18 +62,19 @@ export class Player {
 
     let speed = 5.2 * st.speedMul;
     const sprinting = inp.held('ShiftLeft') && f > 0 && this.stamina > 1 && !g.combat.guard && canMove;
-    if (sprinting) { speed *= 1.65; this.stamina -= 14 * dt; this.staminaCD = 0.8; }
+    if (sprinting) { speed *= 1.65; this.stamina -= 14 * (1 - st.dodge) * dt; this.staminaCD = 0.8; }
     if (g.combat.guard) speed *= 0.45;
     if (g.combat.action?.basic) speed *= 0.55;
     const water = w.inWater(this.pos);
     if (water) speed *= 0.65;
 
-    if (inp.pressed('KeyQ') && canMove && this.stamina >= 25 && this.dodge <= 0) {
+    const dodgeCost = 25 * (1 - st.dodge);
+    if (inp.pressed('KeyQ') && canMove && this.stamina >= dodgeCost && this.dodge <= 0) {
       if (wl > 0) this.dodgeDir.set(wx, 0, wz);
       else this.dodgeDir.set(-fx, 0, -fz);
       this.dodge = 0.26;
       this.iframes = 0.32;
-      this.stamina -= 25;
+      this.stamina -= dodgeCost;
       this.staminaCD = 0.8;
       this.roll = r !== 0 ? -r : 0;
       Sfx.dash();

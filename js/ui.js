@@ -11,6 +11,8 @@ import { FURNITURE } from './housing.js';
 import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO } from './shopui.js';
 import { runeDef, FOODS } from './data.js';
 import { guildRank } from './guild.js';
+import { CLASSES, respecCost, classChangeCost } from './classes.js';
+import { renderTalents, spendTalent, respec, classPicker, classCards } from './talentui.js';
 import { getNpcConfig, setNpc, setGlobal, resetNpc, npcHeight, presence, PRESENCE_IDS, DEFAULT_H } from './npcconfig.js';
 import { assignLocal, removeLocal, getLocalMap, setLocalCredit } from './localmodels.js';
 
@@ -27,12 +29,13 @@ const ICONS = {
   skills: '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
   map: '<svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/></svg>',
   quests: '<svg viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6z"/><path d="M9 10h7M9 14h7M9 18h4" stroke="#fff" stroke-width="1.6"/></svg>',
+  talents: '<svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2.6"/><circle cx="5" cy="19.5" r="2.6"/><circle cx="19" cy="19.5" r="2.6"/><circle cx="12" cy="13" r="2.6"/><path d="M12 7v3.5M10.4 15l-3.6 2.8M13.6 15l3.6 2.8" stroke="currentColor" stroke-width="2"/></svg>',
   party: '<svg viewBox="0 0 24 24"><path d="M4 20l7-7M20 20l-7-7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M14.5 3.5L20.5 3.5 20.5 9.5 13 17 7 11z" opacity=".55"/><path d="M9.5 3.5L3.5 3.5 3.5 9.5 11 17 17 11z"/></svg>',
   npcs: '<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.2"/><circle cx="16.5" cy="9" r="2.7"/><path d="M2 20c0-3.6 2.7-6 6-6s6 2.4 6 6z"/><path d="M13.5 20c.2-2.4-.6-4.3-1.9-5.4 1.2-.7 2.6-1 4-.9 3 .2 5.4 2.4 5.4 6.3z"/></svg>',
   system: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="3.4 2.1"/><circle cx="12" cy="12" r="2.6"/></svg>',
 };
-const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['quests', 'Missões'], ['party', 'Time'], ['map', 'Mapa'], ['npcs', 'NPCs'], ['system', 'Sistema']];
-const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja', npcs: 'NPCs da cidade', quests: 'Missões', party: 'Time' };
+const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento'], ['skills', 'Skills'], ['talents', 'Talentos'], ['quests', 'Missões'], ['party', 'Time'], ['map', 'Mapa'], ['npcs', 'NPCs'], ['system', 'Sistema']];
+const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja', npcs: 'NPCs da cidade', quests: 'Missões', party: 'Time', talents: 'Classe e Talentos' };
 const SET_FMT = {
   sens: (v) => (+v).toFixed(2), fov: (v) => `${v}°`, volume: (v) => `${Math.round(v * 100)}%`,
   xpRate: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`,
@@ -563,7 +566,7 @@ export class UI {
 
   renderPanel() {
     if (!this.menuOpen) return;
-    const fn = { status: this.pStatus, items: this.pItems, equip: this.pEquip, skills: this.pSkills, map: this.pMap, system: this.pSystem, shop: () => renderShop(this), npcs: this.pNpcs, quests: this.pQuests, party: () => renderParty(this) }[this.panel];
+    const fn = { status: this.pStatus, items: this.pItems, equip: this.pEquip, skills: this.pSkills, map: this.pMap, system: this.pSystem, shop: () => renderShop(this), npcs: this.pNpcs, quests: this.pQuests, party: () => renderParty(this), talents: () => renderTalents(this) }[this.panel];
     const body = $('mp-body');
     const scroll = body.scrollTop;
     body.innerHTML = fn ? fn.call(this) : '';
@@ -575,7 +578,7 @@ export class UI {
     const g = this.g, p = g.state.player, st = g.stats(), pr = g.state.progress, need = expNeed(p.level);
     const statRow = (k, label, desc) => `<div class="row"><div><b>${label}</b> <span class="muted">${desc}</span></div><div class="row-r"><span class="num">${p[k]}</span>${p.points > 0 ? `<button class="btn sm" data-act="stat" data-k="${k}">+</button>` : ''}</div></div>`;
     return `
-      <div class="hero"><div class="hero-name">${esc(p.name)}</div><div class="hero-lv">Nível ${p.level}</div></div>
+      <div class="hero"><div class="hero-name">${esc(p.name)}</div><div class="hero-lv">Nível ${p.level}${CLASSES[p.cls] ? ` · ${CLASSES[p.cls].icon} ${CLASSES[p.cls].name}` : ''}</div></div>
       <div class="bar-line"><span>EXP</span><div class="pbar"><i style="width:${Math.min(100, (p.exp / need) * 100).toFixed(1)}%"></i></div><span class="muted">${nf(p.exp)} / ${nf(need)}</span></div>
       <div class="grid2">
         <span>HP</span><b>${Math.ceil(p.hp)} / ${st.maxHp}</b>
@@ -945,6 +948,10 @@ export class UI {
         }
         case 'tab': this.shopTab = d.t; break;
         case 'runeOn': g.equipRune(d.id); break;
+        case 'talent': spendTalent(g, d.id); break;
+        case 'respec': if (confirm(`Redistribuir todos os pontos de talento por ${respecCost(p).toLocaleString('pt-BR')} Col?`)) respec(g); break;
+        case 'changeClass': this.closeMenu(false); this.openDialog(classPicker(g, classChangeCost(p))); return;
+        case 'pickClass': this.closeMenu(false); this.openDialog(classPicker(g, 0)); return;
         case 'runeOff': g.unequipRune(+d.i); break;
         case 'dismiss': g.party.dismiss(+d.i); break;
         case 'talkMember': {
@@ -981,6 +988,11 @@ export class UI {
         setGlobal(el.dataset.npcg, +el.value);
         $(`npcg-${el.dataset.npcg}`).textContent = `${Math.round(+el.value * 100)}%`;
         this.g.npcs.applyHeights();
+        return;
+      }
+      if (el.dataset.pcls) {
+        this.g.party.setClass(+el.dataset.pcls, el.value);
+        this.renderPanel();
         return;
       }
       if (el.dataset.npcp) {
@@ -1044,6 +1056,10 @@ export class UI {
           ? `Hardcore: se seu HP chegar a zero, este mundo será apagado para sempre.${has ? ' Isto também substitui o Hardcore atual.' : ''}`
           : 'Atenção: começar um novo jogo substitui o mundo Normal salvo (exporte antes se quiser guardá-lo).';
         $('title-warn').classList.toggle('hidden', !(has || mode === 'hardcore'));
+        this.newCls ||= 'swordsman';
+        const cp = $('class-pick');
+        cp.innerHTML = classCards(this.newCls);
+        cp.onclick = (ev) => { const b = ev.target.closest('[data-cls]'); if (!b) return; Sfx.click(); this.newCls = b.dataset.cls; cp.innerHTML = classCards(this.newCls); };
         $('name-input').focus();
       } else {
         importSave().then((sv) => this.g.beginGame(sv)).catch((err) => alert(`Não foi possível importar: ${err.message}`));
@@ -1052,7 +1068,7 @@ export class UI {
     $('title-new').onsubmit = (e) => {
       e.preventDefault();
       const name = $('name-input').value.trim().slice(0, 16) || 'Kirito';
-      this.g.beginGame(newSave(name, this.newMode || 'normal'));
+      this.g.beginGame(newSave(name, this.newMode || 'normal', this.newCls || 'swordsman'));
     };
     $('title-back').onclick = () => { $('title-new').classList.add('hidden'); c.classList.remove('hidden'); };
   }

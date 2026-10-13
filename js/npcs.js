@@ -8,6 +8,8 @@ import { TOWN_R } from './world.js';
 import { weaponDef, MAX_FLOOR, CAST_PARTY, MERCS } from './data.js';
 import { SHOPS } from './shops.js';
 import { guildRank } from './guild.js';
+import { COMP_CLASSES, CAST_DEFAULT_CLASS, classChangeCost } from './classes.js';
+import { classPicker } from './talentui.js';
 import { Sfx } from './audio.js';
 import { isFish } from './fishing.js';
 
@@ -196,11 +198,14 @@ class NPC {
     const qopts = this.game.quests.dialogOptions(this.def.id, () => this.dialog());
     const g = this.game, id = this.def.id, extra = [];
     if (CAST_PARTY[id] && !g.party.has(id)) {
-      extra.push({ label: '⚔ Chamar para o time', run: () => {
-        if (!g.party.add({ kind: 'cast', id, name: this.name })) return { text: `Seu time já está cheio (máximo ${g.party.maxSize()}). Dispense alguém no menu Time.`, options: [{ label: 'Ok', run: () => null }] };
+      const join = (cls) => () => {
+        if (!g.party.add({ kind: 'cast', id, name: this.name, cls })) return { text: `Seu time já está cheio (máximo ${g.party.maxSize()}). Dispense alguém no menu Time.`, options: [{ label: 'Ok', run: () => null }] };
         setTimeout(() => this.mgr.remove(this), 0);
         return { text: CAST_PARTY[id].line, options: [{ label: 'Vamos!', run: () => null }] };
-      } });
+      };
+      const def = CAST_DEFAULT_CLASS[id];
+      extra.push({ label: '⚔ Chamar para o time', run: () => ({ text: `Como ${this.name} vai lutar no seu time? (dá para trocar depois no menu Time)`,
+        options: [def, ...Object.keys(COMP_CLASSES).filter((k) => k !== def)].slice(0, 6).map((k) => ({ label: `${COMP_CLASSES[k].name}${k === def ? ' (recomendado)' : ''} — ${COMP_CLASSES[k].role}`, run: join(k) })) }) });
     }
     return { ...node, options: [...qopts, ...extra, ...node.options] };
   }
@@ -371,12 +376,15 @@ class NPC {
         const opts = [{ label: 'Meu posto e bônus', run: () => say(`Guilda ${gd.name} · posto ${r.letter} · ${gd.pts} pontos${r.next ? ` (faltam ${r.next.pts - gd.pts} para o posto ${r.next.letter})` : ' — posto máximo!'}. Bônus atuais: +${Math.round(r.exp * 100)}% de EXP e −${Math.round(r.discount * 100)}% nas lojas.${r.i >= 2 ? ' Membros da guilda podem lutar no seu time.' : ' No posto D, membros da guilda podem entrar no seu time.'}${r.i >= 3 ? ' Seu time pode ter 3 companheiros.' : ' No posto C o time aumenta para 3.'}`) }];
         if (r.i >= 2 && !g.state.party.some((m) => m.guild)) {
           opts.push({ label: 'Chamar um membro da guilda para o time (grátis)', run: () => {
-            const cls = ['sword', 'lance', 'cleric', 'tank'][Math.floor(Math.random() * 4)];
-            const names = ['Ren', 'Aiko', 'Taro', 'Mei', 'Haru', 'Yuki'];
-            if (!g.party.add({ kind: 'merc', cls, guild: true, name: `${names[Math.floor(Math.random() * names.length)]} (${MERCS[cls].name} da guilda)`, seed: Math.floor(Math.random() * 1e6) })) return say('Seu time já está cheio.');
-            return null;
+            const pickCls = (cls) => () => {
+              const names = ['Ren', 'Aiko', 'Taro', 'Mei', 'Haru', 'Yuki'];
+              if (!g.party.add({ kind: 'merc', cls, guild: true, name: `${names[Math.floor(Math.random() * names.length)]} da guilda`, seed: Math.floor(Math.random() * 1e6) })) return say('Seu time já está cheio.');
+              return null;
+            };
+            return say('Qual classe você quer no seu time?', Object.entries(COMP_CLASSES).map(([id, c]) => ({ label: `${c.name} — ${c.role}`, run: pickCls(id) })));
           } });
         }
+        opts.push({ label: 'Trocar de classe', run: () => { g.ui.closeDialog(false); g.ui.openDialog(classPicker(g, classChangeCost(p))); return undefined; } });
         opts.push(close);
         return say(`${gd.name}, posto ${r.letter}. Temos contratos novos todo dia — escolha um!`, opts);
       }

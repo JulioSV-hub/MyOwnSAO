@@ -437,16 +437,19 @@ export const GATHER = [
 
 // ───────────────────────────── Companheiros de time ─────────────────────────────
 export const MERCS = {
-  sword: { name: 'Espadachim', role: 'Ataque equilibrado', dmg: 1, hp: 1, reach: 2.4, look: { hair: 'short', hairColor: '#4a3020', top: '#5a6a8a', pants: '#3a3028', accent: '#c8a050', sword: '#c8d0d8' } },
-  lance: { name: 'Lanceira', role: 'Golpes longos e fortes', dmg: 1.2, hp: 0.9, reach: 3.2, look: { female: true, hair: 'ponytail', hairColor: '#a85a2a', top: '#8a3a3a', skirt: '#4a3a3a', accent: '#d8c070', sword: '#d8dce4' } },
-  cleric: { name: 'Clériga', role: 'Cura você durante a luta', dmg: 0.55, hp: 0.85, reach: 2.2, heals: true, look: { female: true, hair: 'long', hairColor: '#e8d8a8', top: '#f0f0f4', skirt: '#f0f0f4', accent: '#4a8ad8', sword: '#f0e8c0' } },
-  tank: { name: 'Guardião', role: 'Muito HP; atrai os monstros', dmg: 0.8, hp: 1.8, reach: 2.3, taunt: true, look: { hair: 'bald', top: '#6a6e78', pants: '#3a3a40', accent: '#b8bcc4', beard: true, big: true, sword: '#b8bcc4' } },
+  swordsman: { name: 'Espadachim', look: { hair: 'short', hairColor: '#4a3020', top: '#5a6a8a', pants: '#3a3028', accent: '#c8a050', sword: '#c8d0d8' } },
+  guardian: { name: 'Guardião', look: { hair: 'bald', top: '#6a6e78', pants: '#3a3a40', accent: '#b8bcc4', beard: true, big: true, sword: '#b8bcc4' } },
+  duelist: { name: 'Duelista', look: { female: true, hair: 'ponytail', hairColor: '#2a2a3a', top: '#2a3a5a', skirt: '#1a2238', accent: '#ffd84a', sword: '#e8eef8' } },
+  berserker: { name: 'Berserker', look: { hair: 'spiky', hairColor: '#a83a2a', top: '#5a2a24', pants: '#2a1a14', accent: '#ff7a3a', stubble: true, sword: '#d8dce4' } },
+  cleric: { name: 'Clérigo', look: { female: true, hair: 'long', hairColor: '#e8d8a8', top: '#f0f0f4', skirt: '#f0f0f4', accent: '#4a8ad8', sword: '#f0e8c0' } },
+  tamer: { name: 'Domador', look: { female: true, hair: 'twintails', hairColor: '#6a4a2a', top: '#5a9a4a', skirt: '#3a5a3a', accent: '#ff9ac8', sword: '#c8d0d8', pet: true } },
 };
+// Bônus de "personagem principal" do anime; a classe (escolhida por você) define o resto
 export const CAST_PARTY = {
-  kirito: { dmg: 1.5, hp: 1.3, reach: 2.6, line: 'Tudo bem. Mas não vá morrer, ouviu?' },
-  asuna: { dmg: 1.35, hp: 1.15, reach: 2.6, fast: true, heals: true, line: 'Claro! Vamos limpar esse andar juntos.' },
-  klein: { dmg: 1.2, hp: 1.25, reach: 2.6, line: 'Agora sim! O Fuurinkazan nunca abandona um amigo!' },
-  silica: { dmg: 0.9, hp: 0.95, reach: 2.2, heals: true, line: 'A Pina e eu vamos te ajudar! Né, Pina? "Kyuu!"' },
+  kirito: { dmg: 1.3, hp: 1.2, line: 'Tudo bem. Mas não vá morrer, ouviu?' },
+  asuna: { dmg: 1.25, hp: 1.1, line: 'Claro! Vamos limpar esse andar juntos.' },
+  klein: { dmg: 1.15, hp: 1.2, line: 'Agora sim! O Fuurinkazan nunca abandona um amigo!' },
+  silica: { dmg: 1, hp: 1, line: 'A Pina e eu vamos te ajudar! Né, Pina? "Kyuu!"' },
 };
 export const mercPrice = (n) => 180 + n * 70;
 

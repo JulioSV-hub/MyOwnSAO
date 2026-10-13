@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { buildCharacter, animateCharacter, CAST, randomTownsfolk } from './characters.js';
 import { buildSword } from './gear3d.js';
 import { MERCS, CAST_PARTY } from './data.js';
+import { COMP_CLASSES, OLD_MERC, CAST_DEFAULT_CLASS } from './classes.js';
 import { mulberry32 } from './rng.js';
 import { guildRank } from './guild.js';
 import { Sfx } from './audio.js';
@@ -17,19 +18,25 @@ class Companion {
     this.game = mgr.game;
     this.data = data;
     this.slot = slot;
-    const spec = data.kind === 'cast' ? CAST_PARTY[data.id] : MERCS[data.cls];
+    // classe do companheiro (escolhida por você); saves antigos são convertidos
+    if (OLD_MERC[data.cls]) data.cls = OLD_MERC[data.cls];
+    if (!COMP_CLASSES[data.cls]) data.cls = data.kind === 'cast' ? CAST_DEFAULT_CLASS[data.id] || 'swordsman' : 'swordsman';
+    const cc = COMP_CLASSES[data.cls], cast = data.kind === 'cast' ? CAST_PARTY[data.id] : null, pst = this.game.stats();
+    const spec = { ...cc, dmg: cc.dmg * (cast?.dmg || 1) * (1 + (pst.partyDmg || 0)), hp: cc.hp * (cast?.hp || 1) * (1 + (pst.partyHp || 0)) };
     this.spec = spec;
     const def = data.kind === 'cast'
-      ? { ...CAST[data.id], id: undefined }
-      : { ...randomTownsfolk(mulberry32(data.seed || 7), false), ...spec.look, name: data.name, kid: false };
-    this.name = data.name || CAST[data.id]?.name || spec.name;
+      ? { ...CAST[data.id], id: undefined, ...(cc.pet ? { pet: true } : {}) }
+      : { ...randomTownsfolk(mulberry32(data.seed || 7), false), ...MERCS[data.cls].look, name: data.name, kid: false };
+    const base = (data.name || CAST[data.id]?.name || cc.name).replace(/ \(.*\)$/, '');
+    this.name = data.kind === 'cast' ? base : `${base} (${cc.name})`;
     this.c = buildCharacter({ ...def, sword: null });
     this.mesh = this.c.group;
     const k = def.kid ? 0.68 : def.big ? 1.12 : 1;
     this.mesh.scale.setScalar((def.female ? 1.64 : 1.74) / (1.78 * k));
     // espada na mão direita
-    const sw = buildSword({ style: data.id === 'asuna' ? 'rapier' : data.id === 'klein' ? 'katana' : data.cls === 'lance' ? 'rapier' : 'long', blade: def.sword || '#c8d0d8', guard: def.accent || '#7a7a82', grip: '#3a2a20' }).group;
-    if (data.cls === 'lance') sw.scale.set(1, 1.7, 1);
+    const style = data.id === 'asuna' || data.cls === 'duelist' ? 'rapier' : data.id === 'klein' ? 'katana' : data.cls === 'berserker' ? 'broad' : data.cls === 'cleric' ? 'holy' : 'long';
+    const sw = buildSword({ style, blade: def.sword || '#c8d0d8', guard: def.accent || '#7a7a82', grip: '#3a2a20' }).group;
+    if (data.cls === 'berserker') sw.scale.set(1.2, 1.25, 1.2);
     sw.scale.multiplyScalar(0.85);
     sw.position.set(0, -0.54, -0.02);
     sw.rotation.x = -Math.PI / 2 + 0.3;
@@ -106,6 +113,7 @@ class Companion {
       g.effects.ring(pl.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#7aff9a', 1.3, 0.8, 1.6);
       g.ui.damageNumber(pl.pos.clone().add(new THREE.Vector3(0, 1.8, 0)), `+${heal}`, 'heal');
       g.ui.toast(`${this.name}: "${data(this).healLine}"`);
+      for (const o of this.mgr.members) if (o.alive) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.15);
     }
     // alvo: monstro brigando com você ou com o time, perto do jogador
     if (!this.target || this.target.dead || this.target.dist > 26) {
@@ -162,10 +170,10 @@ class Companion {
 
   attack(nx, nz) {
     const g = this.game, e = this.target, lv = g.state.player.level;
-    this.cool = this.spec.fast ? 0.75 : this.data.cls === 'lance' ? 1.35 : 1.05;
+    this.cool = this.spec.fast ? 0.75 : this.data.cls === 'berserker' ? 1.25 : 1.05;
     this.swing = 1;
     const base = (9 + lv * 5.5) * this.spec.dmg;
-    const crit = Math.random() < 0.12;
+    const crit = Math.random() < (this.spec.crit || 0.12);
     const dmg = Math.max(1, Math.round((base * (crit ? 1.7 : 1) * (0.9 + Math.random() * 0.2) * 60) / (60 + e.defense)));
     const at = e.pos.clone().add(new THREE.Vector3(0, e.flyH ? 0 : e.height * 0.5, 0));
     e.takeDamage(dmg, new THREE.Vector3(nx, 0, nz), 0.5);
@@ -173,6 +181,13 @@ class Companion {
     if (!e.dead && !e.boss && (this.spec.taunt || Math.random() < 0.45)) e.tgtC = this;
     g.effects.sparks(at, crit ? '#ffe08a' : '#cfe8ff', 8);
     g.ui.damageNumber(at, dmg, crit ? 'allycrit' : 'ally');
+    // Domador: o bichinho ataca junto
+    if (this.spec.pet && !e.dead) {
+      const pd = Math.max(1, Math.round(dmg * 0.45));
+      e.takeDamage(pd, null, 0.2);
+      g.ui.damageNumber(at.clone().add(new THREE.Vector3(0.3, 0.4, 0)), pd, 'pet');
+      g.effects.sparks(at, '#ff9ac8', 5);
+    }
     Sfx.hit(false);
   }
 
@@ -188,7 +203,7 @@ const LINES = {
   kirito: { healLine: '' }, asuna: { healLine: 'Segura firme, eu cuido de você!' }, klein: { healLine: '' },
   silica: { healLine: 'Pina, bolhas de cura!' },
 };
-const data = (c) => (c.data.kind === 'cast' ? LINES[c.data.id] : { healLine: 'Que a luz te proteja!' });
+const data = (c) => ({ healLine: (c.data.kind === 'cast' && LINES[c.data.id]?.healLine) || 'Que a luz te proteja!' });
 
 export class Party {
   constructor(game) {
@@ -230,6 +245,16 @@ export class Party {
     g.ui.toast(`${d.name || CAST[d.id]?.name || 'Companheiro'} saiu do time.`);
     if (d.kind === 'cast') g.npcs.populate();
     g.save();
+  }
+
+  setClass(i, cls) {
+    const d = this.list[i];
+    if (!d || !COMP_CLASSES[cls]) return;
+    d.cls = cls;
+    d.hp = null;
+    this.spawn();
+    this.game.ui.toast(`${this.members[i].name} agora é ${COMP_CLASSES[cls].name}.`, 'skill');
+    this.game.save();
   }
 
   update(dt) {

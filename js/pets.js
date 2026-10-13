@@ -51,7 +51,7 @@ export class Pets {
     if (!(p.items.tame_treat > 0)) { Sfx.error(); g.ui.toast('Você precisa de um Petisco de Domador (Agil vende).', 'warn'); return; }
     p.items.tame_treat--;
     e.tameTries = (e.tameTries || 0) + 1;
-    const chance = 0.45 + e.tameTries * 0.2;
+    const chance = 0.45 + e.tameTries * 0.2 + g.stats().tame;
     g.effects.sparks(e.pos.clone().add(new THREE.Vector3(0, 1, 0)), '#ff9ac8', 14, 0.6);
     if (Math.random() > chance) { g.ui.toast(`${e.def.name} cheirou o petisco... mas ainda desconfia. Tente de novo!`); Sfx.click(); return; }
     const monId = e.def.baseId || e.monId || Object.keys(MONSTERS).find((k) => MONSTERS[k] === e.def);
@@ -101,7 +101,7 @@ export class Pets {
     const st = g.stats();
     if (pet.healCool <= 0 && !pl.dead && g.state.player.hp < st.maxHp * 0.45) {
       pet.healCool = Math.max(14, 30 - d.level);
-      const heal = Math.round(st.maxHp * (0.12 + d.level * 0.01));
+      const heal = Math.round(st.maxHp * (0.12 + d.level * 0.01) * (1 + st.petHeal));
       g.state.player.hp = Math.min(st.maxHp, g.state.player.hp + heal);
       g.effects.ring(pl.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#7aff9a', 1.2, 0.8, 1.5);
       g.ui.damageNumber(pl.pos.clone().add(new THREE.Vector3(0, 1.8, 0)), `+${heal}`, 'heal');
@@ -134,7 +134,7 @@ export class Pets {
       pet.cool = 1.3;
       pet.state = 'recover';
       pet.t = 0;
-      const dmg = Math.max(1, Math.round((st.atkR * 0.3 + d.level * 3) * (0.9 + Math.random() * 0.2) * 60 / (60 + pet.target.defense)));
+      const dmg = Math.max(1, Math.round((st.atkR * 0.3 + d.level * 3) * (1 + st.petDmg) * (0.9 + Math.random() * 0.2) * 60 / (60 + pet.target.defense)));
       const at = pet.target.pos.clone().add(new THREE.Vector3(0, pet.target.height * 0.5, 0));
       pet.target.takeDamage(dmg, new THREE.Vector3(dx / dd, 0, dz / dd), 0.5);
       g.effects.sparks(at, '#ff9ac8', 8);

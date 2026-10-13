@@ -29,6 +29,8 @@ import { Music } from './music.js';
 import { smoothstep } from './rng.js';
 import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward, runeDef, FOODS, MERCS, mercPrice, runeSlotsFor } from './data.js';
 import { guildRank, guildDiscount } from './guild.js';
+import { classBonus, CLASSES } from './classes.js';
+import { classPicker } from './talentui.js';
 import { adoptPrice, ADOPT_NAMES } from './shopui.js';
 import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord } from './save.js';
 
@@ -148,7 +150,7 @@ class Game {
     if (new URLSearchParams(location.search).has('test')) {
       this.input.forceLocked = true;
       this.ui.hideTitle();
-      this.startState(newSave('Tester'));
+      this.startState(newSave('Tester', 'normal', 'swordsman'));
     } else {
       this.ui.showTitle();
     }
@@ -428,6 +430,8 @@ class Game {
     this.loadFloor(state.progress.floor);
     this.clampHp();
     this.autosaveT = 30;
+    // saves antigos (ou importados) sem classe: pede para escolher
+    if (!p.cls) setTimeout(() => { if (this.mode === 'play' && !this.ui.dialogOpen) this.ui.openDialog(classPicker(this, 0, 'Aincrad agora tem classes! Escolha a sua — ela dá um bônus e libera um ramo na árvore de talentos (Menu → Talentos). Você ganha 1 ponto de talento por nível, então já começa com vários para gastar.')); }, 2500);
     if (state.playTime < 1) {
       setTimeout(() => this.ui.toast('Bem-vindo a Aincrad! Saia da cidade e enfrente os monstros dos campos.'), 3800);
       setTimeout(() => this.ui.toast('Clique = atacar · 1 = Sword Skill "Slant" · Esc = menu'), 5200);
@@ -504,24 +508,32 @@ class Game {
     if (f) for (const [k, v] of Object.entries(f.buff)) b[k === 'def' ? 'defMul' : k] += v;
     const rank = guildRank(this.state.guild);
     if (rank) b.exp += rank.i * 0.03;
+    // classe e árvore de talentos
+    for (const [k, v] of Object.entries(classBonus(p))) b[k] = (b[k] || 0) + v;
     return b;
   }
 
   stats() {
     const p = this.state.player, w = weaponDef(p.weapon), a = armorDef(p.armor), b = this.bonus();
     const o = p.dualBlades && p.offhand ? weaponDef(p.offhand) : null;
-    const up = (id) => (1 + UPGRADE_STEP * this.upgradeLevel(id)) * (1 + 0.03 * p.str) * (1 + b.atk);
+    // Berserker (Fúria): mais ataque quanto menor o HP
+    const low = b.lowHp && p.hp != null ? b.lowHp * Math.max(0, 1 - p.hp / Math.max(1, this._lastMax || p.hp)) : 0;
+    const up = (id) => (1 + UPGRADE_STEP * this.upgradeLevel(id)) * (1 + 0.03 * p.str) * (1 + b.atk + low);
     const flat = p.str + p.level * 1.5;
+    const maxHp = Math.round(((180 + 25 * (p.level - 1) + a.hp) * (1 + 0.02 * p.vit) + p.vit * 10) * (1 + b.hp));
+    this._lastMax = maxHp;
     return {
-      maxHp: Math.round(((180 + 25 * (p.level - 1) + a.hp) * (1 + 0.02 * p.vit) + p.vit * 10) * (1 + b.hp)),
+      maxHp,
       atkR: w.atk * up(p.weapon) + flat,
       atkL: (o ? o.atk * up(p.offhand) : w.atk * up(p.weapon)) + flat,
       dual: !!o,
       def: (a.def + p.vit * 0.8 + p.level * 0.5 + b.def) * (1 + b.defMul),
-      cdMul: 1 - Math.min(0.35, p.agi * 0.01),
+      cdMul: Math.max(0.4, (1 - Math.min(0.35, p.agi * 0.01)) * (1 - (b.cd || 0))),
       crit: Math.max(0, Math.min(0.7, 0.05 + p.agi * 0.008 + (w.crit || 0) + b.crit)),
       speedMul: Math.max(0.7, 1 + Math.min(0.5, p.agi * 0.006) + (a.spd || 0) + b.spd),
       leech: b.leech, colMul: 1 + b.col, expMul: 1 + b.exp, regen: 1 + b.regen,
+      critDmg: b.critDmg || 0, skillDmg: b.skillDmg || 0, guard: b.guard || 0, parry: b.parry || 0, dodge: Math.min(0.6, b.dodge || 0),
+      potion: b.potion || 0, petDmg: b.petDmg || 0, petHeal: b.petHeal || 0, tame: b.tame || 0, partyDmg: b.partyDmg || 0, partyHp: b.partyHp || 0, aura: b.aura || 0,
     };
   }
 
@@ -546,9 +558,9 @@ class Game {
       if (d > e.radius + 0.6 && (dx * fx + dz * fz) / d < h.arc) continue;
       const center = e.pos.y + (e.flyH ? 0 : e.height * 0.5);
       if (Math.abs(center - (pl.pos.y + 1.2)) > e.height * 0.5 + 2.2) continue;
-      let dmg = atk * h.mul * (0.9 + Math.random() * 0.2);
+      let dmg = atk * h.mul * (0.9 + Math.random() * 0.2) * (a.skill ? 1 + st.skillDmg : 1);
       const crit = Math.random() < st.crit;
-      if (crit) { dmg *= 1.8; anyCrit = true; }
+      if (crit) { dmg *= 1.8 + st.critDmg; anyCrit = true; }
       dmg = Math.max(1, Math.round((dmg * 60) / (60 + e.defense)));
       const kd = new THREE.Vector3(dx / d, 0, dz / d);
       const at = new THREE.Vector3(e.pos.x - kd.x * e.radius * 0.8, center + (Math.random() - 0.5) * 0.4, e.pos.z - kd.z * e.radius * 0.8);
@@ -577,7 +589,7 @@ class Game {
       const dx = src.pos.x - pl.pos.x, dz = src.pos.z - pl.pos.z, d = Math.hypot(dx, dz) || 1;
       const f = pl.forward(v3b);
       if ((dx * f.x + dz * f.z) / d > 0.2) {
-        if (this.combat.guardT < 0.28) {
+        if (this.combat.guardT < 0.28 + st.parry) {
           src.stunFor?.(1.6);
           this.quests.onParry();
           Sfx.parry();
@@ -588,7 +600,7 @@ class Game {
           this.shake(0.15);
           return;
         }
-        dmg *= 0.3;
+        dmg *= Math.max(0.05, 0.3 - st.guard);
         pl.stamina = Math.max(0, pl.stamina - 15);
         Sfx.guard();
         this.effects.sparks(front, '#ffd080', 8);
@@ -797,11 +809,11 @@ class Game {
       return true;
     }
     if (d.tool) { this.ui.toast(id === 'fishing_rod' ? 'Perto da água, aperte F para pescar.' : 'Use perto de um monstro dócil (♥) com a tecla E.'); return false; }
-    const max = this.stats().maxHp;
+    const st = this.stats(), max = st.maxHp, heal = d.heal * (1 + st.potion);
     if (p.hp >= max) { this.ui.toast('Seu HP já está cheio.'); return false; }
     p.items[id]--;
-    if (d.over) this.player.hot = { rate: (max * d.heal) / d.over, left: max * d.heal };
-    else p.hp = Math.min(max, p.hp + max * d.heal);
+    if (d.over) this.player.hot = { rate: (max * heal) / d.over, left: max * heal };
+    else p.hp = Math.min(max, p.hp + max * heal);
     this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#7aff9a', 1.2, 0.8, 1.5);
     Sfx.menuOpen();
     return true;
@@ -833,6 +845,21 @@ class Game {
         return { text: opts.length ? 'Pedidos fixados no quadro pelos moradores deste andar. Recompensas pagas na hora!' : 'Nenhum pedido novo neste andar. Volte no próximo!', options: [...opts, { label: 'Fechar', run: () => null }] };
       },
     };
+  }
+
+  // Clérigo: a cada 12s em combate (ou ferido), cura você e o time
+  updateAura(dt) {
+    const st = this.stats();
+    if (!st.aura || this.player.dead) return;
+    this.auraT = (this.auraT ?? 12) - dt;
+    if (this.auraT > 0) return;
+    this.auraT = 12;
+    const p = this.state.player, hurt = p.hp < st.maxHp || this.party.members.some((m) => m.alive && m.hp < m.maxHp);
+    if (!hurt) return;
+    p.hp = Math.min(st.maxHp, p.hp + st.maxHp * st.aura);
+    for (const m of this.party.members) if (m.alive) m.hp = Math.min(m.maxHp, m.hp + m.maxHp * st.aura);
+    this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), '#7aff9a', 3.5, 0.9, 2);
+    this.ui.damageNumber(this.player.pos.clone().add(new THREE.Vector3(0, 1.8, 0)), `+${Math.round(st.maxHp * st.aura)}`, 'heal');
   }
 
   newDay() {
@@ -896,8 +923,9 @@ class Game {
       this.ui.banner('Novo mascote!', `${this.state.pet.name} agora é seu companheiro. Dê um nome em Menu → Status.`, 3.5);
     } else if (kind === 'merc') {
       const m = MERCS[id], r = Math.random;
-      const names = { sword: ['Daren', 'Thoren', 'Kael', 'Rowan'], lance: ['Mirela', 'Sayu', 'Lyra', 'Vanya'], cleric: ['Eliane', 'Noa', 'Seren', 'Iris'], tank: ['Borin', 'Gustav', 'Hallvard', 'Tor'] }[id];
-      if (!this.party.add({ kind: 'merc', cls: id, name: `${names[Math.floor(r() * names.length)]} (${m.name})`, seed: Math.floor(r() * 1e6) })) return false;
+      const names = { swordsman: ['Daren', 'Thoren', 'Kael', 'Rowan'], guardian: ['Borin', 'Gustav', 'Hallvard', 'Tor'], duelist: ['Sayu', 'Lyra', 'Vanya', 'Rin'],
+        berserker: ['Ragn', 'Brakk', 'Ulf', 'Garo'], cleric: ['Eliane', 'Noa', 'Seren', 'Iris'], tamer: ['Mimi', 'Kiri', 'Lulu', 'Pip'] }[id] || ['Aki'];
+      if (!this.party.add({ kind: 'merc', cls: id, name: names[Math.floor(r() * names.length)], seed: Math.floor(r() * 1e6) })) return false;
       name = m.name;
     } else {
       if (kind === 'item') p.items[id] = (p.items[id] || 0) + q;
@@ -1116,6 +1144,7 @@ class Game {
         this.fishing.update(dt);
         this.housing.update(dt);
         this.party.update(dt);
+        this.updateAura(dt);
         this.loot.update(dt);
         this.updateInteract();
         // guardar a espada sozinho ao entrar na cidade (opção em Sistema)

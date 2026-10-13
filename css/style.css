@@ -438,3 +438,28 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 #party-hud .ph.down { opacity: 0.55; }
 #party-hud .ph em { font-style: normal; color: #ff9a8a; }
 #party-hud .ph.pet b { color: #ffc0dc; }
+
+/* ─────────── Classes e talentos ─────────── */
+.classpick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 10px; }
+.ccard { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; border-radius: 6px; border: 2px solid #d8dbe0; background: #fff; color: #3a3c42; font: inherit; cursor: pointer; }
+.ccard .cc-icon { font-size: 20px; color: var(--cc); }
+.ccard b { font-size: 13px; }
+.ccard small { font-size: 10px; color: #6a6d75; line-height: 1.2; text-align: center; }
+.ccard.on { border-color: var(--cc); background: color-mix(in srgb, var(--cc) 18%, #fff); }
+.classhead { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #fff; border-radius: 6px; border-left: 4px solid var(--cc); margin: 6px 0; }
+.ch-icon { font-size: 28px; color: var(--cc); }
+.ch-pts { margin-left: auto; text-align: center; }
+.ch-pts span { display: block; font-size: 11px; color: var(--ui-muted); }
+.ch-pts b { font-size: 26px; color: var(--accent); }
+.ttree { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tbranch { background: #fff; border-radius: 6px; padding: 8px; border-top: 3px solid var(--bc); }
+.tb-head { font-weight: 800; font-size: 13px; margin-bottom: 6px; color: var(--bc); }
+.tb-head span { float: right; color: var(--ui-muted); font-weight: 600; }
+.tnode { border: 1px solid var(--ui-line); border-radius: 5px; padding: 6px; font-size: 11px; background: #fafbfc; }
+.tnode.on { border-color: var(--bc); background: color-mix(in srgb, var(--bc) 10%, #fff); }
+.tnode.max { box-shadow: 0 0 0 1px var(--bc) inset; }
+.tnode.locked { opacity: 0.5; }
+.tn-head { display: flex; justify-content: space-between; font-size: 12px; }
+.tn-desc { margin: 2px 0 4px; line-height: 1.25; }
+.tn-lock { color: var(--ui-muted); font-size: 10px; }
+.tlink { height: 8px; width: 2px; margin: 0 auto; background: var(--bc); opacity: 0.5; }

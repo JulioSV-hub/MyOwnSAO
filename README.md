@@ -54,6 +54,7 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 - **Casa própria:** compre pela placa na cidade e decore com 12 móveis (G). Para vender, fale com a placa (devolve 60% do preço + metade dos móveis); qualquer placa vende a casa que você tem, para comprar em outro andar.
 - **Town of Beginnings** no estilo do anime: Black Iron Palace, Monumento da Vida e torre do relógio.
 - **Rua do Comércio** (junto à muralha): Armaduras do Grimm (leves, médias e pesadas), Oficina de Runas da Mira, Toca dos Mascotes (filhotes e petiscos), Taverna do Javali Dourado (comidas com bônus, boatos de baús, contratar companheiros) e Guilda dos Aventureiros (postos F → S, contratos diários, bônus). A Lisbeth também vende armas forjadas.
+- **Classes e talentos:** Espadachim, Guardião, Duelista, Berserker, Clérigo ou Domador, escolhidos ao criar o mundo (troca na Guilda). 1 ponto de talento por nível numa árvore com 3 ramos comuns (Ofensiva, Defensiva, Utilidade) e 1 ramo da classe (*Menu → Talentos*). Companheiros de time também têm classe, escolhida ao chamar e trocável no menu Time.
 - **Runas:** até 3 encaixes (níveis 1, 10 e 20) com bônus de ataque, defesa, HP, velocidade, crítico, roubo de vida, Col ou EXP. Equipe em *Menu → Equipamento*.
 - **Time:** chame Kirito, Asuna, Klein ou Silica, contrate companheiros na Taverna ou chame membros da Guilda. Eles lutam, curam e podem ser atacados (*Menu → Time*). Companheiros usam sempre os bonecos do jogo, nunca os modelos `.vrm`.
 - **Pedidos do dia:** o Quadro de Missões e a Guilda sorteiam 3 pedidos novos a cada dia do jogo (caçadas, coleta, pesca, baús, patrulha, caçada noturna, procurados...). As missões dos personagens também mudam de andar para andar.
@@ -95,6 +96,8 @@ js/shopui.js      Janelas das lojas e do Time
 js/party.js       Companheiros de time
 js/loot.js        Baús e itens de coleta
 js/guild.js       Postos da Guilda
+js/classes.js     Classes, árvore de talentos e classes do time
+js/talentui.js    Telas de classe e talentos
 js/save.js        Salvar / exportar / importar
 js/audio.js       Efeitos sonoros sintetizados
 ```
