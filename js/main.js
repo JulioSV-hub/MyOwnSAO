@@ -396,7 +396,8 @@ class Game {
       this.player.updateCamera(0);
       L.set(0.5);
       await frames(1);
-      await this.renderer.compileAsync(this.scene, this.camera).catch(() => {});
+      // em alguns navegadores (Firefox, Safari) essa promessa nunca termina: espera no máximo 2s
+      await Promise.race([this.renderer.compileAsync(this.scene, this.camera).catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
       L.set(0.75);
       for (let i = 0; i < 14; i++) { await frames(1); L.set(0.75 + i * 0.018); }
     } finally {
