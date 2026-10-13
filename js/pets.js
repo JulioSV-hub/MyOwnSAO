@@ -115,18 +115,20 @@ export class Pets {
     if (pet.target && !g.indoor) {
       tx = pet.target.pos.x; tz = pet.target.pos.z; speed = 7; stop = pet.target.radius + 0.8;
     } else {
-      // o mascote anda um pouco à frente, à direita, onde dá para ver
-      const f = pl.forward();
-      tx = pl.pos.x + f.x * 3 - f.z * 1.5; tz = pl.pos.z + f.z * 3 + f.x * 1.5;
-      speed = Math.max(6.5, Math.hypot(pl.vel.x, pl.vel.z) * 1.3 + 1); stop = 0.3;
+      // o mascote anda ao seu lado direito; parado, só vem se ficar longe
+      const f = pl.forward(), ps = Math.hypot(pl.vel.x, pl.vel.z);
+      tx = pl.pos.x + f.x * 0.6 - f.z * 1.7; tz = pl.pos.z + f.z * 0.6 + f.x * 1.7;
+      speed = ps > 0.5 ? Math.min(11, ps * 1.2 + 1) : 3; stop = ps > 0.5 ? 0.5 : 2.2;
     }
     const dx = tx - pet.pos.x, dz = tz - pet.pos.z, dd = Math.hypot(dx, dz);
     if (dd > 30 || g.indoor) { pet.pos.set(tx, 0, tz); }
     else if (dd > stop) {
-      const sp = Math.min(speed * (dd > 6 ? 1.6 : 1), dd * 3);
-      pet.pos.x += (dx / dd) * sp * dt;
-      pet.pos.z += (dz / dd) * sp * dt;
-      pet.moving = sp;
+      // acelera e freia aos poucos
+      const want = Math.min(speed * (dd > 6 ? 1.5 : 1), (dd - stop) * 2.5 + 0.8);
+      pet.spd = (pet.spd || 0) + (want - (pet.spd || 0)) * Math.min(1, dt * 5);
+      pet.pos.x += (dx / dd) * pet.spd * dt;
+      pet.pos.z += (dz / dd) * pet.spd * dt;
+      pet.moving = pet.spd;
       pet.yaw += Math.atan2(Math.sin(Math.atan2(-dx, -dz) - pet.yaw), Math.cos(Math.atan2(-dx, -dz) - pet.yaw)) * Math.min(1, dt * 8);
       if (!g.indoor) w.resolve(pet.pos, pet.radius);
     } else if (pet.target && pet.cool <= 0) {

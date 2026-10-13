@@ -39,7 +39,7 @@ const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento
 const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja', npcs: 'NPCs da cidade', quests: 'Missões', party: 'Time', talents: 'Classe e Talentos' };
 const SET_FMT = {
   sens: (v) => (+v).toFixed(2), fov: (v) => `${v}°`, volume: (v) => `${Math.round(v * 100)}%`,
-  xpRate: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`,
+  xpRate: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`, dayLen: (v) => `${v} min`, nightLen: (v) => `${v} min`,
 };
 
 export class UI {
@@ -796,7 +796,8 @@ export class UI {
       ${range('volume', 'Volume dos efeitos', 0, 1, 0.05)}
       ${range('music', 'Volume da música', 0, 1, 0.05)}
       ${range('xpRate', 'Taxa de EXP (seu mundo, suas regras)', 1, 10, 1)}
-      ${range('dayMinutes', 'Duração do dia', 2, 60, 1)}
+      ${range('dayLen', 'Duração do dia (sol)', 1, 60, 1)}
+      ${range('nightLen', 'Duração da noite', 1, 60, 1)}
       ${check('invertY', 'Inverter eixo Y')}${check('bloom', 'Brilho (bloom)')}${check('shadows', 'Sombras')}${check('grass', 'Grama (desligue se o PC estiver lento)')}${check('autoSheath', 'Guardar a espada automaticamente na cidade')}
       <div class="section">Mundo</div>
       ${this.g.state.mode === 'hardcore'

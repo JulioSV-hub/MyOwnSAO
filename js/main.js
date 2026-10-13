@@ -276,7 +276,10 @@ class Game {
   updateSky(dt, advance) {
     const s = this.state?.settings || DEFAULT_SETTINGS;
     if (advance) {
-      const next = this.tod + dt / (s.dayMinutes * 60);
+      // dia (sol acima do horizonte) e noite têm durações próprias, escolhidas em Sistema
+      const isDay = this.tod > 0.23 && this.tod < 0.77;
+      const half = (isDay ? s.dayLen ?? 12 : s.nightLen ?? 5) * 60;
+      const next = this.tod + (dt * 0.5) / half;
       this.tod = next % 1;
       if (next >= 1 && this.state && this.mode === 'play') this.newDay();
     }

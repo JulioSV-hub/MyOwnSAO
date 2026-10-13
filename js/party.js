@@ -127,34 +127,73 @@ class Companion {
       }
       this.target = best;
     }
-    let tx, tz, stop, speed;
+    // ─── movimento natural: alvo de posição + direção suave (acelera, freia, desvia) ───
+    this.vel ||= new THREE.Vector3();
+    this.retreat = Math.max(0, (this.retreat || 0) - dt);
+    const plSpeed = Math.hypot(pl.vel.x, pl.vel.z), f = pl.forward(), rx = -f.z, rz = f.x;
+    let goal = null, maxSp = 3.2, faceYaw = null, inRange = false, slow = 1.6;
     if (this.target) {
-      tx = this.target.pos.x; tz = this.target.pos.z; stop = this.target.radius + this.spec.reach * 0.7; speed = 6.4;
+      const e = this.target;
+      // cada um ataca de um lado do monstro, para não se amontoarem
+      const base = Math.atan2(pl.pos.z - e.pos.z, pl.pos.x - e.pos.x);
+      const ang = base + ([-1.1, 1.1, 2.6][this.slot] ?? 0) + Math.sin(t * 0.5 + this.slot * 2) * 0.2;
+      const r = e.radius + this.spec.reach * 0.7 + (this.retreat > 0 ? 1.3 : 0);
+      goal = { x: e.pos.x + Math.cos(ang) * r, z: e.pos.z + Math.sin(ang) * r };
+      maxSp = 6.4; slow = 1;
+      const de = Math.hypot(e.pos.x - this.pos.x, e.pos.z - this.pos.z);
+      inRange = de <= e.radius + this.spec.reach + 0.35;
+      if (de < 6) faceYaw = Math.atan2(-(e.pos.x - this.pos.x), -(e.pos.z - this.pos.z));
     } else {
-      // formação à frente e dos lados, dentro do campo de visão (antes ficavam atrás e ninguém via)
-      const f = pl.forward(), side = this.slot === 0 ? -1 : this.slot === 1 ? 1 : 0;
-      const ahead = side ? 3.2 : 5.5, wide = side ? 2.1 : -0.6;
-      tx = pl.pos.x + f.x * ahead - f.z * side * wide;
-      tz = pl.pos.z + f.z * ahead + f.x * side * wide;
-      stop = 0.35; speed = Math.max(5.6, Math.hypot(pl.vel.x, pl.vel.z) * 1.25 + 1);
+      // formação com folga, para não ficar se ajeitando a cada passo
+      // nos cantos da tela: um pouco à frente e bem para o lado (nunca no meio da mira)
+      const side = [-1, 1, 1][this.slot] ?? 1, back = this.slot === 2 ? -1.6 : -3.2, wide = this.slot === 2 ? 4.6 : 2.8;
+      const sx = pl.pos.x - f.x * back + rx * side * wide, sz = pl.pos.z - f.z * back + rz * side * wide;
+      const dSlot = Math.hypot(sx - this.pos.x, sz - this.pos.z);
+      if (plSpeed > 0.5 || (this.following ? dSlot > 0.5 : dSlot > 3.2)) {
+        this.following = true;
+        goal = { x: sx, z: sz };
+        maxSp = plSpeed > 0.5 ? Math.min(12, plSpeed * 1.35 + 1.5) : dSlot > 6 ? 6 : 2.6;
+        slow = plSpeed > 0.5 ? 0.9 : 1.6;
+      } else this.following = false;
     }
-    const dx = tx - this.pos.x, dz = tz - this.pos.z, dd = Math.hypot(dx, dz);
-    let moving = 0;
-    if (dd > 34) { this.pos.set(tx, 0, tz); }
-    else if (dd > stop) {
-      const sp = Math.min(speed * (dd > 7 ? 1.5 : 1), dd * 4);
-      this.pos.x += (dx / dd) * sp * dt;
-      this.pos.z += (dz / dd) * sp * dt;
-      moving = sp;
-      this.yaw += angleTo(this.yaw, Math.atan2(-dx, -dz)) * Math.min(1, dt * 8);
-    } else if (this.target) {
-      this.yaw += angleTo(this.yaw, Math.atan2(-dx, -dz)) * Math.min(1, dt * 10);
-      if (this.cool <= 0) this.attack(dx / (dd || 1), dz / (dd || 1));
-    } else {
-      // parado: vira um pouco para você (dá para ver o rosto); andando: olha para a frente
-      const still = Math.hypot(pl.vel.x, pl.vel.z) < 0.5;
-      const face = still ? Math.atan2(-(pl.pos.x - this.pos.x), -(pl.pos.z - this.pos.z)) : pl.yaw;
-      this.yaw += angleTo(this.yaw, face) * Math.min(1, dt * 3);
+    const want = new THREE.Vector3();
+    if (goal) {
+      const gx = goal.x - this.pos.x, gz = goal.z - this.pos.z, gd = Math.hypot(gx, gz);
+      if (!this.target && plSpeed > 0.5) {
+        // andando junto: acompanha a sua velocidade e só corrige a distância até a posição dele
+        want.set(pl.vel.x, 0, pl.vel.z);
+        if (gd > 0.05) want.add(new THREE.Vector3(gx / gd, 0, gz / gd).multiplyScalar(Math.min(maxSp, gd * 2.5)));
+      } else if (gd > 0.05) want.set(gx / gd, 0, gz / gd).multiplyScalar(maxSp * Math.min(1, gd / slow));
+    }
+    // separação: não esbarra em você nem nos outros
+    const push = (ox, oz, rad, k) => { const ddx = this.pos.x - ox, ddz = this.pos.z - oz, d = Math.hypot(ddx, ddz); if (d < rad && d > 1e-3) { want.x += (ddx / d) * (rad - d) * k; want.z += (ddz / d) * (rad - d) * k; } };
+    push(pl.pos.x, pl.pos.z, 1.6, 4);
+    for (const o of this.mgr.members) if (o !== this && o.alive) push(o.pos.x, o.pos.z, 1.3, 3);
+    // sai da frente da sua mira
+    if (!this.target) {
+      const vx = this.pos.x - pl.pos.x, vz = this.pos.z - pl.pos.z, vd = Math.hypot(vx, vz);
+      const ahead = (vx * f.x + vz * f.z) / (vd || 1), lateral = vx * rx + vz * rz;
+      if (vd < 8 && ahead > 0.93) { const s2 = lateral >= 0 ? 1 : -1; want.x += rx * s2 * 3; want.z += rz * s2 * 3; }
+    }
+    this.vel.lerp(want, Math.min(1, dt * (goal ? 5 : 7)));
+    if (this.vel.lengthSq() < 0.0004) this.vel.set(0, 0, 0);
+    const pdx = pl.pos.x - this.pos.x, pdz = pl.pos.z - this.pos.z, pd = Math.hypot(pdx, pdz);
+    if (pd > 40) {
+      // ficou muito para trás: reaparece atrás de você, fora da vista
+      this.pos.set(pl.pos.x - f.x * 4 + rx * (this.slot - 1) * 2, 0, pl.pos.z - f.z * 4 + rz * (this.slot - 1) * 2);
+      this.vel.set(0, 0, 0);
+    } else this.pos.addScaledVector(this.vel, dt);
+    const moving = this.vel.length();
+    // virar o corpo: para o monstro, para onde anda ou, parado, olhar em volta de vez em quando
+    this.lookT = (this.lookT ?? 3 + Math.random() * 4) - dt;
+    if (this.lookT <= 0) { this.lookT = 3 + Math.random() * 5; this.idleYaw = pl.yaw + (Math.random() - 0.5) * 2.2; }
+    const yawGoal = faceYaw ?? (moving > 0.5 ? Math.atan2(-this.vel.x, -this.vel.z) : this.idleYaw ?? pl.yaw);
+    const turn = angleTo(this.yaw, yawGoal), maxTurn = (this.target ? 7 : 4.5) * dt;
+    this.yaw += Math.max(-maxTurn, Math.min(maxTurn, turn));
+    if (this.target && inRange && this.cool <= 0 && Math.abs(angleTo(this.yaw, Math.atan2(-(this.target.pos.x - this.pos.x), -(this.target.pos.z - this.pos.z)))) < 0.6) {
+      const ex = this.target.pos.x - this.pos.x, ez = this.target.pos.z - this.pos.z, ed = Math.hypot(ex, ez) || 1;
+      this.attack(ex / ed, ez / ed);
+      this.retreat = 0.45;
     }
     w.resolve(this.pos, this.radius);
     this.pos.y = w.groundAt(this.pos.x, this.pos.z);
