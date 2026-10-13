@@ -228,10 +228,15 @@ export function buildCharacter(def) {
   for (const s of [-1, 1]) {
     const pivot = new THREE.Group();
     pivot.position.set(s * 0.085 * w, 0.86, 0);
-    const boot = M(CAP(0.07, 0.16, 10), boots, 0, -0.74, -0.02);
-    pivot.add(M(CAP(0.066 * w, 0.56, 10), def.skirt && !def.pants ? skin : pants, 0, -0.38, 0), boot);
+    // coxa + joelho (canela e bota) — o joelho dobra quando o personagem senta
+    const legMat = def.skirt && !def.pants ? skin : pants;
+    const knee = new THREE.Group();
+    knee.position.y = -0.39;
+    knee.add(M(CAP(0.062 * w, 0.24, 10), legMat, 0, -0.17, 0), M(CAP(0.07, 0.16, 10), boots, 0, -0.35, -0.02));
+    pivot.add(M(CAP(0.066 * w, 0.26, 10), legMat, 0, -0.19, 0), knee);
     inner.add(pivot);
     parts.legs.push(pivot);
+    (parts.knees ||= []).push(knee);
   }
   const torso = M(CAP(0.135, 0.3, 14), top, 0, 1.17, 0);
   torso.scale.set(1.12 * w, 1, 0.72 * w);

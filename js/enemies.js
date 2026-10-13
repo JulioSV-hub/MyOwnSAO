@@ -514,6 +514,11 @@ export class Enemy {
       p.cube.rotation.x += dt * (0.5 + w * 4);
       p.core.scale.setScalar(1 + Math.sin(t * 5) * 0.2 + w * 0.8);
     }
+    // asas de quadrúpedes e humanoides batem devagar (mais rápido andando)
+    if (a !== 'flyer' && p.wings?.length) {
+      const f = 0.25 + Math.sin(t * (mv ? 7 : 2.5) + this.walk) * (mv ? 0.55 : 0.2);
+      p.wings.forEach((wg, i) => { wg.rotation.z = i ? f : -f; });
+    }
   }
 }
 

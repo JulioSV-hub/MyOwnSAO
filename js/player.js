@@ -105,7 +105,7 @@ export class Player {
 
     const ind = g.indoor;
     if (ind) {
-      g.housing.resolve(this.pos, this.radius);
+      (ind.ctl || g.housing).resolve(this.pos, this.radius);
       this.pos.x = Math.max(ind.minX, Math.min(ind.maxX, this.pos.x));
       this.pos.z = Math.max(ind.minZ, Math.min(ind.maxZ, this.pos.z));
     } else {

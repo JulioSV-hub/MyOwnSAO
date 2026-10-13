@@ -161,6 +161,9 @@ export function buildMonster(def, boss) {
         inner.add(pivot);
         parts.legs.push(pivot);
       }
+      // chifre de unicórnio e juba de leão
+      if (def.horn) { const h = M(HORN(0.055, 0.62), acc, 0, 0.3, -0.16); h.rotation.x = -0.55; head.add(h); }
+      if (def.mane) for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; head.add(M(SPH(0.17, 10, 8), acc, Math.cos(a) * 0.3, Math.sin(a) * 0.3 + 0.02, 0.12)); }
       const tail = M(CAP(0.06, def.tail ? 1.0 : 0.35), body, 0, 1.08, def.tail ? 1.3 : 0.98);
       tail.rotation.x = def.tail ? 1.25 : 0.6;
       inner.add(tail);
@@ -339,6 +342,30 @@ export function buildMonster(def, boss) {
     }
     default:
       inner.add(M(SPH(0.6), body, 0, 0.6, 0));
+  }
+
+  // asas (dragão, grifo, leão alado, harpia...) em quadrúpedes e humanoides
+  if (def.wings && def.arch !== 'flyer') {
+    const wm = toonMat(def.wingColor || def.color2 || def.color, { gradientMap: animeGradient, side: THREE.DoubleSide });
+    wm.userData.base = wm.emissive.clone();
+    const wg = geo(`bwing${def.feather ? 'f' : 'b'}`, () => {
+      const sh = new THREE.Shape();
+      sh.moveTo(0, 0.1);
+      if (def.feather) { sh.quadraticCurveTo(0.8, 0.5, 1.7, 0.25); sh.lineTo(1.5, 0.0); sh.lineTo(1.6, -0.2); sh.lineTo(1.25, -0.25); sh.lineTo(1.3, -0.45); sh.quadraticCurveTo(0.6, -0.5, 0, -0.15); }
+      else { sh.lineTo(0.9, 0.55); sh.lineTo(1.8, 0.3); sh.quadraticCurveTo(1.5, 0.0, 1.55, -0.35); sh.quadraticCurveTo(1.15, -0.1, 1.0, -0.45); sh.quadraticCurveTo(0.7, -0.15, 0.45, -0.4); sh.quadraticCurveTo(0.25, -0.15, 0, -0.15); }
+      return new THREE.ShapeGeometry(sh, 8).rotateX(-Math.PI / 2);
+    });
+    const [wx, wy, wz] = def.arch === 'quad' ? [0.3, 1.32, -0.25] : [0.22, 1.62, 0.22];
+    for (const s of [-1, 1]) {
+      const pivot = new THREE.Group();
+      pivot.position.set(s * wx, wy, wz);
+      const m = M(wg, wm, 0, 0, 0);
+      m.scale.set(s * (def.wingSpan || 1), 1, 1);
+      pivot.add(m);
+      inner.add(pivot);
+      parts.wings.push(pivot);
+    }
+    parts.extraMats = [...(parts.extraMats || []), wm];
   }
 
   const outline = outlineMat('#1c1410', boss ? 2.2 : 1.6);

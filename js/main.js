@@ -35,6 +35,8 @@ import { classBonus, CLASSES, normalizeTalents } from './classes.js';
 import { checkCompletion } from './completion.js';
 import { classPicker } from './talentui.js';
 import { adoptPrice, ADOPT_NAMES } from './shopui.js';
+import { Halls } from './halls.js';
+import { TownLife } from './townlife.js';
 import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord, listSaves } from './save.js';
 
 const NIGHT_TOP = new THREE.Color('#050a1c');
@@ -113,6 +115,8 @@ class Game {
     this.pets = new Pets(this);
     this.fishing = new Fishing(this);
     this.housing = new Housing(this);
+    this.halls = new Halls(this);
+    this.townlife = new TownLife(this);
     this.party = new Party(this);
     this.loot = new Loot(this);
     this.spells = new Spells(this);
@@ -364,8 +368,10 @@ class Game {
     this.indoor = null;
     this.housing.setDecorate(false);
     if (this.housing.room) this.housing.room.visible = false;
+    if (this.halls.cur) { this.halls.cur.g.visible = false; this.halls.cur = null; }
     this.quests.setFloor(this.floor);
     this.npcs.populate();
+    this.townlife.spawn();
     this.npcs.recordGivers();
     this.loot.setFloor(this.floor);
     this.party.spawn();
@@ -1257,10 +1263,21 @@ class Game {
     const pl = this.player.pos, w = this.world, n = this.floor.n, pr = this.state.progress;
     let hint = null, act = null;
     if (this.indoor) {
-      const r = this.housing.interact();
+      let r = (this.indoor.ctl || this.housing).interact();
+      if (!r.act && this.indoor.ctl) {
+        const npc = this.npcs.nearest(pl, 2.8);
+        if (npc) r = { hint: `[E] Falar com ${npc.name}`, act: () => this.ui.openDialog(npc) };
+      }
       this.ui.hint(r.hint);
       if (r.act && this.input.pressed('KeyE')) r.act();
       return;
+    }
+    for (const [k, sp] of Object.entries(w.shopSpots || {})) {
+      if (sp.hall && Math.hypot(pl.x - sp.pos.x, pl.z - sp.pos.z) < 2.8) {
+        this.ui.hint(`[E] Entrar: ${sp.title}`);
+        if (this.input.pressed('KeyE')) this.halls.enter(k);
+        return;
+      }
     }
     if (Math.hypot(pl.x - w.housePlaque.x, pl.z - w.housePlaque.z) < 2.6) {
       const own = this.state.house && this.state.house.floor === n;
@@ -1317,7 +1334,7 @@ class Game {
     }
     if (inp.pressed('Tab') || inp.pressed('KeyM')) { this.ui.openMenu('status'); return; }
     if (!inp.isLocked) return;
-    if (this.indoor && this.housing.handleKeys(inp)) return;
+    if (this.indoor && !this.indoor.ctl && this.housing.handleKeys(inp)) return;
     if (this.spells.active) {
       // Mago: clique lança o orbe mágico, 1–4 lançam os feitiços
       if (inp.mouse.clicked.has(0) && !this.fishing?.active) this.spells.basic();
@@ -1367,10 +1384,12 @@ class Game {
         this.combat.update(dt);
         this.enemies.update(dt);
         this.npcs.update(dt);
+        this.townlife.update(dt);
         this.quests.update(dt);
         this.pets.update(dt);
         this.fishing.update(dt);
         this.housing.update(dt);
+        this.halls.update(dt);
         this.party.update(dt);
         this.spells.update(dt);
         this.updateAura(dt);

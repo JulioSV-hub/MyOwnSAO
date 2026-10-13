@@ -210,7 +210,7 @@ export class UI {
 
   createNpcLabel(npc) {
     const el = document.createElement('div');
-    el.className = `nlabel ${npc.role === 'folk' || npc.role === 'kid' ? 'folk' : 'named'}`;
+    el.className = `nlabel ${npc.role === 'folk' || npc.role === 'kid' || npc.role === 'patron' ? 'folk' : 'named'}`;
     el.innerHTML = `<div class="cursor">${npc.role === 'folk' || npc.role === 'kid' ? '▼' : '◆'}</div><div class="nname">${esc(npc.name)}</div>${npc.title ? `<div class="ntitle">${esc(npc.title)}</div>` : ''}`;
     $('labels').appendChild(el);
     const lab = { el, npc, remove: () => { el.remove(); this.npcLabels.delete(lab); } };
@@ -306,8 +306,9 @@ export class UI {
     }
     for (const l of this.npcLabels) {
       const n = l.npc;
+      if (n.mesh && !n.mesh.visible) { l.el.style.display = 'none'; continue; }
       const d = cam.distanceTo(n.pos);
-      const maxD = n.role === 'folk' || n.role === 'kid' ? 9 : 26;
+      const maxD = n.role === 'folk' || n.role === 'kid' || n.role === 'patron' ? 7 : 26;
       const p = d < maxD ? this.project(v3.set(n.pos.x, n.pos.y + n.labelHeight() + 0.15, n.pos.z)) : null;
       if (!p || this.dialogOpen) { l.el.style.display = 'none'; continue; }
       l.el.style.display = '';

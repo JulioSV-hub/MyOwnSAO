@@ -780,20 +780,121 @@ export class World {
     this.grid.add({ x, z, hw: w / 2, hd: d / 2, rot });
     };
 
-    // Anel interno (casas menores) e anel externo (casas maiores, algumas de dois andares)
-    const ring = (n, r0, r1, wr, dr, hr) => {
-      for (let i = 0; i < n; i++) {
-        const ang = (i / n) * Math.PI * 2 + r() * 0.08;
-        const w = wr[0] + r() * (wr[1] - wr[0]), d = dr[0] + r() * (dr[1] - dr[0]), hgt = hr[0] + r() * (hr[1] - hr[0]);
-        const rad = r0 + r() * (r1 - r0);
-        if (onRoad(ang, rad, 4.2 + w / 2) || isReserved(ang, rad)) continue;
-        const hx = Math.cos(ang) * rad, hz = Math.sin(ang) * rad, hrot = Math.atan2(-Math.cos(ang), -Math.sin(ang));
-        if (stone) makeStone(hx, hz, hrot, w * 1.1, d * 1.15, hgt > 5.6 ? 3 : 2);
-        else makeHouse(hx, hz, hrot, w, d, hgt);
-      }
+    // ─────────── Ruas, vielas e quarteirões ───────────
+    // Além das 4 estradas e das 2 ruas circulares, cada quadrante ganha vielas tortas ligando a praça às ruas de fora.
+    // As casas se enfileiram dos dois lados das ruas, viradas para elas, com becos entre algumas.
+    const lanes = [];
+    const segDist = (x, z, [ax, az], [bx, bz]) => {
+      const vx = bx - ax, vz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz || 1)));
+      return Math.hypot(x - ax - vx * t, z - az - vz * t);
     };
-    ring(16, 23, 26, [5, 7], [4.5, 6], [3.4, 4.6]);
-    ring(26, 41.5, 45.5, [6, 8.5], [5, 7], [4.4, 7]);
+    const laneDist = (x, z) => {
+      let best = 1e9;
+      for (const l of lanes) for (let i = 0; i < l.pts.length - 1; i++) best = Math.min(best, segDist(x, z, l.pts[i], l.pts[i + 1]) - l.hw);
+      return best;
+    };
+    for (let q = 0; q < 4; q++) {
+      const a0 = spokeAngles[q];
+      const nL = r() < 0.65 ? 2 : 1;
+      for (let k = 0; k < nL; k++) {
+        const base = a0 + (Math.PI / 2) * ((k + 1) / (nL + 1) + (r() - 0.5) * 0.14), bend = (r() - 0.5) * 0.3;
+        const pts = [];
+        for (let i = 0; i <= 8; i++) {
+          const f = i / 8, rad = 20 + f * 30, ang = base + bend * Math.sin(f * Math.PI);
+          pts.push([Math.cos(ang) * rad, Math.sin(ang) * rad]);
+        }
+        if (pts.some(([x, z]) => isReserved(Math.atan2(z, x), Math.hypot(x, z)))) continue;
+        lanes.push({ pts, hw: 1.6 + r() * 0.4 });
+      }
+    }
+    this.lanes = lanes;
+
+    // prédios especiais nas fileiras: taverna e guilda (dá para entrar) e as lojas com vitrine
+    const specials = [
+      { key: 'guild', w: 14, d: 10.5, floors: 3 },
+      { key: 'tavern', w: 11.5, d: 8.5, floors: 2 },
+      { key: 'armor', w: 7.2, d: 5.4, shop: true },
+      { key: 'rune', w: 6.8, d: 5.4, shop: true },
+      { key: 'pet', w: 7.2, d: 5.4, shop: true },
+      { key: 'food', w: 7.6, d: 5.4, shop: true },
+    ];
+    this.shopSlots = {};
+    this.hallSlots = {};
+    const specialAng = specials.map((s, i) => this.arenaDir + Math.PI / 4 + i * (Math.PI * 2 / specials.length) + (r() - 0.5) * 0.25);
+    const avoid = [this.housePlaque, this.monumentPos].filter(Boolean);
+
+    // fileiras: raio da borda da rua e de que lado as casas ficam (+1 = do lado de fora da rua)
+    const rows = [
+      { R: 20.6, side: 1, d: [3.6, 4.2], w: [4.6, 6.4], floors: [2, 2] },
+      { R: 30.0, side: -1, d: [3.6, 4.0], w: [4.8, 6.6], floors: [2, 3] },
+      { R: 36.2, side: 1, d: [4.6, 5.4], w: [5.4, 7.6], floors: [2, 3], specials: true },
+      { R: 49.0, side: -1, d: [4.6, 5.2], w: [5.4, 7.8], floors: [2, 3] },
+    ];
+    // algum ponto do retângulo da casa cai dentro de algo já construído?
+    const inside = (px, pz) => this.grid.query(px, pz, 8, []).some((c) => {
+      if (c.hw === undefined) return Math.hypot(px - c.x, pz - c.z) < c.r;
+      const cs = Math.cos(c.rot), sn = Math.sin(c.rot), dx = px - c.x, dz = pz - c.z;
+      return Math.abs(dx * cs - dz * sn) < c.hw && Math.abs(dx * sn + dz * cs) < c.hd;
+    });
+    const boxHit = (x, z, rot, w, d) => {
+      const cs = Math.cos(rot), sn = Math.sin(rot);
+      for (const fx of [-0.48, 0, 0.48]) for (const fz of [-0.48, 0, 0.48]) {
+        const lx = fx * w, lz = fz * d;
+        if (inside(x + lx * cs + lz * sn, z - lx * sn + lz * cs)) return true;
+      }
+      return false;
+    };
+    const placedSpecial = new Set();
+    // prédios especiais primeiro (perto do ângulo sorteado), depois as casas comuns em volta
+    for (let i = 0; i < specials.length; i++) {
+      const sp = specials[i];
+      if (placedSpecial.has(sp.key)) continue;
+      for (let t = 0; t < 120; t++) {
+        const a = specialAng[i] + (t % 2 ? 1 : -1) * Math.ceil(t / 2) * 0.03, rc = 36.7 + sp.d / 2;
+        const x = Math.cos(a) * rc, z = Math.sin(a) * rc, half = Math.max(sp.w, sp.d) / 2;
+        const rot = Math.atan2(-Math.cos(a), -Math.sin(a));
+        if (onRoad(a, rc, 3.6 + sp.w / 2) || isReserved(a, rc) || laneDist(x, z) < half * 0.8 || boxHit(x, z, rot, sp.w, sp.d)) continue;
+        const fwd = new THREE.Vector3(Math.sin(rot), 0, Math.cos(rot));
+        placedSpecial.add(sp.key);
+        if (sp.shop) { this.shopSlots[sp.key] = { x: x + fwd.x * (sp.d / 2 - 1.6), z: z + fwd.z * (sp.d / 2 - 1.6), rot }; makeStone(x - fwd.x * 1.6, z - fwd.z * 1.6, rot, sp.w, sp.d - 3.2, 2); }
+        else { makeStone(x, z, rot, sp.w, sp.d, sp.floors); this.hallSlots[sp.key] = { x, z, rot, w: sp.w, d: sp.d, door: new THREE.Vector3(x + fwd.x * (sp.d / 2 + 0.2), this.townH, z + fwd.z * (sp.d / 2 + 0.2)), fwd }; }
+        break;
+      }
+    }
+    for (const row of rows) {
+      let ang = r() * Math.PI * 2;
+      const end = ang + Math.PI * 2;
+      while (ang < end) {
+        let w = row.w[0] + r() * (row.w[1] - row.w[0]), d = row.d[0] + r() * (row.d[1] - row.d[0]);
+        const sp = null;
+        const rc = row.R + row.side * (0.5 + d / 2);
+        const a = ang + (w / 2) / rc;
+        const x = Math.cos(a) * rc, z = Math.sin(a) * rc;
+        const rot = Math.atan2(-Math.cos(a), -Math.sin(a)) + (row.side < 0 ? Math.PI : 0);
+        const half = Math.max(w, d) / 2;
+        const free = !onRoad(a, rc, 3.6 + w / 2) && laneDist(x, z) > half * 0.8 && !isReserved(a, rc) && !avoid.some((v) => Math.hypot(x - v.x, z - v.z) < half + 3)
+          && !boxHit(x, z, rot, w, d);
+        if (free) {
+          if (sp) {
+            placedSpecial.add(sp.key);
+            const fwd = new THREE.Vector3(Math.sin(rot), 0, Math.cos(rot));
+            if (sp.shop) {
+              // vitrine na frente e uma casa estreita atrás (a loja vira o térreo da casa)
+              this.shopSlots[sp.key] = { x: x + fwd.x * (d / 2 - 1.6), z: z + fwd.z * (d / 2 - 1.6), rot };
+              makeStone(x - fwd.x * 1.6, z - fwd.z * 1.6, rot, w, d - 3.2, 2);
+            } else {
+              makeStone(x, z, rot, w, d, sp.floors);
+              this.hallSlots[sp.key] = { x, z, rot, w, d, door: new THREE.Vector3(x + fwd.x * (d / 2 + 0.2), this.townH, z + fwd.z * (d / 2 + 0.2)), fwd };
+            }
+          } else {
+            const fl = row.floors[0] + Math.floor(r() * (row.floors[1] - row.floors[0] + 1));
+            makeStone(x, z, rot + (r() - 0.5) * 0.06, w, d, fl);
+          }
+          // beco de vez em quando
+          ang += (w + (r() < 0.18 ? 2.4 + r() * 1.2 : 0.25 + r() * 0.9)) / rc;
+        } else ang += 1.2 / rc;
+      }
+    }
 
     if (stone) {
       const y = this.townH + 0.03;
@@ -801,6 +902,14 @@ export class World {
       cob(new THREE.CircleGeometry(20.3, 64));
       cob(new THREE.RingGeometry(30.2, 35.8, 96));
       cob(new THREE.RingGeometry(49.4, 54.6, 128));
+      for (const l of lanes) for (let i = 0; i < l.pts.length - 1; i++) {
+        const [ax, az] = l.pts[i], [bx, bz] = l.pts[i + 1], len = Math.hypot(bx - ax, bz - az) + 0.6;
+        const pl = new THREE.Mesh(new THREE.PlaneGeometry(l.hw * 2, len).rotateX(-Math.PI / 2), this.cobbleMat);
+        pl.position.set((ax + bx) / 2, y + 0.002, (az + bz) / 2);
+        pl.rotation.y = Math.atan2(bx - ax, bz - az);
+        pl.receiveShadow = true;
+        this.townStatic.add(pl);
+      }
       for (const sa of spokeAngles) {
         const len = TOWN_R + 3 - 19;
         const pl = new THREE.Mesh(new THREE.PlaneGeometry(6.6, len).rotateX(-Math.PI / 2), this.cobbleMat);
@@ -829,6 +938,12 @@ export class World {
     };
     for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 + 0.31; if (!onRoad(a, 19.5, 3)) lamp(Math.cos(a) * 19.5, Math.sin(a) * 19.5); }
     for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2 + 0.1; if (!onRoad(a, 36.8, 3.5)) lamp(Math.cos(a) * 36.8, Math.sin(a) * 36.8); }
+    // postes nas vielas (alternando os lados)
+    for (const l of lanes) for (let i = 2; i < l.pts.length - 1; i += 3) {
+      const [ax, az] = l.pts[i], [bx, bz] = l.pts[i + 1], len = Math.hypot(bx - ax, bz - az) || 1, s = i % 2 ? 1 : -1;
+      const x = ax + (-(bz - az) / len) * (l.hw - 0.3) * s, z = az + ((bx - ax) / len) * (l.hw - 0.3) * s;
+      if (!this.grid.query(x, z, 0.6, []).length) lamp(x, z);
+    }
 
     // Bancos e canteiros de flores na praça
     const wood = M('#8a5a36'), iron = M('#3a3a3a');

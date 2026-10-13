@@ -1,5 +1,5 @@
-// Rua do Comércio: lojas com fachada, toldo, placa e vitrine, encostadas na muralha da cidade.
-// Armaduras · Runas · Toca dos Mascotes · Taverna · Guilda dos Aventureiros.
+// Lojas da cidade: vitrines no térreo das casas (Armaduras, Runas, Mascotes, Restaurante)
+// e as fachadas da Taverna e da Guilda, que têm salão por dentro (halls.js).
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toonMat } from './toon.js';
@@ -28,7 +28,7 @@ export const SHOPS = {
     npc: { name: 'Elena', title: 'Recepcionista da Guilda', female: true, hair: 'ponytail', hairColor: '#3a2a1a', top: '#f4f0e8', skirt: '#8a2a2a', accent: '#d8b050' } },
 };
 
-function signTexture(text, bg, fg) {
+export function signTexture(text, bg, fg) {
   const cv = document.createElement('canvas');
   cv.width = 512; cv.height = 128;
   const g = cv.getContext('2d');
@@ -64,7 +64,13 @@ export function buildShops(world) {
   const onRoad = (a, half) => spokes.some((sa) => Math.abs(Math.atan2(Math.sin(a - sa), Math.cos(a - sa))) * R < half);
   const root = new THREE.Group();
   world.shopSpots = {};
-  const keys = Object.keys(SHOPS);
+  // vitrines e salões nos lugares reservados pela cidade (world.buildTown)
+  for (const key of Object.keys(SHOPS)) {
+    const spec = SHOPS[key], hs = world.hallSlots?.[key], ss = world.shopSlots?.[key];
+    if (hs) { buildHallFront(world, root, key, spec, hs); continue; }
+    if (ss) buildFront(world, root, key, spec, ss.x, ss.z, ss.rot);
+  }
+  const keys = Object.keys(SHOPS).filter((k) => !world.shopSpots[k]);
   // procura lugares livres ao longo da muralha, espalhados entre as quatro estradas
   const base = world.arenaDir + Math.PI / 4;
   const cand = [];
@@ -143,6 +149,47 @@ function buildFront(world, root, key, spec, x, z, rot) {
   const spot = toW(0, 0.05);
   world.shopSpots[key] = { pos: spot, yaw: rot + Math.PI, front: toW(0, d / 2 + 1.6), title: spec.title };
   world.labels.push({ text: spec.title, pos: toW(0, d / 2 + 0.2).setY(H + h + 1.1), cls: 'npc' });
+}
+
+// Fachada da Taverna / Guilda: placa grande, lampiões e estandartes na porta do prédio
+function buildHallFront(world, root, key, spec, hs) {
+  const H = world.townH, g = new THREE.Group();
+  g.position.set(hs.x, H, hs.z);
+  g.rotation.y = hs.rot;
+  const fz = hs.d / 2;
+  const sm = new THREE.MeshBasicMaterial({ map: signTexture(spec.sign, spec.color2, spec.color) });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(hs.w - 1, key === 'guild' ? 7 : 5.4), key === 'guild' ? 1.5 : 1.25), sm);
+  sign.position.set(0, 3.55, fz + 0.18);
+  g.add(sign);
+  const add = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = true; g.add(m); return m; };
+  add(rbox(Math.min(hs.w - 0.6, key === 'guild' ? 7.4 : 5.8), key === 'guild' ? 1.8 : 1.5, 0.14), T('#5a3a22'), 0, 3.55, fz + 0.08);
+  for (const s of [-1, 1]) {
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), new THREE.MeshStandardMaterial({ color: '#3a3020', emissive: '#ffb050', emissiveIntensity: 1.6 }));
+    lamp.position.set(s * 1.5, 2.6, fz + 0.45);
+    g.add(lamp);
+    add(new THREE.BoxGeometry(0.06, 0.06, 0.5), T('#2e3036'), s * 1.5, 2.85, fz + 0.25);
+  }
+  if (key === 'guild') {
+    // estandartes vermelhos com o brasão dourado dos dois lados da porta
+    for (const s of [-1, 1]) {
+      const ban = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 4.2), T(spec.color, { side: THREE.DoubleSide }));
+      ban.position.set(s * 3.4, 5.2, fz + 0.16);
+      g.add(ban);
+      add(new THREE.CircleGeometry(0.42, 20), T('#e0c060', { side: THREE.DoubleSide }), s * 3.4, 5.8, fz + 0.18);
+      add(new THREE.CylinderGeometry(0.05, 0.05, 1.6, 8).rotateZ(Math.PI / 2), T('#4a3424'), s * 3.4, 7.3, fz + 0.2);
+    }
+  } else {
+    // barris e mesinha na calçada
+    for (const s of [-1, 1]) {
+      const b = add(new THREE.CylinderGeometry(0.42, 0.42, 0.9, 16), T('#6a4428'), s * (hs.w / 2 - 1), 0.45, fz + 0.7);
+      add(new THREE.TorusGeometry(0.43, 0.025, 6, 20).rotateX(Math.PI / 2), T('#3a3a3a'), b.position.x, 0.7, b.position.z);
+    }
+    add(new THREE.SphereGeometry(0.35, 14, 10), T('#e0b040'), 0, 4.55, fz + 0.3).scale.set(1.4, 0.9, 0.4);
+  }
+  root.add(g);
+  const door = hs.door.clone(), front = door.clone().addScaledVector(hs.fwd, 1.8);
+  world.shopSpots[key] = { pos: door, yaw: hs.rot, front, title: spec.title, hall: true };
+  world.labels.push({ text: spec.title, pos: door.clone().setY(H + 5.2), cls: 'npc' });
 }
 
 // ─────────── Mercadorias de cada loja ───────────

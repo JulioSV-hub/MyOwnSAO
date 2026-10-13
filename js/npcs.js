@@ -12,6 +12,7 @@ import { COMP_CLASSES, CAST_DEFAULT_CLASS, classChangeCost } from './classes.js'
 import { classPicker } from './talentui.js';
 import { Sfx } from './audio.js';
 import { isFish } from './fishing.js';
+import { applyPose, poseProps } from './halls.js';
 
 const angleTo = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 const pickOf = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -41,6 +42,12 @@ class NPC {
     this.name = def.name || opts.name || (def.kid ? 'Criança' : 'Morador');
     this.title = def.title || opts.title || '';
     this.fixed = !!opts.fixed;
+    // dentro dos salões (taverna / guilda): altura fixa, pose e falas próprias
+    this.hall = opts.hall || null;
+    this.pose = opts.pose || null;
+    this.phase = opts.phase || 0;
+    this.noTurn = !!opts.noTurn;
+    this.lines = opts.lines || null;
     this.c = buildCharacter(def);
     this.mesh = this.c.group;
     this.variation = def.id ? 1 : 0.93 + Math.random() * 0.12;
@@ -77,9 +84,10 @@ class NPC {
     this.stuck = 0;
     this.followName = opts.follow || null;
     this.lineIdx = Math.floor(Math.random() * 100);
-    this.mesh.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.mesh.traverse((o) => { if (o.isMesh) o.castShadow = !this.hall; });
     this.game.scene.add(this.mesh);
     this.label = this.game.ui.createNpcLabel(this);
+    if (this.pose) poseProps(this.c, this.pose);
   }
 
   targetHeight() {
@@ -109,6 +117,12 @@ class NPC {
 
   update(dt, t) {
     const g = this.game, w = g.world, pl = g.player.pos;
+    // NPCs dos salões só existem para quem está lá dentro
+    if (this.hall) {
+      const here = Math.abs(pl.y - this.hall.y) < 12;
+      this.mesh.visible = here;
+      if (!here) { this.dist = 1e9; return; }
+    }
     const dx = pl.x - this.pos.x, dz = pl.z - this.pos.z, dist = Math.hypot(dx, dz);
     const toPlayer = Math.atan2(-dx, -dz);
     let moving = 0;
@@ -117,7 +131,7 @@ class NPC {
     if (this.talking) {
       turn(toPlayer, 6);
     } else if (this.fixed) {
-      turn(dist < 6 ? toPlayer : this.homeYaw, 3);
+      turn(dist < 6 && !this.noTurn ? toPlayer : this.homeYaw, 3);
     } else {
       if (this.followName) {
         const leader = this.mgr.byName(this.followName);
@@ -166,18 +180,26 @@ class NPC {
         } else turn(toPlayer, 4);
       }
     }
-    w.resolve(this.pos, this.radius);
-    const dc = Math.hypot(this.pos.x, this.pos.z);
-    if (dc > TOWN_R - 3) { const k = (TOWN_R - 3) / dc; this.pos.x *= k; this.pos.z *= k; }
-    this.pos.y = w.groundAt(this.pos.x, this.pos.z);
-    // o jogador não atravessa NPCs
+    if (this.hall) this.pos.y = this.hall.y;
+    else {
+      w.resolve(this.pos, this.radius);
+      const dc = Math.hypot(this.pos.x, this.pos.z);
+      if (dc > TOWN_R - 3) { const k = (TOWN_R - 3) / dc; this.pos.x *= k; this.pos.z *= k; }
+      this.pos.y = w.groundAt(this.pos.x, this.pos.z);
+    }
+    // o jogador não atravessa NPCs (só quem está no mesmo lugar: cidade ou salão)
+    const sameRoom = Math.abs(pl.y - this.pos.y) < 3;
     const m = this.radius + g.player.radius;
-    if (dist < m && dist > 1e-3) { pl.x = this.pos.x + (dx / dist) * m; pl.z = this.pos.z + (dz / dist) * m; }
+    if (sameRoom && dist < m && dist > 1e-3 && !(this.pose && this.hall?.y !== undefined && this.pos.y > pl.y + 1)) { pl.x = this.pos.x + (dx / dist) * m; pl.z = this.pos.z + (dz / dist) * m; }
 
     const look = dist < 7 ? angleTo(this.yaw, toPlayer) : 0;
     const lk = Math.abs(look) < 1.6 ? look : 0;
     if (this.c.external) animateModel(this.c, dt, t, moving, lk, this.talking);
-    else animateCharacter(this.c, dt, t, moving, lk, this.talking);
+    else {
+      animateCharacter(this.c, dt, t, moving, this.noTurn && !this.talking ? 0 : lk, this.talking);
+      if (this.pose && !this.talking) applyPose(this.c, this.pose, t, this.phase);
+      else if (this.pose) applyPose(this.c, ['sit', 'drink', 'eat', 'arm'].includes(this.pose) ? 'sit' : 'stand', t, this.phase);
+    }
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = this.yaw;
     this.dist = dist;
@@ -216,6 +238,8 @@ class NPC {
     const say = (text, options = [close]) => ({ text, options });
     const nextLine = (lines) => lines[this.lineIdx++ % lines.length];
     switch (this.role) {
+      case 'patron':
+        return say(nextLine(this.lines || FOLK_LINES));
       case 'shop':
         return say(`Ei, ${p.name}! Bem-vindo à Agil's Store. Preço justo, palavra de honra — bom, quase sempre. O que vai ser hoje?`, [
           { label: 'Ver a loja', run: () => { g.ui.closeDialog(false); g.ui.openShop('agil'); return undefined; } },
@@ -457,9 +481,12 @@ export class NPCManager {
     // Lojistas da Rua do Comércio
     const roleOf = { armor: 'armor', rune: 'rune', pet: 'petshop', tavern: 'tavern', guild: 'guild', food: 'chef' };
     for (const [key, sp] of Object.entries(w.shopSpots || {})) {
+      if (sp.hall) continue;
       const spec = SHOPS[key], def = { ...randomTownsfolk(mulberry32(g.floor.seed + key.length * 31), false), ...spec.npc, id: key === 'guild' ? 'guild' : undefined };
       add(def, sp.pos.x, sp.pos.z, { role: roleOf[key], fixed: true, yaw: sp.yaw });
     }
+    // Taverna e Guilda: vendedor e frequentadores lá dentro
+    g.halls?.populate(add);
     // O elenco principal aparece pela cidade (cada andar sorteia quem está lá); quem está no seu time não fica na cidade
     const cast = [['kirito', 'kirito'], ['asuna', 'cook'], ['klein', 'klein'], ['silica', 'silica'], ['yui', 'yui']];
     for (const [id, role] of cast) {
@@ -501,6 +528,7 @@ export class NPCManager {
   nearest(pos, maxD) {
     let best = null, bd = maxD;
     for (const n of this.list) {
+      if (Math.abs(n.pos.y - pos.y) > 3) continue;
       const d = Math.hypot(n.pos.x - pos.x, n.pos.z - pos.z);
       if (d < bd) { bd = d; best = n; }
     }
