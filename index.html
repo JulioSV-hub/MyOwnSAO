@@ -11,8 +11,8 @@
   <script>
     // Versão dos arquivos: muda a cada atualização, para o navegador (inclusive o Safari) nunca usar arquivos antigos do cache.
     (function () {
-      var V = '20261013131559';
-      var FILES = ["ambient", "audio", "characters", "classes", "combat", "completion", "data", "effects", "enemies", "fishing", "gear3d", "grass", "guild", "housing", "icons", "input", "localmodels", "loot", "main", "models", "monsters", "music", "npcconfig", "npcs", "party", "pets", "player", "quests", "rng", "save", "shops", "shopui", "spells", "stone", "talentui", "toon", "ui", "world"];
+      var V = '20261013134150';
+      var FILES = ["ambient", "audio", "avatar", "characters", "classes", "combat", "completion", "data", "effects", "enemies", "equipui", "fishing", "gear3d", "grass", "guild", "housing", "icons", "input", "localmodels", "lookui", "loot", "main", "models", "monsters", "music", "npcconfig", "npcs", "party", "pets", "player", "quests", "rng", "save", "shops", "shopui", "spells", "stone", "talentui", "toon", "ui", "world"];
       var base = new URL('js/', location.href).href;
       var imports = {
         three: 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js',
@@ -107,6 +107,8 @@
       <form id="title-new" class="hidden" autocomplete="off">
         <label for="name-input">Nome do seu avatar</label>
         <input id="name-input" maxlength="16" placeholder="Kirito" spellcheck="false">
+        <label>Personagem</label>
+        <div id="sex-pick" class="sexpick"></div>
         <label>Classe</label>
         <div id="class-pick" class="classpick"></div>
         <div id="title-warn" class="hidden">Atenção: começar um novo jogo substitui o mundo salvo (exporte antes se quiser guardá-lo).</div>

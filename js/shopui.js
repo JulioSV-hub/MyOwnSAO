@@ -1,5 +1,5 @@
 // Janelas das lojas (cartões com ícone 3D, comparação de atributos e preço) e do Time.
-import { DISHES, INGREDIENTS } from './data.js';
+import { DISHES, INGREDIENTS, pieceDef, PIECE_ORDER } from './data.js';
 import { isFish } from './fishing.js';
 import { ITEMS, MONSTERS, FOODS, RUNES, RUNE_TIER_FLOOR, MERCS, CAST_PARTY, weaponDef, armorDef, runeDef, shopStock, FORGE_KEYS, forgeNote, armorWeight, runeSlotsFor } from './data.js';
 import { icon } from './icons.js';
@@ -72,6 +72,19 @@ function armorCard(g, id) {
   return card(g, { kind: 'armor', id, name: d.name, rar: d.rarity, lines, desc: d.floor ? `Equipamento do Andar ${d.floor}` : '', price: g.priceOf('armor', id), owned: have ? 'você já tem' : '' });
 }
 
+export function pieceLines(d) {
+  const l = [];
+  if (d.def) l.push(`DEF <b>+${d.def}</b> · HP <b>+${d.hp}</b>`);
+  for (const b of d.bonus) l.push(`<b class="up">${b.fmt(b.v)}</b>`);
+  return l;
+}
+function pieceCard(g, id) {
+  const d = pieceDef(id), p = g.state.player, cur = p.equip?.[d.slot] ? pieceDef(p.equip[d.slot]) : null;
+  const lines = pieceLines(d);
+  if (cur && cur.def) lines.push(`<span class="muted">equipado: DEF +${cur.def}</span>`);
+  return card(g, { kind: 'piece', id, name: d.name, rar: d.rarity, lines, desc: `${d.slotName} · Andar ${d.floor}`, price: g.priceOf('piece', id), owned: (p.pieces || []).includes(id) ? 'você tem' : '' });
+}
+
 function itemCard(g, id) {
   const d = ITEMS[id], p = g.state.player, price = g.priceOf('item', id);
   const btns = `<button class="btn sm" data-act="buy" data-kind="item" data-id="${id}" ${p.col < price ? 'disabled' : ''}>×1</button><button class="btn sm" data-act="buy" data-kind="item" data-id="${id}" data-q="5" ${p.col < price * 5 ? 'disabled' : ''}>×5</button>`;
@@ -122,8 +135,10 @@ export function renderShop(ui) {
     const floors = [n, n - 1].filter((f) => f >= 1);
     html += grid('Armas forjadas', floors.flatMap((f) => FORGE_KEYS.map((k) => weaponCard(g, `lw_${k}_${f}`))));
   } else if (id === 'armor') {
-    for (const f of [n, n - 1, n - 2].filter((x) => x >= 1)) html += grid(`Andar ${f}`, [`larm_${f}`, `arm_${f}`, `harm_${f}`].map((a) => armorCard(g, a)));
+    html += grid(`Peças do Andar ${n} — elmo, capa, luvas, calça e botas`, PIECE_ORDER.filter((s) => s !== 'ring' && s !== 'amulet').map((s, i) => pieceCard(g, `p_${s}_${n}_${(n + i) % 5}`)));
+    for (const f of [n, n - 1, n - 2].filter((x) => x >= 1)) html += grid(`Peitorais — Andar ${f}`, [`larm_${f}`, `arm_${f}`, `harm_${f}`].map((a) => armorCard(g, a)));
   } else if (id === 'rune') {
+    html += grid(`Anéis e amuletos — Andar ${n}`, ['ring', 'amulet'].flatMap((s) => [0, 1, 2, 3, 4].map((v) => pieceCard(g, `p_${s}_${n}_${v}`))));
     html += runeSlotsHtml(g);
     const tiers = RUNE_TIER_FLOOR.map((f, i) => (n >= f ? i + 1 : 0)).filter(Boolean);
     for (const t of tiers.reverse()) {
@@ -171,8 +186,9 @@ function sellHtml(ui) {
   const gear = [];
   p.weapons.forEach((id) => { if (id !== p.weapon && id !== p.offhand) gear.push(['weapon', id, weaponDef(id)]); });
   p.armors.forEach((id) => { if (id !== p.armor) gear.push(['armor', id, armorDef(id)]); });
+  (p.pieces || []).forEach((id) => { if (!Object.values(p.equip || {}).includes(id)) gear.push(['piece', id, pieceDef(id)]); });
   html += '<div class="section">Equipamento guardado</div>';
-  html += gear.length ? `<div class="shopgrid">${gear.map(([k, id, d]) => `<div class="scard r${d.rarity}"><img src="${icon(k, id)}" alt=""><div class="sc-body"><div class="sc-name"><span class="rar r${d.rarity}">◆</span> ${esc(d.name)}</div><div class="sc-line">${k === 'weapon' ? `ATK ${d.atk}` : `DEF ${d.def}`}</div></div><div class="sc-foot"><span class="price">${nf(g.sellPrice(d))}</span><span class="sc-btns"><button class="btn sm" data-act="sellGear" data-kind="${k}" data-id="${id}">Vender</button></span></div></div>`).join('')}</div>` : '<div class="muted pad">Nenhum equipamento sobrando.</div>';
+  html += gear.length ? `<div class="shopgrid">${gear.map(([k, id, d]) => `<div class="scard r${d.rarity}"><img src="${icon(k, id)}" alt=""><div class="sc-body"><div class="sc-name"><span class="rar r${d.rarity}">◆</span> ${esc(d.name)}</div><div class="sc-line">${k === 'weapon' ? `ATK ${d.atk}` : k === 'piece' ? `${d.slotName}${d.def ? ` · DEF ${d.def}` : ''}` : `DEF ${d.def}`}</div></div><div class="sc-foot"><span class="price">${nf(g.sellPrice(d))}</span><span class="sc-btns"><button class="btn sm" data-act="sellGear" data-kind="${k}" data-id="${id}">Vender</button></span></div></div>`).join('')}</div>` : '<div class="muted pad">Nenhum equipamento sobrando.</div>';
   return html;
 }
 

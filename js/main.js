@@ -28,7 +28,7 @@ import { Sfx } from './audio.js';
 import { windTime } from './toon.js';
 import { Music } from './music.js';
 import { smoothstep } from './rng.js';
-import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward, runeDef, FOODS, MERCS, mercPrice, runeSlotsFor, DISHES, INGREDIENTS, RUNES, RUNE_TIER_FLOOR } from './data.js';
+import { getFloor, expNeed, SKILLS, ITEMS, MONSTERS, MAX_FLOOR, weaponDef, armorDef, laReward, runeDef, FOODS, MERCS, mercPrice, runeSlotsFor, DISHES, INGREDIENTS, RUNES, RUNE_TIER_FLOOR, pieceDef, randomPiece } from './data.js';
 import { isFish } from './fishing.js';
 import { guildRank, guildDiscount } from './guild.js';
 import { classBonus, CLASSES, normalizeTalents } from './classes.js';
@@ -517,6 +517,9 @@ class Game {
     const map = { fire: 'atk', stone: 'def', life: 'hp', wind: 'spd', eagle: 'crit', leech: 'leech', fortune: 'col', sage: 'exp' };
     for (const id of p.runeSlots || []) { const r = id && runeDef(id); if (r) b[map[r.key]] += r.value; }
     for (const e of this.activeBuffs()) for (const [k, v] of Object.entries(e.def.buff)) b[k] = (b[k] || 0) + v;
+    // elmo, luvas, calça, botas, capa, anel e amuleto
+    b.pDef = 0; b.pHp = 0;
+    for (const id of Object.values(p.equip || {})) { const d = id && pieceDef(id); if (!d) continue; b.pDef += d.def; b.pHp += d.hp; for (const x of d.bonus) b[x.k] = (b[x.k] || 0) + x.v; }
     const rank = guildRank(this.state.guild);
     if (rank) b.exp += rank.i * 0.03;
     // classe e árvore de talentos
@@ -599,14 +602,14 @@ class Game {
     const low = b.lowHp && p.hp != null ? b.lowHp * Math.max(0, 1 - p.hp / Math.max(1, this._lastMax || p.hp)) : 0;
     const up = (id) => (1 + UPGRADE_STEP * this.upgradeLevel(id)) * (1 + 0.03 * p.str) * (1 + b.atk + low);
     const flat = p.str + p.level * 1.5;
-    const maxHp = Math.round(((180 + 25 * (p.level - 1) + a.hp) * (1 + 0.02 * p.vit) + p.vit * 10) * (1 + b.hp));
+    const maxHp = Math.round(((180 + 25 * (p.level - 1) + a.hp + b.pHp) * (1 + 0.02 * p.vit) + p.vit * 10) * (1 + b.hp));
     this._lastMax = maxHp;
     return {
       maxHp,
       atkR: w.atk * up(p.weapon) + flat,
       atkL: (o ? o.atk * up(p.offhand) : w.atk * up(p.weapon)) + flat,
       dual: !!o,
-      def: (a.def + p.vit * 0.8 + p.level * 0.5 + b.def) * (1 + b.defMul),
+      def: (a.def + b.pDef + p.vit * 0.8 + p.level * 0.5 + b.def) * (1 + b.defMul),
       cdMul: Math.max(0.4, (1 - Math.min(0.35, p.agi * 0.01)) * (1 - (b.cd || 0))),
       crit: Math.max(0, Math.min(0.7, 0.05 + p.agi * 0.008 + (w.crit || 0) + b.crit)),
       speedMul: Math.max(0.7, 1 + Math.min(0.5, p.agi * 0.006) + (a.spd || 0) + b.spd),
@@ -809,6 +812,9 @@ class Game {
     const d = la.kind === 'weapon' ? weaponDef(la.id) : armorDef(la.id);
     (la.kind === 'weapon' ? p.weapons : p.armors).push(la.id);
     p.items.potion = (p.items.potion || 0) + 3;
+    const bp = randomPiece(n, true);
+    (p.pieces ||= []).push(bp);
+    setTimeout(() => this.ui.toast(`Recompensa do chefe: ${pieceDef(bp).name}!`, 'skill'), 1200);
     this.world.setDoorOpen(true);
     Sfx.victory();
     if (n >= MAX_FLOOR) this.ui.banner('AINCRAD CONQUISTADA', 'Game Clear! Você libertou todos os jogadores.', 8);
@@ -930,7 +936,8 @@ class Game {
       else if (roll < 0.3) { const keys = Object.keys(RUNES), t = RUNE_TIER_FLOOR.filter((f) => this.floor.n >= f).length, rid = `rune_${keys[Math.floor(Math.random() * keys.length)]}_${t}`; p.runes ||= {}; p.runes[rid] = (p.runes[rid] || 0) + 1; got = runeDef(rid).name; }
       else if (roll < 0.5) { p.items.heal_crystal = (p.items.heal_crystal || 0) + 2; got = '2× Cristal de Cura'; }
       else if (roll < 0.7) { for (const ing of Object.keys(INGREDIENTS)) { const m = (p.mats[ing] ||= { qty: 0, value: 5 }); m.qty += 3; } got = 'uma cesta de ingredientes (3 de cada)'; }
-      else if (roll < 0.85) { p.items.cristalite = (p.items.cristalite || 0) + 1; got = 'Lingote de Cristalita'; }
+      else if (roll < 0.78) { p.items.cristalite = (p.items.cristalite || 0) + 1; got = 'Lingote de Cristalita'; }
+      else if (roll < 0.88) { const pid = randomPiece(this.state.progress.highest, Math.random() < 0.35); (p.pieces ||= []).push(pid); got = pieceDef(pid).name; }
       else { const c = Math.round(800 + Math.random() * 3000 * (1 + this.floor.n * 0.05)); p.col += c; got = `${c.toLocaleString('pt-BR')} Col`; }
       Sfx.victory();
       this.ui.banner('Caixa Misteriosa', got, 3);
@@ -1036,6 +1043,7 @@ class Game {
     else if (kind === 'weapon') base = weaponDef(id).price;
     else if (kind === 'armor') base = armorDef(id).price;
     else if (kind === 'rune') base = runeDef(id).price;
+    else if (kind === 'piece') base = pieceDef(id).price;
     else if (kind === 'food') base = Math.round(FOODS[id].price * (1 + (n - 1) * 0.3));
     else if (kind === 'adopt') base = adoptPrice(id);
     else if (kind === 'merc') base = mercPrice(n);
@@ -1081,8 +1089,9 @@ class Game {
     } else {
       if (kind === 'item') { p.items[id] = (p.items[id] || 0) + q; if (ITEMS[id].elixir) p.elixirsBought = (p.elixirsBought || 0) + q; }
       else if (kind === 'rune') { p.runes ||= {}; p.runes[id] = (p.runes[id] || 0) + q; }
+      else if (kind === 'piece') (p.pieces ||= []).push(id);
       else (kind === 'weapon' ? p.weapons : p.armors).push(id);
-      name = kind === 'item' ? ITEMS[id].name : kind === 'rune' ? runeDef(id).name : kind === 'weapon' ? weaponDef(id).name : armorDef(id).name;
+      name = kind === 'item' ? ITEMS[id].name : kind === 'piece' ? pieceDef(id).name : kind === 'rune' ? runeDef(id).name : kind === 'weapon' ? weaponDef(id).name : armorDef(id).name;
       this.ui.toast(`Comprou ${q > 1 ? `${q}× ` : ''}${name}.`);
     }
     p.col -= cost;
@@ -1181,8 +1190,35 @@ class Game {
     Sfx.coin();
   }
 
+  // equipar / tirar elmo, luvas, calça, botas, capa, anel, amuleto
+  equipPiece(id) {
+    const p = this.state.player, d = pieceDef(id);
+    if (!d || !(p.pieces || []).includes(id)) return;
+    (p.equip ||= {})[d.slot] = id;
+    this.clampHp();
+    Sfx.menuOpen();
+    this.save();
+  }
+
+  unequipPiece(slot) {
+    const p = this.state.player;
+    if (p.equip) delete p.equip[slot];
+    this.clampHp();
+    this.save();
+  }
+
   sellGear(kind, id) {
-    const p = this.state.player, list = kind === 'weapon' ? p.weapons : p.armors;
+    const p = this.state.player;
+    if (kind === 'piece') {
+      if (Object.values(p.equip || {}).includes(id)) return;
+      const i = (p.pieces || []).indexOf(id);
+      if (i < 0) return;
+      p.pieces.splice(i, 1);
+      p.col += this.sellPrice(pieceDef(id));
+      Sfx.coin();
+      return;
+    }
+    const list = kind === 'weapon' ? p.weapons : p.armors;
     if (id === p.weapon || id === p.offhand || id === p.armor) return;
     const i = list.indexOf(id);
     if (i < 0) return;

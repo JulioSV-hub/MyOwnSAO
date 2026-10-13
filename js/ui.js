@@ -11,6 +11,9 @@ import { FURNITURE } from './housing.js';
 import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO } from './shopui.js';
 import { runeDef, FOODS } from './data.js';
 import { guildRank } from './guild.js';
+import { renderEquip } from './equipui.js';
+import { openLookEditor } from './lookui.js';
+import { pieceDef, defaultLook } from './data.js';
 import { SPELLS, spellById } from './spells.js';
 import { floorCompletion, completionReward, PARTS } from './completion.js';
 import { CLASSES, respecCost, classChangeCost } from './classes.js';
@@ -625,6 +628,7 @@ export class UI {
       const d = armorDef(id);
       tiles.push({ cat: 'armor', kind: 'armor', id, name: d.name, rarity: d.rarity, eq: id === p.armor ? '✓' : '' });
     }
+    for (const id of [...new Set(p.pieces || [])]) { const d = pieceDef(id); if (d) tiles.push({ cat: 'armor', kind: 'piece', id, name: d.name, rarity: d.rarity, qty: (p.pieces.filter((x) => x === id).length > 1 ? p.pieces.filter((x) => x === id).length : 0), eq: Object.values(p.equip || {}).includes(id) ? '✓' : '' }); }
     for (const [id, q] of Object.entries(p.items)) if (q > 0 && ITEMS[id]) tiles.push({ cat: 'item', kind: 'item', id, name: ITEMS[id].name, rarity: 1, qty: q });
     for (const [id, q] of Object.entries(p.runes || {})) if (q > 0 && runeDef(id)) tiles.push({ cat: 'item', kind: 'rune', id, name: runeDef(id).name, rarity: runeDef(id).rarity, qty: q });
     for (const [name, m] of Object.entries(p.mats)) if (m.qty > 0) tiles.push({ cat: 'mat', kind: 'mat', id: name, name, rarity: 0, qty: m.qty });
@@ -655,6 +659,11 @@ export class UI {
       title = d.name; rar = d.rarity;
       lines = [`DEF ${d.def} · HP +${d.hp}`, d.floor ? `Origem: Andar ${d.floor}${d.rarity === 2 ? ' — item raro' : ''}` : 'Equipamento inicial'];
       if (id !== p.armor) acts += `<button class="btn sm" data-act="equipA" data-id="${id}">Equipar</button>`;
+    } else if (kind === 'piece') {
+      const d = pieceDef(id);
+      title = d.name; rar = d.rarity;
+      lines = [`${d.slotName} · Andar ${d.floor}${d.def ? ` · DEF +${d.def} · HP +${d.hp}` : ''}`, ...d.bonus.map((b) => b.fmt(b.v))];
+      if (p.equip?.[d.slot] !== id) acts += `<button class="btn sm" data-act="equipP" data-id="${id}">Equipar</button>`;
     } else if (kind === 'rune') {
       const d = runeDef(id);
       title = d.name; rar = d.rarity;
@@ -673,30 +682,7 @@ export class UI {
     return `<div class="detail r${rar}"><img src="${icon(kind, id)}" alt=""><div class="dinfo"><div class="dtitle"><span class="rar r${rar}">◆</span> ${esc(title)}</div>${lines.map((l) => `<div class="muted">${esc(l)}</div>`).join('')}<div class="btns">${acts}<button class="btn sm" data-act="closeDetail">Fechar</button></div></div></div>`;
   }
 
-  pEquip() {
-    const p = this.g.state.player;
-    const w = weaponDef(p.weapon), o = p.offhand ? weaponDef(p.offhand) : null, a = armorDef(p.armor);
-    const seen = new Set();
-    const weapons = p.weapons.filter((id) => !seen.has(id) && seen.add(id)).map((id) => {
-      const d = weaponDef(id), eqR = id === p.weapon, eqL = id === p.offhand;
-      const main = eqR ? '<span class="tag">Principal</span>' : `<button class="btn sm" data-act="equipW" data-id="${id}">Equipar</button>`;
-      const off = p.dualBlades && !eqR ? (eqL ? '<button class="btn sm on" data-act="unequipL">Secundária ✕</button>' : `<button class="btn sm" data-act="equipL" data-id="${id}">Secundária</button>`) : '';
-      return `<div class="row ${eqR || eqL ? 'eq' : ''}"><div class="withicon"><img class="ico" src="${icon('weapon', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(this.g.weaponLabel(id))}</b> <span class="muted">ATK ${this.g.weaponAtk(id)}</span></div><div class="row-r">${main}${off}</div></div>`;
-    }).join('');
-    seen.clear();
-    const armors = p.armors.filter((id) => !seen.has(id) && seen.add(id)).map((id) => {
-      const d = armorDef(id), eq = id === p.armor;
-      return `<div class="row ${eq ? 'eq' : ''}"><div class="withicon"><img class="ico" src="${icon('armor', id)}" alt=""><span class="rar r${d.rarity}">◆</span> <b>${esc(d.name)}</b> <span class="muted">DEF ${d.def} · HP +${d.hp}</span></div>${eq ? '<span class="tag">Equipada</span>' : `<button class="btn sm" data-act="equipA" data-id="${id}">Equipar</button>`}</div>`;
-    }).join('');
-    return `<div class="equip-sum">
-        <div><span class="muted">Mão direita</span><b>${esc(this.g.weaponLabel(p.weapon))}</b><span>ATK ${this.g.weaponAtk(p.weapon)}</span></div>
-        ${p.dualBlades ? `<div><span class="muted">Mão esquerda</span><b>${o ? esc(this.g.weaponLabel(p.offhand)) : '—'}</b><span>${o ? `ATK ${this.g.weaponAtk(p.offhand)}` : 'vazia'}</span></div>` : ''}
-        <div><span class="muted">Armadura</span><b>${esc(a.name)}</b><span>DEF ${a.def} · HP +${a.hp}</span></div>
-      </div>
-      ${runeSlotsHtml(this.g)}
-      <div class="section">Armas</div>${weapons}
-      <div class="section">Armaduras</div>${armors}`;
-  }
+  pEquip() { return renderEquip(this); }
 
   pSkills() {
     const p = this.g.state.player;
@@ -826,6 +812,8 @@ export class UI {
         ? '<div class="unique hc">Modo <b>Hardcore</b>: a morte é permanente. Exportar e importar ficam desativados neste mundo.</div><div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Desistir (apagar este mundo)</button></div>'
         : '<div class="btns"><button class="btn" data-act="save">Salvar agora</button><button class="btn" data-act="export">Exportar mundo (.json)</button><button class="btn" data-act="import">Importar mundo</button></div><div class="btns"><button class="btn" data-act="logout">Logout</button><button class="btn danger" data-act="wipe">Apagar save</button></div>'}
       <div class="muted pad">O jogo salva sozinho a cada 30s e em momentos importantes. Exporte de vez em quando como backup.</div>
+      <div class="section">Aparência</div>
+      <div class="btns"><button class="btn" data-act="look">Alterar aparência do personagem</button></div>
       <div class="section">Modelos 3D</div>
       <div class="muted pad">Modelos, altura e presença de cada personagem ficam em <b>Menu → NPCs</b>.</div>
       ${Object.keys(registry.credits).length ? `<div class="section">Créditos dos modelos 3D</div>${Object.entries(registry.credits).map(([f, c]) => `<div class="row"><div><b>${esc(c.title)}</b> <span class="muted">por</span> <b>${esc(c.author)}</b>${c.contact ? `<div class="muted">${/^https?:\/\//.test(c.contact) ? `<a href="${esc(c.contact)}" target="_blank" rel="noopener">${esc(c.contact)}</a>` : esc(c.contact)}</div>` : ''}</div><div class="row-r"><span class="muted">${esc(displayName(f))}</span>${f.startsWith('local:') ? `<button class="btn sm" data-act="creditEdit" data-key="${esc(f)}">Editar</button>` : ''}</div></div>`).join('')}<div class="muted pad">Modelos usados conforme as condições de uso de cada autor: sem redistribuição, sem alterações e sem atos violentos.</div>` : ''}
@@ -980,6 +968,15 @@ export class UI {
         }
         case 'tab': this.shopTab = d.t; break;
         case 'runeOn': g.equipRune(d.id); break;
+        case 'eqSlot': this.eqSlot = d.s; break;
+        case 'rot': this.avAngle = (this.avAngle ?? 0.4) + +d.d * 0.7; break;
+        case 'equipP': g.equipPiece(d.id); break;
+        case 'unequipP': g.unequipPiece(d.s); break;
+        case 'look': {
+          this.closeMenu(false);
+          openLookEditor({ look: p.look, name: p.name, title: 'Alterar aparência', onSave: (l) => { p.look = l; this._avKey = null; g.save(); this.toast('Aparência salva! Veja em Menu → Equipamento.', 'skill'); this.openMenu('equip'); }, onCancel: () => this.openMenu('system') });
+          return;
+        }
         case 'cook': g.cook(d.id, +(d.q || 1)); break;
         case 'talent': spendTalent(g, d.id); break;
         case 'respec': if (confirm(`Redistribuir todos os pontos de talento por ${respecCost(p).toLocaleString('pt-BR')} Col?`)) respec(g); break;
@@ -1091,6 +1088,23 @@ export class UI {
           : 'Atenção: começar um novo jogo substitui o mundo Normal salvo (exporte antes se quiser guardá-lo).';
         $('title-warn').classList.toggle('hidden', !(has || mode === 'hardcore'));
         this.newCls ||= 'swordsman';
+        this.newLook = null;
+        this.newFemale = false;
+        const sx = $('sex-pick');
+        const drawSex = () => { sx.innerHTML = `<button type="button" class="tbtn small ${!this.newFemale ? 'on' : ''}" data-sex="m">Masculino</button><button type="button" class="tbtn small ${this.newFemale ? 'on' : ''}" data-sex="f">Feminino</button><button type="button" class="tbtn small" data-sex="custom">${this.newLook ? '✓ Aparência personalizada' : 'Personalizar aparência…'}</button>`; };
+        drawSex();
+        sx.onclick = (ev) => {
+          const b = ev.target.closest('[data-sex]');
+          if (!b) return;
+          Sfx.click();
+          if (b.dataset.sex === 'custom') {
+            openLookEditor({ look: this.newLook || defaultLook(this.newFemale), name: $('name-input').value || 'Você', title: 'Monte seu personagem', onSave: (l) => { this.newLook = l; this.newFemale = !!l.female; drawSex(); } });
+            return;
+          }
+          this.newFemale = b.dataset.sex === 'f';
+          this.newLook = null;
+          drawSex();
+        };
         const cp = $('class-pick');
         cp.innerHTML = classCards(this.newCls);
         cp.onclick = (ev) => { const b = ev.target.closest('[data-cls]'); if (!b) return; Sfx.click(); this.newCls = b.dataset.cls; cp.innerHTML = classCards(this.newCls); };
@@ -1102,7 +1116,7 @@ export class UI {
     $('title-new').onsubmit = (e) => {
       e.preventDefault();
       const name = $('name-input').value.trim().slice(0, 16) || 'Kirito';
-      this.g.beginGame(newSave(name, this.newMode || 'normal', this.newCls || 'swordsman'));
+      this.g.beginGame(newSave(name, this.newMode || 'normal', this.newCls || 'swordsman', this.newLook || defaultLook(!!this.newFemale)));
     };
     $('title-back').onclick = () => { $('title-new').classList.add('hidden'); c.classList.remove('hidden'); };
   }

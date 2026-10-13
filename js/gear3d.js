@@ -393,6 +393,38 @@ export function buildMaterial(name) {
   return { group };
 }
 
+// Peças: elmo, luvas, calça, botas, capa, anel e amuleto (ícones)
+export function buildPiece(d) {
+  const group = new THREE.Group(), main = std(d.color, { metalness: 0.5, roughness: 0.4 }), trim = std(d.trim, { metalness: 0.7, roughness: 0.3 });
+  const gem = M(new THREE.OctahedronGeometry(0.06, 0), glow(d.gem, 1.6));
+  if (d.slot === 'head') {
+    group.add(M(new THREE.SphereGeometry(0.26, 20, 12, 0, PI * 2, 0, PI * 0.55), main));
+    const rim = M(new THREE.TorusGeometry(0.255, 0.025, 6, 24), trim, 0, 0.02, 0); rim.rotation.x = PI / 2;
+    group.add(rim, M(new THREE.BoxGeometry(0.04, 0.16, 0.04), trim, 0, -0.04, 0.26), M(new THREE.BoxGeometry(0.035, 0.08, 0.42), trim, 0, 0.24, 0));
+  } else if (d.slot === 'hands') {
+    for (const s of [-1, 1]) { const h = M(new THREE.CapsuleGeometry(0.08, 0.16, 4, 10), main, s * 0.13, 0, 0); h.rotation.z = s * 0.3; group.add(h, M(new THREE.CylinderGeometry(0.1, 0.09, 0.08, 12), trim, s * 0.17, -0.13, 0)); }
+  } else if (d.slot === 'legs') {
+    for (const s of [-1, 1]) group.add(M(new THREE.CapsuleGeometry(0.075, 0.42, 4, 10), main, s * 0.09, -0.05, 0));
+    group.add(M(new THREE.CylinderGeometry(0.18, 0.18, 0.06, 16), trim, 0, 0.27, 0));
+  } else if (d.slot === 'feet') {
+    for (const s of [-1, 1]) { const b = M(new THREE.CapsuleGeometry(0.07, 0.18, 4, 10), main, s * 0.1, 0.05, 0); const t = M(new THREE.SphereGeometry(0.08, 10, 8), main, s * 0.1, -0.08, 0.08); t.scale.set(1, 0.6, 1.5); group.add(b, t, M(new THREE.TorusGeometry(0.075, 0.015, 6, 14), trim, s * 0.1, 0.15, 0)); }
+  } else if (d.slot === 'cape') {
+    const c = M(new THREE.CylinderGeometry(0.16, 0.34, 0.6, 16, 1, true, -1.2, 2.4), std(d.color, { side: THREE.DoubleSide }));
+    group.add(c, M(new THREE.TorusGeometry(0.13, 0.025, 6, 14, PI), trim, 0, 0.3, 0));
+    group.children[1].rotation.x = PI / 2;
+  } else if (d.slot === 'ring') {
+    const r = M(new THREE.TorusGeometry(0.18, 0.04, 10, 28), trim); r.rotation.x = 0.4;
+    gem.position.set(0, 0.2, 0.05); gem.scale.setScalar(1.6);
+    group.add(r, gem);
+  } else {
+    const ch = M(new THREE.TorusGeometry(0.22, 0.012, 6, 30), trim);
+    const pend = M(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 6), main, 0, -0.24, 0.02); pend.rotation.x = PI / 2;
+    gem.position.set(0, -0.24, 0.05); gem.scale.setScalar(1.2);
+    group.add(ch, pend, gem);
+  }
+  return { group };
+}
+
 // Runa: pedra gravada flutuando dentro de um anel de luz na cor do tipo.
 export function buildRune(def) {
   const group = new THREE.Group();

@@ -641,3 +641,72 @@ export function armorDef(id) {
   const d = baseArmorDef(id);
   return { ...d, ...(A_LOOK[baseName(d.name)] || { type: 'vest', color: '#7a5434', trim: '#4a3020' }) };
 }
+
+// ───────────────────────────── Peças de equipamento (elmo, luvas, calça, botas, capa, anel, amuleto) ─────────────────────────────
+// id: p_<slot>_<andar>_<variante>  (rp_ = raro). Variante muda nome/cor e o bônus extra.
+export const PIECE_SLOTS = {
+  head: { name: 'Elmo', k: 0.32, names: ['Capuz de Couro', 'Elmo de Ferro', 'Elmo de Aço', 'Elmo de Mithril', 'Elmo Rúnico', 'Elmo Dracônico'] },
+  hands: { name: 'Luvas', k: 0.16, names: ['Luvas de Couro', 'Manoplas de Ferro', 'Manoplas de Aço', 'Luvas de Mithril', 'Manoplas Rúnicas', 'Garras Dracônicas'] },
+  legs: { name: 'Calça', k: 0.26, names: ['Calça de Couro', 'Grevas de Ferro', 'Grevas de Aço', 'Calça de Mithril', 'Grevas Rúnicas', 'Grevas Dracônicas'] },
+  feet: { name: 'Botas', k: 0.18, names: ['Botas de Couro', 'Botas de Ferro', 'Botas de Aço', 'Botas de Mithril', 'Botas Rúnicas', 'Botas Dracônicas'] },
+  cape: { name: 'Capa', k: 0.14, names: ['Capa de Viagem', 'Capa do Caçador', 'Capa do Cavaleiro', 'Capa Élfica', 'Capa Rúnica', 'Capa do Dragão'] },
+  ring: { name: 'Anel', acc: true, names: ['Anel de Cobre', 'Anel de Prata', 'Anel de Ouro', 'Anel de Mithril', 'Anel Rúnico', 'Anel Estelar'] },
+  amulet: { name: 'Amuleto', acc: true, names: ['Amuleto de Osso', 'Amuleto de Prata', 'Amuleto de Ouro', 'Amuleto de Cristal', 'Amuleto Rúnico', 'Amuleto Estelar'] },
+};
+export const PIECE_ORDER = ['head', 'cape', 'hands', 'legs', 'feet', 'ring', 'amulet'];
+const P_COLORS = [['#7a5434', '#4a3020'], ['#8a8e96', '#4a4a52'], ['#c0c4cc', '#6a6e78'], ['#a8d8f0', '#4a8ab0'], ['#8a70c8', '#d8b0ff'], ['#8a2a1a', '#e0a040']];
+// bônus extra das peças raras e dos acessórios (por variante)
+const P_BONUS = [
+  { k: 'atk', v: 0.03, fmt: (x) => `+${Math.round(x * 100)}% de ataque` },
+  { k: 'crit', v: 0.02, fmt: (x) => `+${Math.round(x * 100)}% de crítico` },
+  { k: 'spd', v: 0.03, fmt: (x) => `+${Math.round(x * 100)}% de velocidade` },
+  { k: 'hp', v: 0.04, fmt: (x) => `+${Math.round(x * 100)}% de HP` },
+  { k: 'resist', v: 0.02, fmt: (x) => `−${Math.round(x * 100)}% de dano recebido` },
+];
+const A_BONUS = [
+  { k: 'critDmg', v: 0.08, fmt: (x) => `+${Math.round(x * 100)}% de dano crítico` },
+  { k: 'regen', v: 0.3, fmt: (x) => `regeneração +${Math.round(x * 100)}%` },
+  { k: 'exp', v: 0.04, fmt: (x) => `+${Math.round(x * 100)}% de EXP` },
+  { k: 'col', v: 0.06, fmt: (x) => `+${Math.round(x * 100)}% de Col` },
+  { k: 'skillDmg', v: 0.04, fmt: (x) => `Sword Skills/feitiços +${Math.round(x * 100)}%` },
+];
+
+export function pieceDef(id) {
+  const m = /^(r?p)_(head|hands|legs|feet|cape|ring|amulet)_(\d+)_(\d)$/.exec(id || '');
+  if (!m) return null;
+  const rare = m[1] === 'rp', slot = m[2], n = +m[3], v = +m[4] % 5, S = PIECE_SLOTS[slot];
+  const i = (n - 1) % S.names.length, tier = Math.floor((n - 1) / S.names.length);
+  const scale = (1 + n * 0.025) * (rare ? 1.35 : 1);
+  const bonus = [];
+  if (S.acc) {
+    // anel: bônus de combate; amuleto: bônus de utilidade
+    const b = (slot === 'ring' ? P_BONUS : A_BONUS)[v];
+    bonus.push({ k: b.k, v: +(b.v * scale).toFixed(3), fmt: b.fmt });
+    if (rare) { const b2 = (slot === 'ring' ? A_BONUS : P_BONUS)[(v + 2) % 5]; bonus.push({ k: b2.k, v: +(b2.v * 0.6 * scale).toFixed(3), fmt: b2.fmt }); }
+  } else if (rare) { const b = P_BONUS[v]; bonus.push({ k: b.k, v: +(b.v * scale).toFixed(3), fmt: b.fmt }); }
+  const def = S.acc ? 0 : Math.round((3 + n * 2.4) * S.k * (rare ? 1.35 : 1));
+  const hp = S.acc ? 0 : Math.round(18 * n * S.k * (rare ? 1.35 : 1));
+  const [color, trim] = P_COLORS[i];
+  const prefix = rare ? ['Lendário', 'Ancestral', 'Sagrado', 'Real', 'Sombrio'][v] : '';
+  const name = `${S.names[i]}${rare ? ` ${prefix}` : ''}${tier ? ` +${tier}` : ''}`;
+  return { id, slot, slotName: S.name, name, def, hp, bonus, rarity: rare ? 2 : 1, floor: n, color, trim, gem: ['#ff5a5a', '#5ac8ff', '#5aff8a', '#ffd84a', '#c08aff'][v],
+    price: Math.round((S.acc ? 260 : 120 * S.k * 3) * Math.pow(n, 1.3) * (rare ? 2.5 : 1)) };
+}
+export const randomPiece = (n, rare, rnd = Math.random) => `${rare ? 'rp' : 'p'}_${PIECE_ORDER[Math.floor(rnd() * PIECE_ORDER.length)]}_${n}_${Math.floor(rnd() * 5)}`;
+
+// ───────────────────────────── Aparência do personagem ─────────────────────────────
+export const LOOK_OPTIONS = {
+  hair: [['short', 'Curto'], ['spiky', 'Espetado'], ['long', 'Longo'], ['ponytail', 'Rabo de cavalo'], ['bob', 'Chanel'], ['twintails', 'Maria-chiquinha'], ['bald', 'Careca'], ['hood', 'Capuz']],
+  hairColor: ['#17171f', '#2a1e16', '#4a3020', '#7a4a28', '#c9773f', '#c8a060', '#e8d8a8', '#b0302a', '#ff8ab8', '#5a7ad8', '#d8d8e8', '#4a8a5a'],
+  skin: ['#fae6d8', '#f9e3d4', '#f4d8c0', '#e8c4a4', '#c89470', '#9a6a48', '#6a4a30'],
+  eyes: ['#2c2c3c', '#3a2a1a', '#2a4a8a', '#3a6a3a', '#7a4a2a', '#9a5a2a', '#5a3a6a', '#c8407a', '#c8902a'],
+  top: ['#18181f', '#f4f4f6', '#3a6a8a', '#8a4a3a', '#4a7a4a', '#c8a050', '#6a4a7a', '#a03a3a', '#3a4a6a', '#e8c8a0'],
+  pants: ['#1c1c24', '#3a3028', '#2a3448', '#4a4038', '#5a4a3a', '#e8e8ec', '#3a4a3a'],
+  boots: ['#101014', '#2a2018', '#4a3020', '#1e1e24', '#f0f0f2', '#6a3a2a'],
+  accent: ['#4a4a55', '#c0262c', '#d8b060', '#4a8ad8', '#ff9ac8', '#5ac83a', '#f0f0f4'],
+};
+export function defaultLook(female) {
+  return female
+    ? { female: true, hair: 'long', hairColor: '#4a3020', skin: '#f9e3d4', eyes: '#7a4a2a', top: '#f4f4f6', pants: '#3a3028', boots: '#f0f0f2', accent: '#c0262c', skirt: true }
+    : { female: false, hair: 'spiky', hairColor: '#17171f', skin: '#f6dcc8', eyes: '#2c2c3c', top: '#18181f', pants: '#1c1c24', boots: '#101014', accent: '#4a4a55', skirt: false };
+}

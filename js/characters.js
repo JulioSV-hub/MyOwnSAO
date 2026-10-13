@@ -269,7 +269,8 @@ export function buildCharacter(def) {
     const pivot = new THREE.Group();
     pivot.position.set(s * 0.175 * w, 1.37, 0);
     pivot.add(M(SPH(0.065, 12, 10), def.coat ? animeMat(def.coat) : top, 0, 0, 0));
-    pivot.add(M(CAP(0.046, 0.42, 10), def.coat ? animeMat(def.coat) : top, 0, -0.25, 0), M(SPH(0.048, 12, 10), skin, 0, -0.52, 0));
+    pivot.add(M(CAP(0.046, 0.42, 10), def.coat ? animeMat(def.coat) : top, 0, -0.25, 0), M(SPH(0.048, 12, 10), def.gloves ? animeMat(def.gloves) : skin, 0, -0.52, 0));
+    if (def.gloves) pivot.add(M(geo('cuff', () => new THREE.CylinderGeometry(0.058, 0.055, 0.09, 12)), animeMat(def.glovesTrim || def.gloves), 0, -0.44, 0));
     pivot.rotation.z = s * 0.08;
     inner.add(pivot);
     parts.arms.push(pivot);
@@ -296,7 +297,26 @@ export function buildCharacter(def) {
   face.userData.face = true;
   head.add(face);
   for (const s of [-1, 1]) head.add(M(SPH(0.03, 8, 6), skin, s * HEAD_R * 0.98, -0.01, 0.01));
-  buildHair(def, head, hairMat);
+  if (!def.helmet || def.helmet.open) buildHair(def, head, hairMat);
+  if (def.helmet) {
+    // elmo: cúpula com borda e proteção de nariz
+    const hm = animeMat(def.helmet.color), tm = animeMat(def.helmet.trim || def.helmet.color);
+    const dome = M(geo('helm', () => new THREE.SphereGeometry(HEAD_R * 1.2, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.55)), hm, 0, 0.01, 0.01);
+    const rim = M(geo('helmrim', () => new THREE.TorusGeometry(HEAD_R * 1.17, 0.018, 6, 24)), tm, 0, 0.0, 0.01);
+    rim.rotation.x = Math.PI / 2;
+    const nose = M(geo('helmnose', () => new THREE.BoxGeometry(0.03, 0.11, 0.025)), tm, 0, -0.04, -HEAD_R * 1.12);
+    const crest = M(geo('helmcrest', () => new THREE.BoxGeometry(0.025, 0.06, 0.3)), tm, 0, HEAD_R * 1.15, 0.01);
+    head.add(dome, rim, nose, crest);
+  }
+  if (def.cape) {
+    // capa nas costas, dos ombros até os joelhos
+    const cm = animeMat(def.cape.color, { side: THREE.DoubleSide });
+    const cape = M(geo('cape', () => new THREE.CylinderGeometry(0.19, 0.36, 1.0, 16, 1, true, -1.15, 2.3)), cm, 0, 0.93, 0.02);
+    cape.scale.z = 0.85;
+    const collar = M(geo('capecollar', () => new THREE.TorusGeometry(0.15, 0.03, 6, 16, Math.PI)), animeMat(def.cape.trim || def.cape.color), 0, 1.42, 0.02);
+    collar.rotation.set(Math.PI / 2, 0, Math.PI);
+    inner.add(cape, collar);
+  }
   inner.add(head);
   parts.head = head;
   parts.face = { mat: faceMat, tex };

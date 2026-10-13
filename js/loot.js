@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { toonMat } from './toon.js';
 import { mulberry32 } from './rng.js';
-import { GATHER, ITEMS, MONSTERS, RUNES, RUNE_TIER_FLOOR, weaponDef, armorDef, runeDef } from './data.js';
+import { GATHER, ITEMS, MONSTERS, RUNES, RUNE_TIER_FLOOR, weaponDef, armorDef, runeDef, pieceDef, randomPiece } from './data.js';
 import { Sfx } from './audio.js';
 import { checkCompletion } from './completion.js';
 
@@ -282,6 +282,11 @@ export class Loot {
       if (Math.random() < 0.6) item('potion', rint(1, 2));
       if (Math.random() < 0.45) mat(drop[0], Math.round(drop[1] * (1 + n * 0.45)), rint(1, 2));
       if (Math.random() < 0.08) rune(1);
+    }
+    // peças de equipamento (elmo, luvas, botas, anel...)
+    const pieceChance = { wood: 0.08, silver: 0.32, gold: 0.55 }[c.tier];
+    if (Math.random() < pieceChance) { const pid = randomPiece(n, c.tier === 'gold' ? Math.random() < 0.6 : c.tier === 'silver' && Math.random() < 0.12); (p.pieces ||= []).push(pid); got.push(pieceDef(pid).rarity === 2 ? `★ ${pieceDef(pid).name}` : pieceDef(pid).name); }
+    if (c.tier === 'wood') {
     } else if (c.tier === 'silver') {
       item(n >= 3 ? 'hipotion' : 'potion', rint(1, 2));
       if (Math.random() < 0.35) item('teleport_crystal', 1);

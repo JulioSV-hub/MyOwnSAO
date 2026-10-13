@@ -3,7 +3,7 @@
 const KEYS = { normal: 'sao-meu-mundo-save-v1', hardcore: 'sao-meu-mundo-save-hardcore-v1' };
 const RECORD_KEY = 'sao-meu-mundo-hardcore-recorde';
 
-export function newSave(name, mode = 'normal', cls = null) {
+export function newSave(name, mode = 'normal', cls = null, look = null) {
   return {
     version: 1,
     mode,
@@ -20,6 +20,7 @@ export function newSave(name, mode = 'normal', cls = null) {
       dualBlades: false, kills: 0, deaths: 0,
       runes: {}, runeSlots: [null, null, null], food: null,
       cls, talents: {},
+      pieces: [], equip: {}, look,
     },
     guild: null,
     party: [],
