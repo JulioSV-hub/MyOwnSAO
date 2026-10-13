@@ -40,7 +40,7 @@ const MENU = [['status', 'Status'], ['items', 'Mochila'], ['equip', 'Equipamento
 const TITLES = { status: 'Status', items: 'Mochila', equip: 'Equipamento', skills: 'Sword Skills', map: 'Mapa de Aincrad', system: 'Sistema', shop: 'Loja', npcs: 'NPCs da cidade', quests: 'Missões', party: 'Time', talents: 'Classe e Talentos' };
 const SET_FMT = {
   sens: (v) => (+v).toFixed(2), fov: (v) => `${v}°`, volume: (v) => `${Math.round(v * 100)}%`,
-  xpRate: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`, dayLen: (v) => `${v} min`, nightLen: (v) => `${v} min`,
+  xpRate: (v) => `${v}×`, bossMul: (v) => `${v}×`, eliteMul: (v) => `${v}×`, music: (v) => `${Math.round(v * 100)}%`, dayMinutes: (v) => `${v} min`, dayLen: (v) => `${v} min`, nightLen: (v) => `${v} min`,
 };
 
 export class UI {
@@ -808,12 +808,15 @@ export class UI {
     const diff = s.difficulty || 'normal';
     return `<div class="section">Dificuldade</div>
       <div class="row"><span>Força dos monstros e chefes <span class="muted">(vale para os monstros que aparecerem a partir de agora)</span></span><select data-set="difficulty">${[['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil'], ['sao', 'Death Game (muito difícil)']].map(([v, l]) => `<option value="${v}" ${diff === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      ${range('bossMul', 'Força dos chefes do andar (HP ×, dano um pouco menos)', 1, 10, 0.5)}
+      ${range('eliteMul', 'Força de elites e Chefes de Campo', 1, 6, 0.5)}
+      <div class="muted pad">Vale para os próximos chefes que aparecerem. Com 3× ou mais, você vai precisar subir de nível, fortalecer a arma, treinar o time e usar comida e runas para vencer.</div>
       <div class="section">Configurações</div>
       ${range('sens', 'Sensibilidade do mouse', 0.2, 3, 0.05)}
       ${range('fov', 'Campo de visão', 60, 100, 1)}
       ${range('volume', 'Volume dos efeitos', 0, 1, 0.05)}
       ${range('music', 'Volume da música', 0, 1, 0.05)}
-      ${range('xpRate', 'Taxa de EXP (seu mundo, suas regras)', 1, 10, 1)}
+      ${range('xpRate', 'Taxa de EXP (seu mundo, suas regras)', 0.25, 10, 0.25)}
       ${range('dayLen', 'Duração do dia (sol)', 1, 60, 1)}
       ${range('nightLen', 'Duração da noite', 1, 60, 1)}
       ${check('invertY', 'Inverter eixo Y')}${check('bloom', 'Brilho (bloom)')}${check('shadows', 'Sombras')}${check('grass', 'Grama (desligue se o PC estiver lento)')}${check('autoSheath', 'Guardar a espada automaticamente na cidade')}

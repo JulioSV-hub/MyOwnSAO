@@ -323,7 +323,7 @@ export class Loot {
       const ref = this.fbRef, list = this.game.enemies.list;
       if (!ref || ref.dead || !list.includes(ref)) {
         if (!ref || !ref.dead) {
-          const e = this.game.enemies.spawnAt(fb.def, this.game.floor.level + 6, fb.pos.x + 6, fb.pos.z + 6, {});
+          const e = this.game.enemies.spawnAt(fb.def, this.game.floor.level + 6, fb.pos.x + 6, fb.pos.z + 6, { elite: true });
           e.fieldBoss = true;
           e.elite = true;
           e.monId = fb.id;

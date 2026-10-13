@@ -426,6 +426,7 @@ class Game {
 
   startState(state) {
     this.state = state;
+    state.settings = { ...DEFAULT_SETTINGS, ...state.settings };
     const p = state.player;
     this.tod = state.world.tod ?? 0.32;
     normalizeTalents(p);
@@ -1144,9 +1145,16 @@ class Game {
   weaponAtk(id) { return Math.round(weaponDef(id).atk * (1 + UPGRADE_STEP * this.upgradeLevel(id))); }
   weaponLabel(id) { const lv = this.upgradeLevel(id); return `${weaponDef(id).name}${lv ? ` +${lv}` : ''}`; }
 
+  // Custo da Lisbeth: depende do valor e do ataque da arma e cresce rápido a cada nível
   upgradeCost(id) {
-    const lv = (this.state.player.upgrades?.[id]) || 0;
-    return Math.round((40 + weaponDef(id).atk * 4) * Math.pow(lv + 1, 1.3));
+    const lv = (this.state.player.upgrades?.[id]) || 0, d = weaponDef(id);
+    return Math.round((d.price * 0.3 + d.atk * 12 + 60) * Math.pow(lv + 1, 1.75));
+  }
+
+  // Chance de sucesso (como no anime, upgrades altos podem falhar)
+  upgradeChance(id) {
+    const lv = this.upgradeLevel(id);
+    return [1, 1, 1, 1, 1, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.35, 0.3, 0.25, 0.2][lv] ?? 0.2;
   }
 
   upgradeWeapon(id) {
@@ -1154,6 +1162,7 @@ class Game {
     if (p.col < cost || lv >= 15) return false;
     if (lv >= 10) { if (!(p.items.cristalite > 0)) return false; p.items.cristalite--; }
     p.col -= cost;
+    if (Math.random() > this.upgradeChance(id)) { this.save(); return 'fail'; }
     (p.upgrades ||= {})[id] = ((p.upgrades[id]) || 0) + 1;
     this.combat.refresh();
     this.effects.sparks(this.world.lisbethSpot.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), '#ffb84a', 24, 0.8);

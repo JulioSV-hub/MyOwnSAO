@@ -230,10 +230,15 @@ class NPC {
         const opts = [];
         if (lv < 15) {
           const ingot = lv >= 10;
-          opts.push({ label: `Fortalecer para +${lv + 1}: ATK ${atkNow} → ${atkNext} (${cost.toLocaleString('pt-BR')} Col${ingot ? ' + 1 Lingote de Cristalita' : ''})`, run: () => {
+          const chance = Math.round(g.upgradeChance(wid) * 100);
+          opts.push({ label: `Fortalecer para +${lv + 1}: ATK ${atkNow} → ${atkNext} (${cost.toLocaleString('pt-BR')} Col${ingot ? ' + 1 Lingote de Cristalita' : ''} · ${chance}% de chance)`, run: () => {
             if (p.col < cost) { Sfx.error(); return say('Hmm... você não tem Col suficiente. Volte quando tiver juntado mais!'); }
             if (ingot && !(p.items.cristalite > 0)) { Sfx.error(); return say('Acima de +10 o metal comum não aguenta! Preciso de um Lingote de Cristalita — o Agil às vezes tem para vender.'); }
-            g.upgradeWeapon(wid);
+            if (g.upgradeWeapon(wid) === 'fail') {
+              Sfx.error();
+              g.ui.toast(`O fortalecimento falhou... ${wd.name} continua +${lv}.`, 'warn');
+              return say(`*CLANG!* ... *crack* Ahh, não! O metal não aguentou desta vez. A arma está inteira, continua +${lv}, mas o material se perdeu. Quanto mais alto o nível, mais difícil fica. Quer tentar de novo?`, [{ label: 'Tentar de novo', run: () => this.dialog() }, close]);
+            }
             Sfx.coin();
             g.ui.toast(`${wd.name} +${lv + 1} — ATK ${atkNow} → ${atkNext}`, 'skill');
             return say(`*CLANG! CLANG!* ... Prontinho! ${wd.name} agora está +${lv + 1} — ATK ${atkNow} → ${atkNext}. Olha esse brilho! Não vai quebrar ela, viu?`, [{ label: 'Fortalecer de novo', run: () => this.dialog() }, close]);
@@ -242,7 +247,7 @@ class NPC {
         opts.push({ label: 'Comprar armas forjadas', run: () => { g.ui.closeDialog(false); g.ui.openShop('forge'); return undefined; } });
         opts.push({ label: 'Conversar', run: () => say(nextLine(['Uma espada feita com metal de cristal... um dia eu faço uma assim de novo.', 'Meu sonho é ter uma loja com uma roda d\'água no andar 48!', 'Se o fio da sua lâmina gastar, eu dou um jeito. É meu trabalho!'])) });
         opts.push(close);
-        return say(`Bem-vinda à Lisbeth's Smith Shop! Quer dizer... bem-vindo! Posso deixar sua arma mais forte. Na sua mão: ${wd.name} +${lv} (ATK ${atkNow}). Cada nível dá +10% de ataque à arma — e o nível fica na arma, não em você. Até +10 com Col; de +11 a +15 também preciso de Lingote de Cristalita.`, opts);
+        return say(`Bem-vinda à Lisbeth's Smith Shop! Quer dizer... bem-vindo! Posso deixar sua arma mais forte. Na sua mão: ${wd.name} +${lv} (ATK ${atkNow}). Cada nível dá +10% de ataque à arma — e o nível fica na arma, não em você. Até +10 com Col; de +11 a +15 também preciso de Lingote de Cristalita. A partir do +6 pode falhar — e o material se perde.`, opts);
       }
       case 'info': {
         const pr = g.state.progress, paid = pr.info?.[n];

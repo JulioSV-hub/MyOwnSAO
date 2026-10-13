@@ -3,7 +3,8 @@
 import { mulberry32, pick, shuffle } from './rng.js';
 
 export const MAX_FLOOR = 100;
-export const expNeed = (lv) => Math.floor(60 * Math.pow(lv, 1.6));
+// EXP para passar de nível (curva mais íngreme: ~2× no nível 10, ~3× no nível 50 em relação à antiga)
+export const expNeed = (lv) => Math.floor(70 * Math.pow(lv, 1.85));
 
 // ───────────────────────────── Biomas ─────────────────────────────
 export const BIOMES = {

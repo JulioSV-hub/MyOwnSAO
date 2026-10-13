@@ -40,6 +40,9 @@ export class Enemy {
     this.maxHp = Math.round((40 + 24 * L) * (this.boss ? (def.hpMul ?? 12) : (def.hp ?? 1)) * fHp * D.hp * (this.boss ? D.boss : 1));
     this.hp = this.maxHp;
     this.atk = (6 + 3.4 * L) * (def.atk ?? 1) * (this.boss ? 1.6 : 1) * fAtk * D.atk;
+    // Sistema → Força dos chefes / elites: multiplica o HP (o dano sobe um pouco menos)
+    const set = this.game.state?.settings || {}, bm = this.boss ? set.bossMul || 1 : opts.elite ? set.eliteMul || 1 : 1;
+    if (bm !== 1) { this.maxHp = Math.round(this.maxHp * bm); this.hp = this.maxHp; this.atk *= Math.pow(bm, 0.55); }
     this.defense = L * 2.4;
     this.speed = def.speed ?? (this.boss ? 4.8 : 4);
     const sc = def.scale || 1;

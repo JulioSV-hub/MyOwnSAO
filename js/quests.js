@@ -433,7 +433,7 @@ export class Quests {
       if (Math.hypot(pl.x - pos.x, pl.z - pos.z) > 75) continue;
       const base = monDef(this.game.floor, q.elite.base);
       const def = { ...base, name: q.elite.name, hp: base.hp * q.elite.hp, atk: (base.atk || 1) * 1.35, scale: (base.scale || 1) * q.elite.scale, aggro: 24, ...(q.elite.color ? { color: q.elite.color } : {}), ...(q.elite.color2 ? { color2: q.elite.color2 } : {}) };
-      const e = this.game.enemies.spawnAt(def, this.game.floor.level + 3, pos.x, pos.z, {});
+      const e = this.game.enemies.spawnAt(def, this.game.floor.level + 3, pos.x, pos.z, { elite: true });
       e.questId = q.id;
       e.monId = q.elite.base;
       e.elite = true;
