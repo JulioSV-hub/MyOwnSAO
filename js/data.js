@@ -476,6 +476,7 @@ export const MERCS = {
   duelist: { name: 'Duelista', look: { female: true, hair: 'ponytail', hairColor: '#2a2a3a', top: '#2a3a5a', skirt: '#1a2238', accent: '#ffd84a', sword: '#e8eef8' } },
   berserker: { name: 'Berserker', look: { hair: 'spiky', hairColor: '#a83a2a', top: '#5a2a24', pants: '#2a1a14', accent: '#ff7a3a', stubble: true, sword: '#d8dce4' } },
   cleric: { name: 'Clérigo', look: { female: true, hair: 'long', hairColor: '#e8d8a8', top: '#f0f0f4', skirt: '#f0f0f4', accent: '#4a8ad8', sword: '#f0e8c0' } },
+  mage: { name: 'Mago', look: { hair: 'long', hairColor: '#d8d8e8', top: '#3a2a6a', pants: '#2a2050', accent: '#c8a0ff', hat: '#3a2a6a', beard: true } },
   tamer: { name: 'Domador', look: { female: true, hair: 'twintails', hairColor: '#6a4a2a', top: '#5a9a4a', skirt: '#3a5a3a', accent: '#ff9ac8', sword: '#c8d0d8', pet: true } },
 };
 // Bônus de "personagem principal" do anime; a classe (escolhida por você) define o resto

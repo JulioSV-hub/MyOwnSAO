@@ -205,7 +205,7 @@ class NPC {
       };
       const def = CAST_DEFAULT_CLASS[id];
       extra.push({ label: '⚔ Chamar para o time', run: () => ({ text: `Como ${this.name} vai lutar no seu time? (dá para trocar depois no menu Time)`,
-        options: [def, ...Object.keys(COMP_CLASSES).filter((k) => k !== def)].slice(0, 6).map((k) => ({ label: `${COMP_CLASSES[k].name}${k === def ? ' (recomendado)' : ''} — ${COMP_CLASSES[k].role}`, run: join(k) })) }) });
+        options: [def, ...Object.keys(COMP_CLASSES).filter((k) => k !== def)].map((k) => ({ label: `${COMP_CLASSES[k].name}${k === def ? ' (recomendado)' : ''} — ${COMP_CLASSES[k].role}`, run: join(k) })) }) });
     }
     return { ...node, options: [...qopts, ...extra, ...node.options] };
   }

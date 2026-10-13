@@ -1061,7 +1061,7 @@ class Game {
     } else if (kind === 'merc') {
       const m = MERCS[id], r = Math.random;
       const names = { swordsman: ['Daren', 'Thoren', 'Kael', 'Rowan'], guardian: ['Borin', 'Gustav', 'Hallvard', 'Tor'], duelist: ['Sayu', 'Lyra', 'Vanya', 'Rin'],
-        berserker: ['Ragn', 'Brakk', 'Ulf', 'Garo'], cleric: ['Eliane', 'Noa', 'Seren', 'Iris'], tamer: ['Mimi', 'Kiri', 'Lulu', 'Pip'] }[id] || ['Aki'];
+        berserker: ['Ragn', 'Brakk', 'Ulf', 'Garo'], cleric: ['Eliane', 'Noa', 'Seren', 'Iris'], tamer: ['Mimi', 'Kiri', 'Lulu', 'Pip'], mage: ['Merlin', 'Elric', 'Yuna', 'Zael'] }[id] || ['Aki'];
       if (!this.party.add({ kind: 'merc', cls: id, name: names[Math.floor(r() * names.length)], seed: Math.floor(r() * 1e6) })) return false;
       name = m.name;
     } else {

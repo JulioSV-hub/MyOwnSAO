@@ -4,6 +4,8 @@
 import * as THREE from 'three';
 import { buildCharacter, animateCharacter, CAST, randomTownsfolk } from './characters.js';
 import { buildSword } from './gear3d.js';
+import { buildWeapon } from './monsters.js';
+import { toonMat } from './toon.js';
 import { MERCS, CAST_PARTY } from './data.js';
 import { COMP_CLASSES, OLD_MERC, CAST_DEFAULT_CLASS } from './classes.js';
 import { mulberry32 } from './rng.js';
@@ -21,9 +23,9 @@ class Companion {
     // classe do companheiro (escolhida por você); saves antigos são convertidos
     if (OLD_MERC[data.cls]) data.cls = OLD_MERC[data.cls];
     if (!COMP_CLASSES[data.cls]) data.cls = data.kind === 'cast' ? CAST_DEFAULT_CLASS[data.id] || 'swordsman' : 'swordsman';
-    const cc = COMP_CLASSES[data.cls], cast = data.kind === 'cast' ? CAST_PARTY[data.id] : null, pst = this.game.stats();
-    const spec = { ...cc, dmg: cc.dmg * (cast?.dmg || 1) * (1 + (pst.partyDmg || 0)), hp: cc.hp * (cast?.hp || 1) * (1 + (pst.partyHp || 0)) };
-    this.spec = spec;
+    const cc = COMP_CLASSES[data.cls], cast = data.kind === 'cast' ? CAST_PARTY[data.id] : null;
+    this.spec = { ...cc, dmg: cc.dmg * (cast?.dmg || 1), hp: cc.hp * (cast?.hp || 1) };
+    data.rank ||= 0;
     const def = data.kind === 'cast'
       ? { ...CAST[data.id], id: undefined, ...(cc.pet ? { pet: true } : {}) }
       : { ...randomTownsfolk(mulberry32(data.seed || 7), false), ...MERCS[data.cls].look, name: data.name, kid: false };
@@ -33,24 +35,14 @@ class Companion {
     this.mesh = this.c.group;
     const k = def.kid ? 0.68 : def.big ? 1.12 : 1;
     this.mesh.scale.setScalar((def.female ? 1.64 : 1.74) / (1.78 * k));
-    // espada na mão direita
-    const style = data.id === 'asuna' || data.cls === 'duelist' ? 'rapier' : data.id === 'klein' ? 'katana' : data.cls === 'berserker' ? 'broad' : data.cls === 'cleric' ? 'holy' : 'long';
-    const sw = buildSword({ style, blade: def.sword || '#c8d0d8', guard: def.accent || '#7a7a82', grip: '#3a2a20' }).group;
-    if (data.cls === 'berserker') sw.scale.set(1.2, 1.25, 1.2);
-    sw.scale.multiplyScalar(0.85);
-    sw.position.set(0, -0.54, -0.02);
-    sw.rotation.x = -Math.PI / 2 + 0.3;
-    this.c.parts.arms[1].add(sw);
-    this.sword = sw;
+    this.equipWeapons(def);
     this.mesh.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.game.scene.add(this.mesh);
     this.label = this.game.ui.createAllyLabel(this);
-    const lv = this.game.state.player.level;
-    this.maxHp = Math.round((140 + lv * 32) * spec.hp);
+    this.refreshStats();
     this.hp = data.hp != null ? Math.min(this.maxHp, data.hp) : this.maxHp;
     this.radius = 0.36;
     this.height = 1.7;
-    this.defense = lv * 1.6 * spec.hp;
     this.pos = this.game.player.pos.clone().add(new THREE.Vector3(slot ? 1.4 : -1.4, 0, 1.6));
     this.yaw = this.game.player.yaw;
     this.cool = 0.5;
@@ -62,6 +54,70 @@ class Companion {
   }
 
   get alive() { return this.down <= 0; }
+  get level() { return this.game.state.player.level + this.data.rank; }
+
+  // Força acompanha a sua (HP, defesa e ataque) + treino pago (nível do companheiro)
+  refreshStats() {
+    const st = this.game.stats(), r = this.data.rank || 0, sp = this.spec, old = this.maxHp;
+    this.maxHp = Math.round(st.maxHp * sp.hp * (0.75 + 0.045 * r) * (1 + (st.partyHp || 0)));
+    this.defense = st.def * (0.75 + 0.035 * r) * (sp.taunt ? 1.35 : 1);
+    this.atk = st.atkR * 0.32 * sp.dmg * (1 + 0.06 * r) * (1 + (st.partyDmg || 0));
+    if (old && this.hp != null) this.hp = Math.min(this.maxHp, this.hp * (this.maxHp / old));
+  }
+
+  // armas de cada classe
+  equipWeapons(def) {
+    const cls = this.data.cls, R = this.c.parts.arms[1], L = this.c.parts.arms[0];
+    const metal = new THREE.MeshStandardMaterial({ color: '#c4c8d0', metalness: 0.75, roughness: 0.28 });
+    const acc = toonMat(def.accent || '#7a5232');
+    const hold = (obj, arm, flip = false) => { obj.position.set(0, -0.54, -0.02); obj.rotation.x = flip ? Math.PI / 2 - 0.3 : -Math.PI / 2 + 0.3; arm.add(obj); return obj; };
+    const sword = (style, k = 0.85) => { const s = buildSword({ style, blade: def.sword || '#c8d0d8', guard: def.accent || '#7a7a82', grip: '#3a2a20' }).group; s.scale.multiplyScalar(k); return s; };
+    if (cls === 'guardian') {
+      hold(sword('long', 0.75), R);
+      const sh = buildWeapon('shield', metal, acc);
+      sh.scale.setScalar(1.15);
+      sh.position.set(-0.12, -0.48, -0.1);
+      sh.rotation.y = -0.5;
+      L.add(sh);
+    } else if (cls === 'berserker') {
+      const ax = buildWeapon(Math.random() < 0.5 ? 'axe' : 'zweihander', metal, acc);
+      ax.scale.setScalar(0.9);
+      hold(ax, R, true);
+    } else if (cls === 'duelist') {
+      hold(sword('rapier'), R);
+      hold(sword('basic', 0.5), L);
+    } else if (cls === 'cleric' || cls === 'mage') {
+      // cajado com orbe brilhando; o mago também carrega um livro de feitiços
+      const st = new THREE.Group();
+      const col = cls === 'mage' ? '#9a7aff' : '#fff0a0';
+      st.add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 1.6, 8), toonMat('#6a4428')));
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(2.2) }));
+      orb.position.y = 0.85;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.015, 6, 20), toonMat('#d8b050'));
+      ring.position.y = 0.85;
+      st.add(orb, ring);
+      st.position.set(0, -0.54, 0.02);
+      st.rotation.x = 0.15;
+      R.add(st);
+      this.orb = orb;
+      if (cls === 'mage') {
+        const book = new THREE.Group();
+        book.add(new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.3, 0.06), toonMat('#4a2a7a')));
+        const pages = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.28, 0.045), toonMat('#f4ecd8'));
+        pages.position.x = 0.012;
+        const sig = new THREE.Mesh(new THREE.CircleGeometry(0.06, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color('#c8a0ff').multiplyScalar(1.8) }));
+        sig.position.z = 0.032;
+        book.add(pages, sig);
+        book.position.set(0.02, -0.55, -0.12);
+        book.rotation.set(-0.9, 0, 0.2);
+        L.add(book);
+      }
+    } else if (cls === 'tamer') {
+      hold(sword('basic', 0.7), R);
+    } else {
+      hold(sword(this.data.id === 'klein' ? 'katana' : this.data.id === 'asuna' ? 'rapier' : 'long'), R);
+    }
+  }
 
   takeHit(raw, src) {
     if (!this.alive) return;
@@ -137,7 +193,7 @@ class Companion {
       // cada um ataca de um lado do monstro, para não se amontoarem
       const base = Math.atan2(pl.pos.z - e.pos.z, pl.pos.x - e.pos.x);
       const ang = base + ([-1.1, 1.1, 2.6][this.slot] ?? 0) + Math.sin(t * 0.5 + this.slot * 2) * 0.2;
-      const r = e.radius + this.spec.reach * 0.7 + (this.retreat > 0 ? 1.3 : 0);
+      const r = this.spec.ranged ? e.radius + this.spec.reach * 0.75 : e.radius + this.spec.reach * 0.7 + (this.retreat > 0 ? 1.3 : 0);
       goal = { x: e.pos.x + Math.cos(ang) * r, z: e.pos.z + Math.sin(ang) * r };
       maxSp = 6.4; slow = 1;
       const de = Math.hypot(e.pos.x - this.pos.x, e.pos.z - this.pos.z);
@@ -208,12 +264,18 @@ class Companion {
   }
 
   attack(nx, nz) {
-    const g = this.game, e = this.target, lv = g.state.player.level;
-    this.cool = this.spec.fast ? 0.75 : this.data.cls === 'berserker' ? 1.25 : 1.05;
+    const g = this.game, e = this.target;
+    this.cool = this.spec.fast ? 0.75 : this.data.cls === 'berserker' ? 1.25 : this.spec.ranged ? 1.5 : 1.05;
     this.swing = 1;
-    const base = (9 + lv * 5.5) * this.spec.dmg;
     const crit = Math.random() < (this.spec.crit || 0.12);
-    const dmg = Math.max(1, Math.round((base * (crit ? 1.7 : 1) * (0.9 + Math.random() * 0.2) * 60) / (60 + e.defense)));
+    const dmg = Math.max(1, Math.round((this.atk * (crit ? 1.7 : 1) * (0.9 + Math.random() * 0.2) * 60) / (60 + e.defense)));
+    if (this.spec.ranged) {
+      // magia: uma esfera de luz voa até o monstro
+      const from = this.pos.clone().add(new THREE.Vector3(0, 1.8, 0));
+      this.mgr.cast(from, e, dmg, crit, this.spec.bolt || '#9a7aff');
+      Sfx.swing();
+      return;
+    }
     const at = e.pos.clone().add(new THREE.Vector3(0, e.flyH ? 0 : e.height * 0.5, 0));
     e.takeDamage(dmg, new THREE.Vector3(nx, 0, nz), 0.5);
     // o monstro atingido pode passar a mirar o companheiro (o Guardião atrai sempre)
@@ -296,8 +358,57 @@ export class Party {
     this.game.save();
   }
 
+  cast(from, target, dmg, crit, color) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(2.5) }));
+    m.position.copy(from);
+    this.game.scene.add(m);
+    (this.bolts ||= []).push({ m, target, dmg, crit, color, t: 0 });
+  }
+
+  updateBolts(dt) {
+    const g = this.game;
+    for (let i = (this.bolts || []).length - 1; i >= 0; i--) {
+      const b = this.bolts[i], e = b.target;
+      b.t += dt;
+      const to = e.pos.clone().add(new THREE.Vector3(0, e.flyH ? 0 : e.height * 0.5, 0));
+      const d = b.m.position.distanceTo(to);
+      if (e.dead || b.t > 2.5 || d < 0.6) {
+        if (!e.dead && d < 0.8) {
+          e.takeDamage(b.dmg, null, 0.3);
+          g.effects.sparks(to, b.color, 14, 0.8);
+          g.ui.damageNumber(to, b.dmg, b.crit ? 'allycrit' : 'ally');
+          Sfx.hit(false);
+        }
+        g.scene.remove(b.m);
+        b.m.geometry.dispose(); b.m.material.dispose();
+        this.bolts.splice(i, 1);
+        continue;
+      }
+      b.m.position.lerp(to, Math.min(1, (18 * dt) / d));
+      b.m.scale.setScalar(1 + Math.sin(b.t * 30) * 0.15);
+    }
+  }
+
+  // Treino: pagar para subir o nível de um companheiro (fica mais forte)
+  trainCost(i) { const d = this.list[i]; return Math.round(400 * Math.pow((d?.rank || 0) + 1, 1.35) * (1 + this.game.floor.n * 0.12)); }
+  train(i) {
+    const g = this.game, d = this.list[i], m = this.members[i];
+    if (!d || (d.rank || 0) >= 20) return;
+    const cost = this.trainCost(i);
+    if (g.state.player.col < cost) { Sfx.error(); g.ui.toast('Col insuficiente para o treino.', 'warn'); return; }
+    g.state.player.col -= cost;
+    d.rank = (d.rank || 0) + 1;
+    if (m) { m.refreshStats(); m.hp = m.maxHp; g.effects.levelUp(m.pos.clone()); }
+    Sfx.levelUp();
+    g.ui.toast(`${m?.name || 'Companheiro'} treinou e subiu para o nível ${m?.level}!`, 'skill');
+    g.save();
+  }
+
   update(dt) {
     const t = this.game.time;
+    this.statT = (this.statT || 0) - dt;
+    if (this.statT <= 0) { this.statT = 2; for (const m of this.members) m.refreshStats(); }
+    this.updateBolts(dt);
     for (const m of this.members) m.update(dt, t);
   }
 }

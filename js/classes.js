@@ -150,7 +150,8 @@ export const COMP_CLASSES = {
   guardian: { name: 'Guardião', role: 'Muito HP; atrai os monstros', dmg: 0.75, hp: 1.9, reach: 2.3, taunt: true },
   duelist: { name: 'Duelista', role: 'Golpes rápidos e críticos', dmg: 1.05, hp: 0.9, reach: 2.5, fast: true, crit: 0.3 },
   berserker: { name: 'Berserker', role: 'Dano altíssimo, pouco HP', dmg: 1.45, hp: 0.85, reach: 2.7 },
-  cleric: { name: 'Clérigo', role: 'Cura você durante a luta', dmg: 0.5, hp: 0.9, reach: 2.2, heals: true },
+  cleric: { name: 'Clérigo', role: 'Cura o time e ataca com luz de longe', dmg: 0.55, hp: 0.9, reach: 7, heals: true, ranged: true, bolt: '#fff0a0' },
+  mage: { name: 'Mago', role: 'Magia poderosa de longe, pouco HP', dmg: 1.4, hp: 0.72, reach: 9, ranged: true, bolt: '#9a7aff' },
   tamer: { name: 'Domador', role: 'Ataca junto com um bichinho', dmg: 0.85, hp: 1, reach: 2.3, pet: true },
 };
 // saves antigos usavam outros nomes

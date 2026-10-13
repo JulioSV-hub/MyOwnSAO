@@ -963,6 +963,7 @@ export class UI {
         case 'pickClass': this.closeMenu(false); this.openDialog(classPicker(g, 0)); return;
         case 'runeOff': g.unequipRune(+d.i); break;
         case 'dismiss': g.party.dismiss(+d.i); break;
+        case 'train': g.party.train(+d.i); break;
         case 'talkMember': {
           const m = g.party.members[+d.i];
           if (!m || m.data.kind !== 'cast') break;

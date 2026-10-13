@@ -181,14 +181,17 @@ export function renderParty(ui) {
   const g = ui.g, list = g.state.party || [], max = g.party.maxSize(), rank = guildRank(g.state.guild);
   const rows = g.party.members.map((m, i) => {
     const hp = Math.max(0, m.hp / m.maxHp);
-    return `<div class="row"><div class="withicon"><b>${esc(m.name)}</b> <span class="muted">${m.data.kind === 'cast' ? 'amigo · ' : ''}</span>${compClassSelect(i, m.data.cls)}
+    const cost = g.party.trainCost(i), inTown = g.world.inSafeZone(g.player.pos), maxed = (m.data.rank || 0) >= 20;
+    const trainBtn = maxed ? '<span class="tag ok">Treino máximo</span>' : `<button class="btn sm" data-act="train" data-i="${i}" ${inTown && g.state.player.col >= cost ? '' : 'disabled'} title="${inTown ? '' : 'Só dá para treinar na cidade'}">Treinar +1 (${nf(cost)} Col)</button>`;
+    return `<div class="row"><div class="withicon"><b>${esc(m.name)}</b> <span class="tag">Lv ${m.level}${m.data.rank ? ` · treino ${m.data.rank}/20` : ''}</span> <span class="muted">${m.data.kind === 'cast' ? 'amigo · ' : ''}</span>${compClassSelect(i, m.data.cls)}
+      <div class="muted">ATK ${Math.round(m.atk)} · DEF ${Math.round(m.defense)} · HP ${nf(m.maxHp)}</div>
       <div class="bar-line"><div class="pbar hp"><i style="width:${(hp * 100).toFixed(0)}%"></i></div><span class="muted">${m.alive ? `${Math.ceil(m.hp)}/${m.maxHp}` : `volta em ${Math.ceil(m.down)}s`}</span></div></div>
-      <div class="row-r">${m.data.kind === 'cast' ? `<button class="btn sm" data-act="talkMember" data-i="${i}">Conversar</button>` : ''}<button class="btn sm" data-act="dismiss" data-i="${i}">Dispensar</button></div></div>`;
+      <div class="row-r">${m.data.kind === 'cast' ? `<button class="btn sm" data-act="talkMember" data-i="${i}">Conversar</button>` : ''}${trainBtn}<button class="btn sm" data-act="dismiss" data-i="${i}">Dispensar</button></div></div>`;
   }).join('');
   const atTavern = g.npcs.nearest(g.player.pos, 4)?.role === 'tavern';
   const merc = Object.entries(COMP_CLASSES).map(([cls, m]) => card(g, { kind: 'merc', id: cls, img: icon('merc', cls), name: m.name, lines: [`<b>${esc(m.role)}</b>`, `Dano ${Math.round(m.dmg * 100)}% · HP ${Math.round(m.hp * 100)}%`], price: g.priceOf('merc', cls), disabled: !atTavern || list.length >= max }));
   const friends = Object.keys(CAST_PARTY).map((id) => `<span class="tag ${g.party.has(id) ? 'ok' : ''}">${esc(CAST[id].name)}</span>`).join(' ');
-  return `<div class="muted pad">Seu time luta ao seu lado: cada companheiro escolhe um monstro que está brigando com você, e alguns também curam. Se o HP de um companheiro zerar, ele foge com um cristal e volta depois de 45 segundos.</div>
+  return `<div class="muted pad">A força do time acompanha a sua (HP, defesa e ataque). Treine cada companheiro na cidade para subir o nível dele: até +20 níveis acima do seu, cada um deixando-o mais resistente e forte.</div><div class="muted pad">Seu time luta ao seu lado: cada companheiro escolhe um monstro que está brigando com você, e alguns também curam. Se o HP de um companheiro zerar, ele foge com um cristal e volta depois de 45 segundos.</div>
     <div class="section">Seu time (${list.length}/${max})</div>${rows || '<div class="muted pad">Ninguém no time ainda.</div>'}
     <div class="section">Amigos</div><div class="pad">${friends}</div><div class="muted pad">Converse com o Kirito, a Asuna, o Klein ou a Silica na cidade e chame para o time.</div>
     <div class="section">Contratar na Taverna</div>${atTavern ? '' : '<div class="muted pad">Vá até o Gorm, na Taverna do Javali Dourado, para contratar.</div>'}<div class="shopgrid">${merc.join('')}</div>
