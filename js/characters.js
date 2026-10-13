@@ -177,9 +177,11 @@ function buildHair(def, head, mat) {
       bangs(5, 0.12, 0.2);
       break;
     case 'bob': {
-      const bob = M(SPH(r * 1.17), mat, 0, -0.04, 0.02);
-      bob.scale.set(1.02, 0.85, 0.95);
+      // casca aberta na frente (o rosto fica livre), terminando na altura do queixo
+      const bob = M(geo('hairbob', () => new THREE.SphereGeometry(r * 1.17, 22, 14, Math.PI * 1.5 + 1.05, Math.PI * 2 - 2.1, 0, Math.PI * 0.74)), animeMat(def.hairColor || '#2a1e16', { side: THREE.DoubleSide }), 0, -0.01, 0.02);
+      bob.scale.set(1.03, 0.95, 0.97);
       head.add(bob);
+      for (const s of [-1, 1]) { const l = M(CAP(0.045, 0.1, 8), mat, s * r * 1.02, -0.07, -0.06); l.rotation.z = s * 0.06; head.add(l); }
       bangs(6, 0.12, 0.22);
       break;
     }
