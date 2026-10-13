@@ -1,6 +1,7 @@
 // Menu Equipamento: seu personagem em 3D no meio e os espaços de equipamento em volta.
 import { weaponDef, armorDef, pieceDef, PIECE_SLOTS, canWield, classesFor, WEAPON_TYPES } from './data.js';
 import { CLASSES } from './classes.js';
+import { SKINS, SKIN_TIERS } from './skins.js';
 import { icon } from './icons.js';
 import { renderAvatar } from './avatar.js';
 import { pieceLines } from './shopui.js';
@@ -33,7 +34,7 @@ export function renderEquip(ui) {
   ui.eqSlot ||= 'weapon';
   ui.avAngle ??= 0.4;
   // a imagem do personagem só é refeita quando algo muda
-  const key = JSON.stringify([p.look, p.equip, p.armor, p.weapon, p.cls, ui.avAngle]);
+  const key = JSON.stringify([p.look, p.equip, p.armor, p.weapon, p.cls, p.skin, ui.avAngle]);
   if (ui._avKey !== key) { ui._avKey = key; ui._avUrl = renderAvatar(p, ui.avAngle); }
   const cell = (s) => {
     const x = slotInfo(g, s), on = ui.eqSlot === s;
@@ -48,6 +49,11 @@ export function renderEquip(ui) {
     <div class="dstats"><span>ATK <b>${Math.round(st.atkR)}</b></span><span>DEF <b>${st.def.toFixed(0)}</b></span><span>HP <b>${st.maxHp.toLocaleString('pt-BR')}</b></span><span>Crítico <b>${(st.crit * 100).toFixed(0)}%</b></span><span>Velocidade <b>${Math.round(st.speedMul * 100)}%</b></span></div>`;
   html += `<div class="section">${SLOT_LABEL[ui.eqSlot]} — escolha o que equipar</div>${slotList(ui)}`;
   html += runeSlotsHtml(g);
+  // skins (visuais) que você já tem
+  const mine = (p.skins || []).filter((id) => SKINS[id]);
+  html += `<div class="section">Visual (skins) <span class="muted">— só aparência; ganhe mais no Altar dos Cristais</span></div>`;
+  html += mine.length ? `<div class="skins">${mine.map((id) => { const s = SKINS[id], T = SKIN_TIERS[s.tier]; return `<div class="skin ${p.skin === id ? 'on' : ''}" style="--c:${T.color}"><img src="${ui.skinPreview(id)}" alt=""><b>${esc(s.name)}</b><small style="color:${T.color}">${'★'.repeat(T.stars)} ${T.name}</small>${p.skin === id ? '<button class="btn sm" data-act="skinOff">Tirar</button>' : `<button class="btn sm" data-act="skinOn" data-id="${id}">Usar</button>`}</div>`; }).join('')}</div>`
+    : '<div class="muted pad">Nenhuma skin ainda. Gire o estandarte Visuais no Altar dos Cristais (praça da cidade).</div>';
   return html;
 }
 

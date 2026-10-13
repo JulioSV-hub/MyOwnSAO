@@ -1436,6 +1436,37 @@ export class World {
     this.grid.add({ x: ap.x, z: ap.z, r: 0.5 });
     this.labels.push({ text: "Lisbeth's Smith Shop", pos: new THREE.Vector3(this.smithPos.x, this.townH + 3.7, this.smithPos.z), cls: 'npc' });
     buildShops(this);
+    this.buildAltar();
+  }
+
+  // Altar dos Cristais (gacha): cristal flutuando sobre um pedestal de pedra
+  buildAltar() {
+    const p = this.altarPos = new THREE.Vector3(9.5, this.townH, -9.5), g = new THREE.Group();
+    g.position.copy(p);
+    const st = this.trimMat || std('#e6e0d4'), dk = this.darkStoneMat || std('#5a5c66');
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.9, 0.35, 8), dk));
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.2, 0.9, 8), st);
+    ped.position.y = 0.8;
+    g.add(ped);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4, pil = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 2.6, 8), st);
+      pil.position.set(Math.cos(a) * 1.5, 1.3, Math.sin(a) * 1.5);
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), new THREE.MeshBasicMaterial({ color: hdr('#9ad8ff', 2) }));
+      orb.position.set(Math.cos(a) * 1.5, 2.7, Math.sin(a) * 1.5);
+      g.add(pil, orb);
+    }
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.altarCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), new THREE.MeshStandardMaterial({ color: '#8ab8ff', emissive: '#5a7aff', emissiveIntensity: 1.2, metalness: 0.2, roughness: 0.1, transparent: true, opacity: 0.9 }));
+    this.altarCrystal.scale.y = 1.6;
+    this.altarCrystal.position.y = 2.3;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.03, 8, 40), new THREE.MeshBasicMaterial({ color: hdr('#c8a0ff', 2) }));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 2.3;
+    this.altarRing = ring;
+    g.add(this.altarCrystal, ring);
+    this.group.add(g);
+    this.grid.add({ x: p.x, z: p.z, r: 1.8 });
+    this.labels.push({ text: 'Altar dos Cristais', pos: new THREE.Vector3(p.x, this.townH + 3.6, p.z), cls: 'npc' });
   }
 
   // Pontos de teletransporte dentro da cidade (Portal → qualquer lugar da cidade)
@@ -1445,6 +1476,7 @@ export class World {
     pts.push({ id: 'agil', name: "Agil's Store", pos: front(this.npcPos, 2.8), look: this.npcPos });
     pts.push({ id: 'lisbeth', name: "Lisbeth's Smith Shop", pos: front(this.smithPos, 2.8), look: this.smithPos });
     pts.push({ id: 'inn', name: 'Pousada do Sino Dourado', pos: front(this.innPos, 2.8), look: this.innPos });
+    if (this.altarPos) pts.push({ id: 'altar', name: 'Altar dos Cristais', pos: front(this.altarPos, 3.2), look: this.altarPos });
     pts.push({ id: 'board', name: 'Quadro de Missões', pos: new THREE.Vector3(this.boardPos.x, this.townH, this.boardPos.z + 2.2), look: this.boardPos });
     for (const [k, s] of Object.entries(this.shopSpots || {})) pts.push({ id: k, name: s.title, pos: s.front.clone(), look: s.pos });
     if (this.monumentPos) pts.push({ id: 'monument', name: 'Monumento da Vida', pos: front(this.monumentPos, 3.5), look: this.monumentPos });
@@ -1706,6 +1738,7 @@ export class World {
   // ─────────── Animação ───────────
   update(dt, t, night) {
     if (this.portalMat) this.portalMat.uniforms.uTime.value = t;
+    if (this.altarCrystal) { this.altarCrystal.rotation.y = t * 0.8; this.altarCrystal.position.y = 2.3 + Math.sin(t * 1.6) * 0.12; this.altarRing.rotation.z = t * 0.5; this.altarRing.position.y = this.altarCrystal.position.y; }
     if (this.gateParticles) {
       const p = this.gateParticles.geometry.attributes.position;
       for (let i = 0; i < p.count; i++) {

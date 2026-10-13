@@ -30,9 +30,10 @@ Dê dois cliques em **`jogar.bat`**. Ele abre o navegador em `http://localhost:8
 | R | Poção |
 | T | Cristal de Teletransporte (abre a lista de andares) |
 | H | Guardar / sacar a espada |
+| V | Câmera em terceira pessoa (roda do mouse aproxima/afasta) — veja sua skin |
 | F | Pescar (perto da água, com Vara de Pesca) |
 | G | Decorar a casa (dentro de casa) |
-| E | Interagir (Portal, loja do Agil, porta do Labirinto) |
+| E | Interagir (Portal, lojas, porta da Taverna e da Guilda, Altar dos Cristais, porta do Labirinto) |
 | Tab / Esc | Menu |
 
 ## O que tem no jogo
@@ -109,3 +110,11 @@ js/spells.js      Feitiços do Mago
 js/save.js        Salvar / exportar / importar
 js/audio.js       Efeitos sonoros sintetizados
 ```
+
+## Cidade, mascotes e o Altar dos Cristais
+
+- **Cidade**: ruas, vielas e casas enfileiradas; as lojas ficam no térreo das casas. A **Taverna do Javali Dourado** e a **Guilda dos Aventureiros** têm salão por dentro (entre pela porta com E), cheios de gente comendo, bebendo e conversando. Cavalos andam pelas ruas e, às vezes, um dragão cruza o céu.
+- **Mascotes**: 27 na Toca, de Comum a Mítico. Raros e melhores dão bônus para você; lendários e míticos têm habilidade especial (sopro de fogo, pisada, rajada, luz sagrada, rugido) e pedem andar, nível e Chefes de Campo derrotados. Todos os seus mascotes ficam guardados na Toca (Menu → Status para trocar).
+- **Altar dos Cristais** (praça): gacha com três estandartes — Mascotes, Arsenal (armas e peças da sua classe) e Visuais (skins). 1 giro = 10 💎, 10 giros = 90 💎. Épico garantido a cada 10 giros e Lendário a cada 80. Um giro grátis por dia no estandarte de Mascotes.
+- **Cristais de Memória (💎)**: chefe de andar (+30 na primeira vitória), Chefe de Campo (+6), baús de ouro (+3) e prata (+1), missões diárias (+2), cada nível (+3), andar 100% concluído (+50) e o pacote do Agil.
+- **Skins**: 16 visuais colecionáveis (Samurai, Ninja, Divino, Lorde Demônio, Imperador Celestial, Sombra Abissal...). Use em Menu → Equipamento; só mudam a aparência.

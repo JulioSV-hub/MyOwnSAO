@@ -291,7 +291,7 @@ export class Quests {
     }
     delete this.st.active[q.id];
     this.st.done[q.id] = true;
-    if (q.daily) { const pr = g.state.progress; (pr.dailyDone ||= {})[q.floor] = (pr.dailyDone[q.floor] || 0) + 1; }
+    if (q.daily) { const pr = g.state.progress; (pr.dailyDone ||= {})[q.floor] = (pr.dailyDone[q.floor] || 0) + 1; p.gems = (p.gems || 0) + 2; }
     if (r.col) p.col += r.col;
     for (const [id, qn] of Object.entries(r.items || {})) p.items[id] = (p.items[id] || 0) + qn;
     if (r.points) p.points += r.points;

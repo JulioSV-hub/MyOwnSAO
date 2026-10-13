@@ -86,7 +86,11 @@ export class Spells {
   }
 
   aimDir() { return new THREE.Vector3(0, 0, -1).applyQuaternion(this.game.camera.quaternion); }
-  handPos() { return this.orb.getWorldPosition(new THREE.Vector3()); }
+  handPos() {
+    // em terceira pessoa a magia sai da mão do personagem, não da câmera
+    if (this.game.tp?.on) { const pl = this.game.player, f = pl.forward(); return pl.pos.clone().add(new THREE.Vector3(f.x * 0.7 - f.z * 0.35, 1.5, f.z * 0.7 + f.x * 0.35)); }
+    return this.orb.getWorldPosition(new THREE.Vector3());
+  }
 
   // orbe carregado: segure o clique e solte (gasta mana; carga completa explode em área)
   updateCharge(dt) {

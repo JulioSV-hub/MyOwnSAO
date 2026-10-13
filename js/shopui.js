@@ -145,7 +145,8 @@ export function renderShop(ui) {
       return card(g, { kind: 'item', id: d.id, name: `${d.q}× ${ITEMS[d.id].name}`, desc: `${ITEMS[d.id].desc} (30% de desconto)`, price, btns });
     });
     html += grid(`Ofertas do dia <span class="muted">— mudam amanhã</span>`, deals);
-    html += grid('Especiais da Agil\'s Store', ['elixir_str', 'elixir_agi', 'elixir_vit', 'cristalite', 'treasure_map', 'mystery_box'].map((i) => itemCard(g, i)));
+    html += grid('Especiais da Agil\'s Store', [...['elixir_str', 'elixir_agi', 'elixir_vit', 'cristalite', 'treasure_map', 'mystery_box'].map((i) => itemCard(g, i)),
+      card(g, { kind: 'gems', id: 'pack', img: icon('item', 'cristalite'), name: '10 Cristais de Memória', rar: 2, lines: ['<b>💎 ×10</b> para o Altar dos Cristais'], desc: `Você tem ${p.gems || 0}. Um giro custa 10.`, price: g.priceOf('gems', 'pack') })]);
     html += grid('Consumíveis', st.items.filter((i) => !ITEMS[i].pet).map((i) => itemCard(g, i)));
     html += grid('Equipamento básico do andar', [...st.weapons.map((w) => weaponCard(g, w)), ...st.armors.map((a) => armorCard(g, a))]);
     html += '<div class="muted pad">O Agil paga 65% do preço por equipamento raro (aba Vender). Elixires dão +1 ponto de atributo para sempre; o Lingote de Cristalita deixa a Lisbeth passar de +10.</div>';

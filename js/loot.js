@@ -241,6 +241,7 @@ export class Loot {
     c.glow.visible = false;
     c.open = 0.001;
     const got = this.grant(c.tier);
+    if (c.tier === 'gold' || c.tier === 'silver') { const n = c.tier === 'gold' ? 3 : 1; g.state.player.gems = (g.state.player.gems || 0) + n; got.push(`${n} 💎 Cristal${n > 1 ? 'is' : ''} de Memória`); }
     g.effects.sparks(c.pos.clone().add(new THREE.Vector3(0, 0.9, 0)), TIERS[c.tier].lock, 30, 1);
     Sfx.victory();
     g.ui.banner(TIERS[c.tier].name, got.join(' · '), 4);
@@ -258,6 +259,8 @@ export class Loot {
     this.st.fbEver = true;
     g.state.player.fieldBossKills = (g.state.player.fieldBossKills || 0) + 1;
     const got = this.grant('gold');
+    g.state.player.gems = (g.state.player.gems || 0) + 6;
+    got.push('6 💎 Cristais de Memória');
     const exp = Math.round((10 + 9 * e.level) * 8 * g.state.settings.xpRate);
     g.gainExp(exp);
     Sfx.victory();

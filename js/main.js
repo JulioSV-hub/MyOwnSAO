@@ -38,6 +38,8 @@ import { adoptPrice, ADOPT_NAMES } from './shopui.js';
 import { Halls } from './halls.js';
 import { PETS, petInfo, petReqFail } from './petdata.js';
 import { TownLife } from './townlife.js';
+import { ThirdPerson } from './thirdperson.js';
+import { Gacha, openGacha } from './gacha.js';
 import { loadSave, writeSave, deleteSave, newSave, recordDeath, getRecord, listSaves } from './save.js';
 
 const NIGHT_TOP = new THREE.Color('#050a1c');
@@ -118,6 +120,9 @@ class Game {
     this.housing = new Housing(this);
     this.halls = new Halls(this);
     this.townlife = new TownLife(this);
+    this.tp = new ThirdPerson(this);
+    this.gacha = new Gacha(this);
+    addEventListener('wheel', (e) => { if (this.tp.on && this.input.isLocked) this.tp.zoom(e.deltaY); });
     this.party = new Party(this);
     this.loot = new Loot(this);
     this.spells = new Spells(this);
@@ -441,6 +446,12 @@ class Game {
     // Chefes de Campo já vencidos antes do contador existir
     if (p.fieldBossKills == null) p.fieldBossKills = Object.values(state.loot || {}).filter((x) => x?.fbEver).length;
     if (state.pet && !state.pet.id) state.pet.id = state.pet.mon;
+    if (p.gems == null) {
+      const cleared = Object.keys(state.progress.cleared || {}).length;
+      p.gems = 30 + cleared * 6 + Math.floor(p.level / 2);
+      p.skins ||= [];
+      if (state.playTime > 60) setTimeout(() => this.ui.banner('Presente do Altar dos Cristais', `+${p.gems} Cristais de Memória pelos seus andares e níveis — o Altar fica na praça da cidade`, 6), 4500);
+    }
     if (p.hp == null || p.hp <= 0) p.hp = this.stats().maxHp;
     this.mode = 'play';
     this.player.dead = false;
@@ -841,7 +852,9 @@ class Game {
     const n = this.floor.n, pr = this.state.progress, p = this.state.player;
     this.endBossFight(true);
     for (const o of this.enemies.list) if (o.aggroInArena && !o.dead) o.takeDamage(o.hp + 1);
+    const firstClear = !pr.cleared[n];
     pr.cleared[n] = true;
+    this.gacha.addGems(firstClear ? 30 : 4, firstClear ? 'primeira vitória contra o chefe' : 'chefe');
     this.quests.onBoss();
     pr.highest = Math.max(pr.highest, Math.min(MAX_FLOOR, n + 1));
     const exp = (10 + 9 * e.level) * 25 * this.state.settings.xpRate;
@@ -904,6 +917,7 @@ class Game {
     const p = this.state.player;
     p.level++;
     p.points += 3;
+    p.gems = (p.gems || 0) + 3;
     p.hp = this.stats().maxHp;
     Sfx.levelUp();
     this.effects.levelUp(this.player.pos.clone());
@@ -1085,6 +1099,7 @@ class Game {
     else if (kind === 'piece') base = pieceDef(id).price;
     else if (kind === 'food') base = Math.round(FOODS[id].price * (1 + (n - 1) * 0.3));
     else if (kind === 'adopt') base = PETS[id]?.price ?? adoptPrice(id);
+    else if (kind === 'gems') base = 2500 + this.floor.n * 350;
     else if (kind === 'merc') base = mercPrice(n);
     return Math.max(1, Math.round(base * (1 - guildDiscount(this.state))));
   }
@@ -1118,6 +1133,9 @@ class Game {
       m.qty += q;
       name = id;
       this.ui.toast(`Comprou ${q}× ${id}.`);
+    } else if (kind === 'gems') {
+      this.gacha.addGems(10);
+      name = '10 Cristais de Memória';
     } else if (kind === 'adopt') {
       const pd = PETS[id];
       this.pets.add({ id, mon: pd?.mon || id, name: pd?.name || ADOPT_NAMES[id] || MONSTERS[id].name.split(' ').pop(), level: 1, exp: 0 }, true);
@@ -1312,6 +1330,9 @@ class Game {
     } else if (w.monumentPos && Math.hypot(pl.x - w.monumentPos.x, pl.z - w.monumentPos.z) < 3.6) {
       hint = '[E] Monumento da Vida';
       act = () => this.ui.openDialog(this.monumentNpc());
+    } else if (w.altarPos && Math.hypot(pl.x - w.altarPos.x, pl.z - w.altarPos.z) < 3.2) {
+      hint = `[E] Altar dos Cristais (💎 ${this.state.player.gems || 0})`;
+      act = () => openGacha(this);
     } else if (Math.hypot(pl.x - w.boardPos.x, pl.z - w.boardPos.z) < 3) {
       hint = '[E] Quadro de Missões';
       act = () => this.ui.openDialog(this.boardNpc());
@@ -1357,6 +1378,7 @@ class Game {
     }
     if (inp.pressed('KeyR')) this.quickPotion();
     if (inp.pressed('KeyH')) this.combat.toggleSheath();
+    if (inp.pressed('KeyV')) this.tp.toggle();
     if (inp.pressed('KeyT')) this.quickTeleport();
     if (inp.pressed('KeyF')) this.fishing.press();
   }
@@ -1393,6 +1415,7 @@ class Game {
       this.ui.setClickToPlay(this.unlockedT > 0.9);
       if (!paused) {
         this.player.update(dt);
+        this.tp.update(dt);
         this.combat.update(dt);
         this.enemies.update(dt);
         this.npcs.update(dt);

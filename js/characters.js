@@ -324,6 +324,100 @@ export function buildCharacter(def) {
     collar.rotation.set(Math.PI / 2, 0, Math.PI);
     inner.add(cape, collar);
   }
+  // ─────────── Acessórios das skins ───────────
+  const glowM = (c, k = 2) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k) });
+  if (def.kabuto) {
+    // capacete samurai: cúpula, abas laterais e a crista em V (ou chifres de dragão)
+    const km = animeMat(def.kabuto.color), cm = animeMat(def.kabuto.crest || '#e0b040');
+    head.add(M(geo('kabuto', () => new THREE.SphereGeometry(HEAD_R * 1.22, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5)), km, 0, 0.02, 0.01));
+    const guard = M(geo('kabguard', () => new THREE.CylinderGeometry(HEAD_R * 1.25, HEAD_R * 1.65, 0.16, 20, 1, true, -1.9, 3.8)), animeMat(def.kabuto.color, { side: THREE.DoubleSide }), 0, -0.05, 0.02);
+    head.add(guard);
+    for (const s of [-1, 1]) {
+      if (def.kabuto.dragon) { const h = M(CONE(0.035, 0.32, 8), cm, s * 0.12, 0.2, 0.06); h.rotation.set(0.6, 0, -s * 0.5); head.add(h); }
+      else { const v = M(geo('kabv', () => new THREE.BoxGeometry(0.025, 0.26, 0.012)), cm, s * 0.07, 0.2, -HEAD_R * 1.08); v.rotation.z = -s * 0.5; head.add(v); }
+    }
+    head.add(M(SPH(0.03, 10, 8), cm, 0, 0.1, -HEAD_R * 1.18));
+  }
+  if (def.mask) head.add(M(geo('mask', () => new THREE.SphereGeometry(HEAD_R * 1.035, 20, 10, Math.PI * 1.5 - 1.15, 2.3, Math.PI * 0.54, Math.PI * 0.33)), animeMat(def.mask, { side: THREE.DoubleSide }), 0, 0, 0));
+  if (def.halo) {
+    const halo = M(geo('halo', () => new THREE.TorusGeometry(0.14, 0.014, 8, 32)), glowM(def.halo.color, 2.4), 0, 0.3, 0.02);
+    halo.rotation.x = Math.PI / 2 - 0.2;
+    head.add(halo);
+    parts.halo = halo;
+  }
+  if (def.horns) for (const s of [-1, 1]) {
+    const hm = animeMat(def.horns.color);
+    const h1 = M(CONE(0.04, 0.16, 8), hm, s * 0.1, 0.16, -0.02);
+    h1.rotation.z = -s * 0.7;
+    const h2 = M(CONE(0.025, 0.14, 8), hm, s * 0.19, 0.27, 0.0);
+    h2.rotation.z = s * 0.2;
+    head.add(h1, h2);
+  }
+  if (def.crown) {
+    const cm = def.crown.ice ? animeMat(def.crown.color, { transparent: true, opacity: 0.85 }) : animeMat(def.crown.color);
+    head.add(M(geo('crownband', () => new THREE.CylinderGeometry(HEAD_R * 0.95, HEAD_R * 0.98, 0.05, 20, 1, true)), def.crown.flowers ? animeMat('#5aa846', { side: THREE.DoubleSide }) : animeMat(def.crown.color, { side: THREE.DoubleSide }), 0, 0.13, 0));
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2, x = Math.sin(a) * HEAD_R * 0.96, z = Math.cos(a) * HEAD_R * 0.96;
+      if (def.crown.flowers) head.add(M(SPH(0.028, 8, 6), animeMat(['#ff8ab8', '#fff0a0', '#ffffff', '#c8a0ff'][i % 4]), x, 0.15, z));
+      else head.add(M(CONE(0.025, def.crown.ice ? 0.12 + (i % 2) * 0.06 : 0.07, 6), cm, x, 0.19, z));
+    }
+    if (def.crown.gem) head.add(M(SPH(0.022, 8, 6), glowM(def.crown.gem, 1.8), 0, 0.15, -HEAD_R * 0.97));
+  }
+  if (def.wizHat) {
+    const wm = animeMat(def.wizHat.color);
+    head.add(M(geo('wizbrim', () => new THREE.CylinderGeometry(HEAD_R * 1.9, HEAD_R * 1.9, 0.02, 24)), wm, 0, 0.12, 0));
+    const cone = M(geo('wizcone', () => new THREE.ConeGeometry(HEAD_R * 1.0, 0.42, 18)), wm, 0, 0.34, 0.03);
+    cone.rotation.x = 0.18;
+    head.add(cone, M(geo('wizband', () => new THREE.CylinderGeometry(HEAD_R * 1.0, HEAD_R * 1.02, 0.04, 18)), animeMat(def.wizHat.trim || '#e0c060'), 0, 0.15, 0));
+  }
+  if (def.scarf) {
+    const sm = animeMat(def.scarf.color, { side: THREE.DoubleSide });
+    const ring = M(geo('scarf', () => new THREE.TorusGeometry(0.085, 0.035, 8, 18)), sm, 0, 1.44, 0);
+    ring.rotation.x = Math.PI / 2;
+    const tail = M(geo(def.scarf.long ? 'scarftL' : 'scarft', () => new THREE.PlaneGeometry(0.08, def.scarf.long ? 0.55 : 0.3)), sm, 0.05, def.scarf.long ? 1.2 : 1.3, 0.13);
+    tail.rotation.set(0.25, 0, 0.12);
+    inner.add(ring, tail);
+    parts.scarf = tail;
+  }
+  if (def.pauldrons) for (const arm of parts.arms) {
+    const pd = M(geo('pauldron', () => new THREE.SphereGeometry(0.095, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55)), animeMat(def.pauldrons.color), 0, 0.03, 0);
+    pd.scale.set(1.35, 1, 1.2);
+    const tr = M(geo('pauldtrim', () => new THREE.TorusGeometry(0.1, 0.012, 6, 18)), animeMat(def.pauldrons.trim || def.pauldrons.color), 0, 0.005, 0);
+    tr.rotation.x = Math.PI / 2;
+    tr.scale.set(1.3, 1.15, 1);
+    arm.add(pd, tr);
+  }
+  if (def.wingsBack) {
+    // asas nas costas (penas ou de morcego), batem devagar
+    const wm = animeMat(def.wingsBack.color, { side: THREE.DoubleSide });
+    const wg = geo(`cwing${def.wingsBack.feather ? 'f' : 'b'}`, () => {
+      const sh = new THREE.Shape();
+      sh.moveTo(0, 0.05);
+      if (def.wingsBack.feather) { sh.quadraticCurveTo(0.35, 0.45, 0.85, 0.5); sh.lineTo(0.75, 0.3); sh.lineTo(0.8, 0.12); sh.lineTo(0.62, 0.02); sh.lineTo(0.66, -0.16); sh.lineTo(0.45, -0.22); sh.lineTo(0.42, -0.42); sh.quadraticCurveTo(0.15, -0.3, 0, -0.1); }
+      else { sh.lineTo(0.4, 0.4); sh.lineTo(0.9, 0.42); sh.quadraticCurveTo(0.75, 0.15, 0.8, -0.1); sh.quadraticCurveTo(0.6, 0.0, 0.52, -0.25); sh.quadraticCurveTo(0.38, -0.05, 0.25, -0.22); sh.quadraticCurveTo(0.12, -0.05, 0, -0.08); }
+      return new THREE.ShapeGeometry(sh, 8);
+    });
+    parts.wings = [];
+    for (const s of [-1, 1]) {
+      const pv = new THREE.Group();
+      pv.position.set(s * 0.06, 1.3, 0.12);
+      const m = M(wg, wm);
+      m.scale.set(s * (def.wingsBack.span || 1), def.wingsBack.span || 1, 1);
+      pv.add(m);
+      pv.rotation.y = -s * 0.5;
+      inner.add(pv);
+      parts.wings.push(pv);
+    }
+  }
+  if (def.aura) {
+    // anel brilhando no chão e três luzinhas girando em volta
+    const col = def.aura.color;
+    const ring = M(geo('auraring', () => new THREE.RingGeometry(0.42, 0.5, 40).rotateX(-Math.PI / 2)), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(def.aura.dark ? 1.2 : 1.8), transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }), 0, 0.03, 0);
+    const motes = [];
+    for (let i = 0; i < 3; i++) { const mo = M(SPH(0.03, 8, 6), glowM(col, 2.2)); motes.push(mo); inner.add(mo); }
+    inner.add(ring);
+    parts.aura = { ring, motes };
+  }
   inner.add(head);
   parts.head = head;
   parts.face = { mat: faceMat, tex };
@@ -355,7 +449,7 @@ export function buildCharacter(def) {
 
   inner.scale.setScalar(k);
   const ol = outlineMat('#1c1410', 1.6);
-  addOutlines(inner, ol, (o) => o.userData.face || o.material.transparent || o.geometry.type === 'PlaneGeometry');
+  addOutlines(inner, ol, (o) => o.userData.face || o.material.transparent || o.material.isMeshBasicMaterial || o.geometry.type === 'PlaneGeometry' || o.geometry.type === 'ShapeGeometry');
   if (parts.pet) addOutlines(parts.pet.obj, ol, (o) => o.material.transparent);
   return { group, inner, parts, height: 1.85 * k };
 }
@@ -378,6 +472,14 @@ export function animateCharacter(c, dt, t, speed, lookYaw = null, talking = fals
   if (c.blinkT < 0) c.blinkT = 2 + Math.random() * 4;
   const want = closed ? p.face.tex.closed : p.face.tex.open;
   if (p.face.mat.map !== want) { p.face.mat.map = want; p.face.mat.needsUpdate = true; }
+  // asas, auréola e aura das skins
+  if (p.wings) p.wings.forEach((w, i) => { w.rotation.y = (i ? -1 : 1) * (0.5 + Math.sin(t * 2.2) * 0.18); });
+  if (p.halo) p.halo.position.y = 0.3 + Math.sin(t * 2) * 0.012;
+  if (p.aura) {
+    p.aura.ring.material.opacity = 0.4 + Math.sin(t * 3) * 0.15;
+    p.aura.motes.forEach((m, i) => { const a = t * 1.4 + (i * Math.PI * 2) / 3; m.position.set(Math.cos(a) * 0.45, 0.4 + ((t * 0.5 + i * 0.33) % 1) * 1.3, Math.sin(a) * 0.45); });
+  }
+  if (p.scarf) p.scarf.rotation.x = 0.25 + Math.sin(t * 3) * 0.06 + Math.min(0.6, speed * 0.12);
   if (p.pet) {
     p.pet.obj.position.set(Math.sin(t * 0.8) * 0.35 + 0.3, 1.95 + Math.sin(t * 2.2) * 0.08, Math.cos(t * 0.8) * 0.2);
     p.pet.obj.rotation.y = Math.sin(t * 0.8) * 0.6;

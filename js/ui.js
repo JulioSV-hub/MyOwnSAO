@@ -12,6 +12,7 @@ import { renderShop, renderParty, runeSlotsHtml, SHOP_INFO, petStable } from './
 import { runeDef, FOODS } from './data.js';
 import { guildRank } from './guild.js';
 import { renderEquip, weaponTypeNote } from './equipui.js';
+import { renderAvatar } from './avatar.js';
 import { openLookEditor } from './lookui.js';
 import { pieceDef, defaultLook } from './data.js';
 import { SPELLS, spellById } from './spells.js';
@@ -274,6 +275,7 @@ export class UI {
     if (this.dlgNpc) this.dlgNpc.talking = false;
     this.dlgNpc = null;
     $('dialog').classList.add('hidden');
+    document.getElementById('gacha')?.remove();
     if (relock && this.g.mode === 'play') this.g.input.lock();
   }
 
@@ -635,7 +637,7 @@ export class UI {
     for (const [name, m] of Object.entries(p.mats)) if (m.qty > 0) tiles.push({ cat: 'mat', kind: 'mat', id: name, name, rarity: 0, qty: m.qty });
     const shown = tiles.filter((t) => cat === 'all' || t.cat === cat);
     const tab = (k, l) => `<button class="tab ${cat === k ? 'on' : ''}" data-act="bagCat" data-c="${k}">${l}</button>`;
-    let html = `<div class="colcard"><img src="${icon('mat', 'Moedas de Col')}" alt=""><div><span class="muted">Seu dinheiro</span><b>${nf(p.col)} Col</b></div></div><div class="tabs">${tab('all', 'Tudo')}${tab('weapon', 'Armas')}${tab('armor', 'Armaduras')}${tab('item', 'Consumíveis')}${tab('mat', 'Materiais')}<span class="col">${nf(p.col)} Col</span></div>`;
+    let html = `<div class="colcard"><img src="${icon('mat', 'Moedas de Col')}" alt=""><div><span class="muted">Seu dinheiro</span><b>${nf(p.col)} Col</b></div><div><span class="muted">Cristais de Memória</span><b>💎 ${nf(p.gems || 0)}</b></div></div><div class="tabs">${tab('all', 'Tudo')}${tab('weapon', 'Armas')}${tab('armor', 'Armaduras')}${tab('item', 'Consumíveis')}${tab('mat', 'Materiais')}<span class="col">${nf(p.col)} Col</span></div>`;
     if (this.detail) html += this.detailCard(this.detail, st);
     html += shown.length
       ? `<div class="bag">${shown.map((t) => `<button class="tile r${t.rarity} ${this.detail && this.detail.id === t.id && this.detail.kind === t.kind ? 'sel' : ''}" data-act="detail" data-kind="${t.kind}" data-id="${esc(t.id)}" title="${esc(t.name)}">
@@ -975,6 +977,8 @@ export class UI {
         case 'tab': this.shopTab = d.t; break;
         case 'runeOn': g.equipRune(d.id); break;
         case 'eqSlot': this.eqSlot = d.s; break;
+        case 'skinOn': p.skin = d.id; this._avKey = null; g.save(); break;
+        case 'skinOff': p.skin = null; this._avKey = null; g.save(); break;
         case 'rot': this.avAngle = (this.avAngle ?? 0.4) + +d.d * 0.7; break;
         case 'equipP': g.equipPiece(d.id); break;
         case 'unequipP': g.unequipPiece(d.s); break;
@@ -1052,6 +1056,14 @@ export class UI {
   }
 
   // ─────────── Tela inicial ───────────
+  // retrato do seu personagem usando uma skin (cache por skin + aparência)
+  skinPreview(id) {
+    const p = this.g.state.player, key = `${id}|${JSON.stringify(p.look)}`;
+    this._skinPrev ||= {};
+    if (!this._skinPrev[key]) this._skinPrev[key] = renderAvatar({ ...p, skin: id, weapon: null }, 0.35);
+    return this._skinPrev[key];
+  }
+
   // barrinha do ataque carregado abaixo da mira
   setCharge(v) {
     if (!this._chg) {

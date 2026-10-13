@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildCharacter } from './characters.js';
 import { buildSword, buildShield } from './gear3d.js';
 import { armorDef, weaponDef, pieceDef, defaultLook } from './data.js';
+import { SKINS } from './skins.js';
 
 const W = 320, H = 420;
 let R = null, scene, camera;
@@ -41,15 +42,20 @@ export function playerCharDef(p, look = null) {
     if (pc('hands')) { def.gloves = pc('hands').color; def.glovesTrim = pc('hands').trim; }
     if (pc('head')) def.helmet = { color: pc('head').color, trim: pc('head').trim, open: pc('head').floor <= 6 };
     if (pc('cape')) def.cape = { color: pc('cape').color, trim: pc('cape').trim };
+    // skin equipada: troca o visual inteiro (o equipamento continua valendo, só não aparece)
+    const sk = p.skin && SKINS[p.skin];
+    if (sk) {
+      for (const k of ['helmet', 'cape', 'gloves', 'coat', 'skirt']) delete def[k];
+      Object.assign(def, sk.look);
+    }
   }
   return def;
 }
 
-export function renderAvatar(p, angle = 0.4, look = null, withWeapon = true) {
-  init();
-  const def = playerCharDef(p, look);
-  const c = buildCharacter(def);
-  if (withWeapon && p.weapon) {
+// arma na mão direita (e escudo do Guardião na esquerda)
+export function attachWeapon(c, p) {
+  if (!p.weapon) return null;
+  {
     const wd = weaponDef(p.weapon), sw = buildSword(wd).group;
     sw.scale.setScalar(0.85);
     if (wd.type === 'staff') { sw.position.set(0, -0.5, 0.02); sw.rotation.x = -0.15; }
@@ -61,7 +67,15 @@ export function renderAvatar(p, angle = 0.4, look = null, withWeapon = true) {
       sh.rotation.y = Math.PI;
       c.parts.arms[0].add(sh);
     }
+    return sw;
   }
+}
+
+export function renderAvatar(p, angle = 0.4, look = null, withWeapon = true) {
+  init();
+  const def = playerCharDef(p, look);
+  const c = buildCharacter(def);
+  if (withWeapon) attachWeapon(c, p);
   if (c.parts.face) c.parts.face.mat.map = c.parts.face.tex.open;
   const pivot = new THREE.Group();
   pivot.add(c.group);

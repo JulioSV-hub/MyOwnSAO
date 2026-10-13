@@ -52,8 +52,9 @@ export function checkCompletion(g) {
   const el = ['elixir_str', 'elixir_agi', 'elixir_vit'][Math.floor(Math.random() * 3)];
   p.items[el] = (p.items[el] || 0) + 1;
   p.bonusTalents = (p.bonusTalents || 0) + r.talent;
+  p.gems = (p.gems || 0) + 50;
   Sfx.victory();
   g.effects.levelUp(g.player.pos.clone());
-  setTimeout(() => g.ui.banner(`Andar ${n} — 100% concluído!`, `+${r.col.toLocaleString('pt-BR')} Col · ${ITEMS[el].name} · +1 ponto de talento bônus`, 6), 1200);
+  setTimeout(() => g.ui.banner(`Andar ${n} — 100% concluído!`, `+${r.col.toLocaleString('pt-BR')} Col · ${ITEMS[el].name} · +1 ponto de talento bônus · +50 💎`, 6), 1200);
   g.save();
 }
