@@ -35,17 +35,19 @@ export function playerCharDef(p, look = null) {
   if (!look || look.useGear !== false) {
     const eq = p.equip || {};
     const a = p.armor && p.armor !== 'leather' ? armorDef(p.armor) : null;
-    if (a) { def.top = a.color; def.accent = a.trim; if (a.type === 'coat' || a.type === 'cloak') def.coat = a.color; }
+    if (a) { def.top = a.color; def.accent = a.trim; if (a.type === 'coat' || a.type === 'cloak') def.coat = a.color; def.armorFx = { type: a.type, color: a.color, trim: a.trim }; }
     const pc = (slot) => (eq[slot] ? pieceDef(eq[slot]) : null);
     if (pc('legs')) { def.pants = pc('legs').color; if (def.skirt) def.skirt = def.pants; }
     if (pc('feet')) def.boots = pc('feet').color;
-    if (pc('hands')) { def.gloves = pc('hands').color; def.glovesTrim = pc('hands').trim; }
+    if (pc('hands')) { def.gloves = pc('hands').color; def.glovesTrim = pc('hands').trim; def.gauntlets = { color: pc('hands').color, trim: pc('hands').trim }; }
+    if (pc('legs')) def.greaves = { color: pc('legs').color, trim: pc('legs').trim };
+    if (pc('feet')) def.sabatons = { color: pc('feet').color, trim: pc('feet').trim };
     if (pc('head')) def.helmet = { color: pc('head').color, trim: pc('head').trim, open: pc('head').floor <= 6 };
     if (pc('cape')) def.cape = { color: pc('cape').color, trim: pc('cape').trim };
     // skin equipada: troca o visual inteiro (o equipamento continua valendo, só não aparece)
     const sk = p.skin && SKINS[p.skin];
     if (sk) {
-      for (const k of ['helmet', 'cape', 'gloves', 'coat', 'skirt']) delete def[k];
+      for (const k of ['helmet', 'cape', 'gloves', 'coat', 'skirt', 'armorFx', 'gauntlets', 'greaves', 'sabatons']) delete def[k];
       Object.assign(def, sk.look);
     }
   }

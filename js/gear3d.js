@@ -212,50 +212,117 @@ export function buildSword(def) {
   return { group, bladeMat, tipY: base + L, baseY: base + 0.08 };
 }
 
+// ─────────── Armaduras (ícones, manequins e loja) ───────────
+// Peitoral curvo com faixas no abdômen, gola, ombreiras em camadas, saiote e frisos — como as armaduras de cavaleiro do anime.
+const lathe = (pts, seg = 28) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+function plateShell(y0, y1, r0, r1, bulge = 0, front = true, seg = 28) {
+  // casca de placa (meia volta na frente ou volta inteira)
+  const pts = [];
+  for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push(new THREE.Vector2(r0 + (r1 - r0) * t + Math.sin(t * PI) * bulge, y0 + (y1 - y0) * t)); }
+  return new THREE.LatheGeometry(pts, seg, front ? -PI * 0.5 : 0, front ? PI : PI * 2);
+}
+export function pauldron(mat, trim, s, big = 1) {
+  const g = new THREE.Group();
+  for (let k = 0; k < 3; k++) {
+    const plate = M(new THREE.SphereGeometry(0.17 * big - k * 0.02, 18, 10, 0, PI * 2, 0, PI * 0.42), mat, 0, -k * 0.07, 0);
+    plate.scale.set(1.25, 0.75, 1.05);
+    plate.rotation.z = s * (0.35 + k * 0.12);
+    const edge = M(new THREE.TorusGeometry((0.17 * big - k * 0.02) * Math.sin(PI * 0.42), 0.012, 6, 24), trim, 0, -k * 0.07 + (0.17 * big - k * 0.02) * Math.cos(PI * 0.42) * 0.75, 0);
+    edge.rotation.set(PI / 2, s * (0.35 + k * 0.12), 0);
+    edge.scale.set(1.25, 1.05, 1);
+    g.add(plate, edge);
+  }
+  return g;
+}
 export function buildArmor(def) {
-  const group = new THREE.Group();
-  const main = std(def.color, { metalness: def.type === 'plate' || def.type === 'mail' ? 0.7 : 0.05, roughness: def.type === 'plate' ? 0.3 : 0.8 });
-  const trim = std(def.trim, { metalness: 0.5, roughness: 0.5 });
-  const torso = M(new THREE.CapsuleGeometry(0.3, 0.42, 6, 18), main, 0, 0, 0);
-  torso.scale.set(1.15, 1, 0.65);
-  group.add(torso);
-  for (const s of [-1, 1]) {
-    const sh = M(new THREE.SphereGeometry(0.17, 16, 12), def.type === 'plate' ? trim : main, s * 0.36, 0.3, 0);
-    sh.scale.set(1.2, 0.8, 1);
-    group.add(sh);
-  }
-  const belt = M(new THREE.CylinderGeometry(0.31, 0.31, 0.07, 24), trim, 0, -0.25, 0);
-  belt.scale.z = 0.66;
-  group.add(belt, M(new THREE.BoxGeometry(0.08, 0.06, 0.03), std('#d8c070', { metalness: 0.9 }), 0, -0.25, 0.21));
-  if (def.type === 'coat' || def.type === 'cloak') {
-    const skirt = M(new THREE.CylinderGeometry(0.3, 0.46, 0.75, 24, 1, true, PI + 0.4, PI * 2 - 0.8), std(def.color, { side: THREE.DoubleSide, roughness: 0.85 }), 0, -0.6, 0);
-    skirt.scale.z = 0.7;
-    const collar = M(new THREE.CylinderGeometry(0.17, 0.24, 0.16, 20, 1, true, PI + 0.6, PI * 2 - 1.2), std(def.color, { side: THREE.DoubleSide }), 0, 0.48, 0);
-    group.add(skirt, collar);
-    for (const s of [-1, 1]) group.add(M(new THREE.BoxGeometry(0.02, 0.9, 0.02), trim, s * 0.12, -0.25, 0.2));
-  }
-  if (def.type === 'mail') {
-    const rm = std(new THREE.Color(def.color).multiplyScalar(0.7), { metalness: 0.8, roughness: 0.4 });
-    for (let y = -0.15; y < 0.3; y += 0.09) {
-      const r = M(new THREE.TorusGeometry(0.33, 0.012, 6, 32), rm, 0, y, 0);
-      r.rotation.x = PI / 2;
-      r.scale.y = 0.66;
-      group.add(r);
+  const group = new THREE.Group(), t = def.type;
+  const metal = t === 'plate' || t === 'mail';
+  const main = std(def.color, { metalness: metal ? 0.85 : 0.05, roughness: metal ? 0.25 : 0.8 });
+  const trim = std(def.trim, { metalness: 0.9, roughness: 0.25 });
+  const cloth = std(t === 'plate' ? def.trim : def.color, { metalness: 0, roughness: 0.85, side: THREE.DoubleSide });
+  const leather = std(new THREE.Color(def.color).multiplyScalar(0.7), { metalness: 0, roughness: 0.75 });
+  // corpo base (camisa por baixo)
+  const body = M(lathe([[0.0, -0.32], [0.24, -0.3], [0.22, -0.12], [0.27, 0.12], [0.3, 0.3], [0.22, 0.42], [0.1, 0.47], [0, 0.48]]), t === 'plate' ? std(new THREE.Color(def.trim).multiplyScalar(0.5), { roughness: 0.8 }) : main);
+  body.scale.z = 0.7;
+  group.add(body);
+  if (t === 'plate' || t === 'mail') {
+    // peitoral curvo (frente) e costas
+    const chest = M(plateShell(-0.05, 0.42, 0.27, 0.2, 0.06), main);
+    chest.scale.set(1.08, 1, 0.78);
+    const back = M(plateShell(-0.05, 0.42, 0.26, 0.2, 0.03), main);
+    back.rotation.y = PI;
+    back.scale.set(1.06, 1, 0.74);
+    group.add(chest, back);
+    // friso do peitoral e emblema
+    const neckRim = M(new THREE.TorusGeometry(0.16, 0.02, 8, 26, PI), trim, 0, 0.42, 0.02);
+    neckRim.rotation.set(PI / 2, 0, PI);
+    neckRim.scale.set(1.2, 0.8, 1);
+    group.add(neckRim);
+    for (const s2 of [-1, 1]) { const l = M(new THREE.BoxGeometry(0.018, 0.4, 0.02), trim, s2 * 0.18, 0.18, 0.205); l.rotation.z = s2 * 0.2; group.add(l); }
+    const em = M(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 6), trim, 0, 0.22, 0.225);
+    em.rotation.x = PI / 2;
+    group.add(em, M(new THREE.OctahedronGeometry(0.035, 0), glow(def.trim === '#c0262c' ? '#ff4a4a' : '#8ad0ff', 1.4), 0, 0.22, 0.24));
+    if (def.trim === '#c0262c') group.add(M(new THREE.BoxGeometry(0.035, 0.16, 0.02), trim, 0, 0.12, 0.235), M(new THREE.BoxGeometry(0.11, 0.035, 0.02), trim, 0, 0.15, 0.235));
+    // faixas do abdômen (lames)
+    for (let k = 0; k < 3; k++) {
+      const lame = M(plateShell(-0.06 - k * 0.075, -0.0 - k * 0.075, 0.245 - k * 0.006, 0.255 - k * 0.006, 0.0, false, 28), main);
+      lame.scale.z = 0.72;
+      lame.position.y = -0.02;
+      const er = M(new THREE.TorusGeometry(0.25 - k * 0.006, 0.008, 6, 30), trim, 0, -0.08 - k * 0.075, 0);
+      er.rotation.x = PI / 2;
+      er.scale.set(1, 0.72, 1);
+      group.add(lame, er);
     }
-  }
-  if (def.type === 'plate') {
-    const plate = M(new THREE.SphereGeometry(0.28, 20, 14, 0, PI * 2, 0, PI * 0.5), main, 0, 0.05, 0.08);
-    plate.rotation.x = PI / 2;
-    plate.scale.set(1.05, 0.5, 1.1);
-    group.add(plate);
-    if (def.trim === '#c0262c') {
-      group.add(M(new THREE.BoxGeometry(0.05, 0.22, 0.02), trim, 0, 0.12, 0.23), M(new THREE.BoxGeometry(0.16, 0.05, 0.02), trim, 0, 0.16, 0.23));
+    // saiote (tassets) na frente e dos lados
+    for (const a of [-0.9, -0.3, 0.3, 0.9]) {
+      const ts = M(new THREE.BoxGeometry(0.16, 0.22, 0.02), main, Math.sin(a) * 0.25, -0.38, Math.cos(a) * 0.18);
+      ts.rotation.set(-0.12, a, 0);
+      const tt = M(new THREE.BoxGeometry(0.17, 0.02, 0.025), trim, Math.sin(a) * 0.25, -0.48, Math.cos(a) * 0.185);
+      tt.rotation.y = a;
+      group.add(ts, tt);
     }
-  }
-  if (def.type === 'cloak') {
-    const hood = M(new THREE.SphereGeometry(0.2, 16, 12, 0, PI * 2, 0, PI * 0.55), std(def.color, { side: THREE.DoubleSide }), 0, 0.55, 0.08);
-    hood.rotation.x = 0.6;
-    group.add(hood);
+    // ombreiras em camadas
+    for (const s2 of [-1, 1]) { const pd = pauldron(main, trim, s2, 1.05); pd.position.set(s2 * 0.34, 0.38, 0); group.add(pd); }
+    if (t === 'mail') {
+      const rm = std(new THREE.Color(def.color).multiplyScalar(0.75), { metalness: 0.8, roughness: 0.45 });
+      for (let y = -0.28; y < -0.05; y += 0.045) { const r = M(new THREE.TorusGeometry(0.255, 0.01, 5, 32), rm, 0, y, 0); r.rotation.x = PI / 2; r.scale.y = 0.72; group.add(r); }
+    }
+    // cinto
+    const belt = M(new THREE.CylinderGeometry(0.262, 0.262, 0.05, 28), leather, 0, -0.29, 0);
+    belt.scale.z = 0.74;
+    group.add(belt, M(new THREE.BoxGeometry(0.08, 0.07, 0.03), trim, 0, -0.29, 0.2));
+  } else {
+    // couro / sobretudo / manto: gola, faixas cruzadas com fivelas, barra comprida
+    const collar = M(new THREE.CylinderGeometry(0.17, 0.25, 0.18, 22, 1, true, PI + 0.55, PI * 2 - 1.1), cloth, 0, 0.47, 0);
+    group.add(collar);
+    for (const s2 of [-1, 1]) {
+      const strap = M(new THREE.BoxGeometry(0.05, 0.7, 0.015), leather, s2 * 0.05, 0.08, 0.205);
+      strap.rotation.z = s2 * 0.62;
+      group.add(strap, M(new THREE.BoxGeometry(0.045, 0.045, 0.02), trim, s2 * 0.11, 0.17, 0.215));
+      const sh = M(new THREE.SphereGeometry(0.13, 14, 10, 0, PI * 2, 0, PI * 0.45), leather, s2 * 0.32, 0.36, 0);
+      sh.scale.set(1.3, 0.7, 1);
+      sh.rotation.z = s2 * 0.4;
+      group.add(sh);
+    }
+    const belt = M(new THREE.CylinderGeometry(0.25, 0.25, 0.06, 26), leather, 0, -0.27, 0);
+    belt.scale.z = 0.72;
+    group.add(belt, M(new THREE.BoxGeometry(0.08, 0.07, 0.03), trim, 0, -0.27, 0.19), M(new THREE.BoxGeometry(0.1, 0.12, 0.06), leather, 0.17, -0.34, 0.12));
+    if (t === 'coat' || t === 'cloak') {
+      // barra longa aberta na frente, com friso
+      const tail = M(new THREE.CylinderGeometry(0.26, 0.48, 0.95, 28, 1, true, PI + 0.42, PI * 2 - 0.84), cloth, 0, -0.75, 0);
+      tail.scale.z = 0.72;
+      group.add(tail);
+      const hem = M(new THREE.TorusGeometry(0.48, 0.012, 6, 40, PI * 2 - 0.84), trim, 0, -1.22, 0);
+      hem.rotation.set(PI / 2, 0, PI / 2 + 0.42);
+      hem.scale.set(1, 0.72, 1);
+      group.add(hem);
+      for (const s2 of [-1, 1]) group.add(M(new THREE.BoxGeometry(0.014, 1.15, 0.014), trim, s2 * 0.13, -0.42, 0.2));
+    }
+    if (t === 'cloak') {
+      const hood = M(new THREE.SphereGeometry(0.2, 16, 12, 0, PI * 2, 0, PI * 0.55), cloth, 0, 0.56, 0.1);
+      hood.rotation.x = 0.7;
+      group.add(hood);
+    }
   }
   return { group };
 }
@@ -462,32 +529,100 @@ export function buildMaterial(name) {
 
 // Peças: elmo, luvas, calça, botas, capa, anel e amuleto (ícones)
 export function buildPiece(d) {
-  const group = new THREE.Group(), main = std(d.color, { metalness: 0.5, roughness: 0.4 }), trim = std(d.trim, { metalness: 0.7, roughness: 0.3 });
-  const gem = M(new THREE.OctahedronGeometry(0.06, 0), glow(d.gem, 1.6));
+  const group = new THREE.Group(), main = std(d.color, { metalness: 0.75, roughness: 0.3 }), trim = std(d.trim, { metalness: 0.9, roughness: 0.25 });
+  const gemM = glow(d.gem, 1.6), soft = std(new THREE.Color(d.color).multiplyScalar(0.55), { metalness: 0, roughness: 0.8 });
+  const gem = M(new THREE.OctahedronGeometry(0.06, 0), gemM);
   if (d.slot === 'head') {
-    group.add(M(new THREE.SphereGeometry(0.26, 20, 12, 0, PI * 2, 0, PI * 0.55), main));
-    const rim = M(new THREE.TorusGeometry(0.255, 0.025, 6, 24), trim, 0, 0.02, 0); rim.rotation.x = PI / 2;
-    group.add(rim, M(new THREE.BoxGeometry(0.04, 0.16, 0.04), trim, 0, -0.04, 0.26), M(new THREE.BoxGeometry(0.035, 0.08, 0.42), trim, 0, 0.24, 0));
+    // elmo: cúpula, aba da testa, protetores de bochecha e crista (ou asas se for raro)
+    const dome = M(new THREE.SphereGeometry(0.26, 24, 14, 0, PI * 2, 0, PI * 0.58), main);
+    dome.scale.set(1, 1.05, 1.08);
+    const brow = M(new THREE.TorusGeometry(0.255, 0.03, 8, 30, PI * 1.1), trim, 0, 0.04, 0);
+    brow.rotation.set(PI / 2, 0, PI * 0.45 + PI);
+    group.add(dome, brow);
+    for (const s2 of [-1, 1]) {
+      const cheek = M(new THREE.SphereGeometry(0.14, 12, 10, 0, PI, 0, PI * 0.6), main, s2 * 0.2, -0.06, 0.05);
+      cheek.rotation.set(PI / 2 + 0.2, s2 * 0.9, 0);
+      cheek.scale.set(0.6, 1, 1.3);
+      group.add(cheek);
+      if (d.rarity === 2) { const wing = M(new THREE.ConeGeometry(0.05, 0.3, 4), trim, s2 * 0.27, 0.16, -0.02); wing.rotation.set(0.2, 0, -s2 * 1.1); wing.scale.z = 0.25; group.add(wing); }
+    }
+    group.add(M(new THREE.BoxGeometry(0.03, 0.11, 0.05), trim, 0, -0.02, 0.27), M(new THREE.BoxGeometry(0.04, 0.09, 0.42), trim, 0, 0.27, 0));
+    if (d.rarity === 2) { gem.position.set(0, 0.12, 0.27); group.add(gem); }
   } else if (d.slot === 'hands') {
-    for (const s of [-1, 1]) { const h = M(new THREE.CapsuleGeometry(0.08, 0.16, 4, 10), main, s * 0.13, 0, 0); h.rotation.z = s * 0.3; group.add(h, M(new THREE.CylinderGeometry(0.1, 0.09, 0.08, 12), trim, s * 0.17, -0.13, 0)); }
+    // manoplas: placas nos dedos, dorso e punho largo
+    for (const s2 of [-1, 1]) {
+      const h = new THREE.Group();
+      h.position.x = s2 * 0.15;
+      h.rotation.z = s2 * 0.25;
+      const back = M(new THREE.BoxGeometry(0.14, 0.13, 0.07), main, 0, 0, 0);
+      h.add(back);
+      for (let f = 0; f < 4; f++) for (let k = 0; k < 2; k++) h.add(M(new THREE.BoxGeometry(0.03, 0.045, 0.045), k ? trim : main, -0.05 + f * 0.033, -0.09 - k * 0.05, 0));
+      const thumb = M(new THREE.BoxGeometry(0.04, 0.08, 0.04), main, s2 * -0.085, -0.03, 0.02);
+      thumb.rotation.z = s2 * 0.6;
+      const cuff = M(new THREE.CylinderGeometry(0.11, 0.08, 0.13, 14, 1, true), main, 0, 0.12, 0);
+      const cuffRim = M(new THREE.TorusGeometry(0.11, 0.012, 6, 18), trim, 0, 0.185, 0);
+      cuffRim.rotation.x = PI / 2;
+      h.add(thumb, cuff, cuffRim);
+      group.add(h);
+    }
   } else if (d.slot === 'legs') {
-    for (const s of [-1, 1]) group.add(M(new THREE.CapsuleGeometry(0.075, 0.42, 4, 10), main, s * 0.09, -0.05, 0));
-    group.add(M(new THREE.CylinderGeometry(0.18, 0.18, 0.06, 16), trim, 0, 0.27, 0));
+    // coxotes, joelheiras e grevas
+    for (const s2 of [-1, 1]) {
+      const x = s2 * 0.1;
+      group.add(M(new THREE.CylinderGeometry(0.075, 0.06, 0.55, 12), soft, x, -0.05, 0));
+      const thigh = M(plateShell(0.02, 0.26, 0.085, 0.095, 0.01, true, 16), main, x, -0.0, 0);
+      const knee = M(new THREE.SphereGeometry(0.06, 12, 10), trim, x, -0.06, 0.05);
+      knee.scale.set(1, 1, 0.7);
+      const shin = M(plateShell(-0.36, -0.1, 0.06, 0.072, 0.008, true, 16), main, x, 0, 0);
+      group.add(thigh, knee, shin);
+    }
+    group.add(M(new THREE.CylinderGeometry(0.19, 0.19, 0.06, 18), trim, 0, 0.27, 0));
   } else if (d.slot === 'feet') {
-    for (const s of [-1, 1]) { const b = M(new THREE.CapsuleGeometry(0.07, 0.18, 4, 10), main, s * 0.1, 0.05, 0); const t = M(new THREE.SphereGeometry(0.08, 10, 8), main, s * 0.1, -0.08, 0.08); t.scale.set(1, 0.6, 1.5); group.add(b, t, M(new THREE.TorusGeometry(0.075, 0.015, 6, 14), trim, s * 0.1, 0.15, 0)); }
+    // botas com bico de placa, tornozeleira e friso
+    for (const s2 of [-1, 1]) {
+      const x = s2 * 0.11;
+      group.add(M(new THREE.CylinderGeometry(0.075, 0.07, 0.24, 14), soft, x, 0.06, 0));
+      const toe = M(new THREE.SphereGeometry(0.08, 14, 10), main, x, -0.09, 0.07);
+      toe.scale.set(0.95, 0.6, 1.6);
+      const ankle = M(new THREE.SphereGeometry(0.085, 14, 10, 0, PI * 2, 0, PI * 0.5), main, x, -0.02, 0);
+      ankle.scale.set(1, 0.6, 1.1);
+      group.add(toe, ankle, M(new THREE.TorusGeometry(0.076, 0.012, 6, 16), trim, x, 0.18, 0), M(new THREE.TorusGeometry(0.076, 0.01, 6, 16), trim, x, 0.06, 0));
+      group.children[group.children.length - 1].rotation.x = PI / 2;
+      group.children[group.children.length - 2].rotation.x = PI / 2;
+    }
   } else if (d.slot === 'cape') {
-    const c = M(new THREE.CylinderGeometry(0.16, 0.34, 0.6, 16, 1, true, -1.2, 2.4), std(d.color, { side: THREE.DoubleSide }));
-    group.add(c, M(new THREE.TorusGeometry(0.13, 0.025, 6, 14, PI), trim, 0, 0.3, 0));
-    group.children[1].rotation.x = PI / 2;
+    // capa ondulada com gola, broche e barra
+    const geo = new THREE.CylinderGeometry(0.17, 0.4, 0.75, 28, 6, true, -1.25, 2.5);
+    const pa = geo.attributes.position;
+    for (let k = 0; k < pa.count; k++) { const y = pa.getY(k), a = Math.atan2(pa.getX(k), pa.getZ(k)); const w = Math.sin(a * 5) * 0.025 * (0.4 - y); pa.setX(k, pa.getX(k) + Math.sin(a) * w); pa.setZ(k, pa.getZ(k) + Math.cos(a) * w); }
+    geo.computeVertexNormals();
+    const c = M(geo, std(d.color, { side: THREE.DoubleSide, roughness: 0.85 }));
+    const hem = M(new THREE.TorusGeometry(0.4, 0.012, 6, 30, 2.5), trim, 0, -0.37, 0);
+    hem.rotation.set(PI / 2, 0, PI / 2 - 1.25);
+    const col = M(new THREE.TorusGeometry(0.15, 0.03, 8, 18, PI), trim, 0, 0.36, 0);
+    col.rotation.set(PI / 2, 0, 0);
+    gem.position.set(0, 0.34, -0.15);
+    group.add(c, hem, col, gem);
   } else if (d.slot === 'ring') {
-    const r = M(new THREE.TorusGeometry(0.18, 0.04, 10, 28), trim); r.rotation.x = 0.4;
-    gem.position.set(0, 0.2, 0.05); gem.scale.setScalar(1.6);
-    group.add(r, gem);
+    // anel com garras segurando uma pedra lapidada
+    const r = M(new THREE.TorusGeometry(0.16, 0.032, 12, 32), trim);
+    r.rotation.x = 0.35;
+    const seat = M(new THREE.CylinderGeometry(0.06, 0.045, 0.05, 8), trim, 0, 0.17, 0.06);
+    for (let k = 0; k < 4; k++) { const a = (k / 4) * PI * 2 + PI / 4, pr = M(new THREE.ConeGeometry(0.012, 0.07, 5), trim, Math.cos(a) * 0.05, 0.22, 0.06 + Math.sin(a) * 0.05); group.add(pr); }
+    gem.position.set(0, 0.23, 0.06);
+    gem.scale.set(1.3, 1.6, 1.3);
+    group.add(r, seat, gem);
   } else {
-    const ch = M(new THREE.TorusGeometry(0.22, 0.012, 6, 30), trim);
-    const pend = M(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 6), main, 0, -0.24, 0.02); pend.rotation.x = PI / 2;
-    gem.position.set(0, -0.24, 0.05); gem.scale.setScalar(1.2);
-    group.add(ch, pend, gem);
+    // amuleto: corrente de elos e pingente em losango com moldura
+    for (let k = 0; k < 20; k++) { const a = PI * 0.15 + (k / 19) * PI * 1.7; const l = M(new THREE.TorusGeometry(0.018, 0.005, 4, 8), trim, Math.cos(a) * 0.2, Math.sin(a) * 0.2 + 0.05, 0); l.rotation.set(k % 2 ? PI / 2 : 0, 0, a); group.add(l); }
+    const pend = M(new THREE.OctahedronGeometry(0.11, 0), main, 0, -0.2, 0);
+    pend.scale.set(0.8, 1.2, 0.35);
+    gem.position.set(0, -0.2, 0.04);
+    gem.scale.setScalar(1.1);
+    const fr = M(new THREE.TorusGeometry(0.1, 0.012, 6, 4), trim, 0, -0.2, 0.02);
+    fr.rotation.z = PI / 4;
+    fr.scale.set(0.85, 1.25, 1);
+    group.add(pend, gem, fr);
   }
   return { group };
 }

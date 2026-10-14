@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { animeMat, outlineMat, addOutlines } from './toon.js';
 import { hairLocks, chinify, torsoGeo, hipsGeo, limbGeo, handGeo, bootGeo } from './anime.js';
+import { pauldron } from './gear3d.js';
 
 const G = {};
 const geo = (k, fn) => G[k] || (G[k] = fn());
@@ -295,6 +296,42 @@ export function buildCharacter(def) {
     collar.rotation.set(Math.PI / 2, 0, Math.PI);
     inner.add(cape, collar);
   }
+  // ─────────── Armadura de verdade no corpo (peitoral, ombreiras, saiote, manoplas, grevas) ───────────
+  if (def.armorFx && (def.armorFx.type === 'plate' || def.armorFx.type === 'mail')) {
+    const A = def.armorFx, am = animeMat(A.color), tm = animeMat(A.trim || A.color);
+    const prof = (def.female ? [[0.115, 1.03], [0.14, 1.16], [0.155, 1.24], [0.162, 1.31], [0.15, 1.38], [0.09, 1.435]] : [[0.13, 1.03], [0.155, 1.16], [0.172, 1.25], [0.178, 1.33], [0.16, 1.4], [0.09, 1.44]]).map(([r, y]) => new THREE.Vector2(r * w * 1.06, y));
+    for (const front of [true, false]) {
+      const sh = M(geo(`brp${def.female ? 1 : 0}${w}${front}`, () => new THREE.LatheGeometry(prof, 20, front ? Math.PI * 0.5 : -Math.PI * 0.5, Math.PI)), am);
+      sh.scale.z = 0.72;
+      inner.add(sh);
+    }
+    for (const y of [1.0, 1.045]) { const r = M(geo('lame', () => new THREE.TorusGeometry(0.135, 0.012, 6, 24)), tm, 0, y, 0); r.rotation.x = Math.PI / 2; r.scale.set(w * 1.02, 0.74 * w, 1); inner.add(r); }
+    const emb = M(geo('emb', () => new THREE.CylinderGeometry(0.035, 0.035, 0.012, 6)), tm, 0, 1.27, -0.125 * w);
+    emb.rotation.x = Math.PI / 2;
+    inner.add(emb);
+    for (const a of [-0.8, 0, 0.8]) { const ts = M(geo('tasset', () => new THREE.BoxGeometry(0.11, 0.17, 0.014)), am, Math.sin(a) * 0.14 * w, 0.88, -Math.cos(a) * 0.12 * w); ts.rotation.set(0.12, -a, 0); inner.add(ts); }
+    parts.arms.forEach((arm, i) => { const pd = pauldron(am, tm, i ? 1 : -1, 0.5); pd.position.set(0, 0.04, 0); arm.add(pd); });
+  }
+  if (def.gauntlets && parts.elbows) for (const el of parts.elbows) {
+    const gm = animeMat(def.gauntlets.color), gt = animeMat(def.gauntlets.trim || def.gauntlets.color);
+    el.add(M(geo('gaunt', () => new THREE.CylinderGeometry(0.05, 0.042, 0.13, 12)), gm, 0, -0.14, 0), M(geo('gauntr', () => new THREE.TorusGeometry(0.05, 0.01, 6, 14)), gt, 0, -0.08, 0));
+    el.children[el.children.length - 1].rotation.x = Math.PI / 2;
+    el.add(M(geo('knuck', () => new THREE.BoxGeometry(0.06, 0.04, 0.035)), gm, 0, -0.25, -0.02));
+  }
+  if (def.greaves && parts.knees) for (const kn of parts.knees) {
+    const gm = animeMat(def.greaves.color), gt = animeMat(def.greaves.trim || def.greaves.color);
+    const cop = M(SPH(0.05, 12, 10), gt, 0, 0, -0.035);
+    cop.scale.set(1, 1, 0.7);
+    const shin = M(geo('greave', () => new THREE.CylinderGeometry(0.056, 0.05, 0.26, 12, 1, true, Math.PI * 0.5, Math.PI)), gm, 0, -0.15, 0);
+    kn.add(cop, shin);
+  }
+  if (def.sabatons && parts.knees) for (const kn of parts.knees) {
+    const toe = M(SPH(0.052, 12, 10), animeMat(def.sabatons.color), 0, -0.43, -0.1);
+    toe.scale.set(1, 0.6, 1.3);
+    kn.add(toe, M(geo('sabr', () => new THREE.TorusGeometry(0.06, 0.01, 6, 14)), animeMat(def.sabatons.trim || def.sabatons.color), 0, -0.25, 0));
+    kn.children[kn.children.length - 1].rotation.x = Math.PI / 2;
+  }
+
   // ─────────── Acessórios das skins ───────────
   const glowM = (c, k = 2) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k) });
   if (def.kabuto) {
