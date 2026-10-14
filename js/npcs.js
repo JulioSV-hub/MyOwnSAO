@@ -468,8 +468,9 @@ export class NPCManager {
     const rand = mulberry32(g.floor.seed + 999);
     const add = (def, x, z, opts) => { const npc = new NPC(this, def, x, z, opts); this.list.push(npc); return npc; };
     const a = w.agilSpot, l = w.lisbethSpot;
-    add(CAST.agil, a.pos.x, a.pos.z, { role: 'shop', fixed: true, yaw: a.yaw });
-    add(CAST.lisbeth, l.pos.x, l.pos.z, { role: 'smith', fixed: true, yaw: l.yaw });
+    // com loja própria, Agil e Lisbeth ficam lá dentro (halls.js)
+    if (!w.hallSlots?.agil && a) add(CAST.agil, a.pos.x, a.pos.z, { role: 'shop', fixed: true, yaw: a.yaw });
+    if (!w.hallSlots?.smith && l) add(CAST.lisbeth, l.pos.x, l.pos.z, { role: 'smith', fixed: true, yaw: l.yaw });
     add(CAST.argo, 4, -9, { role: 'info' });
     const innDef = { ...randomTownsfolk(mulberry32(77), false), id: 'inn', name: 'Hana', title: 'Pousada do Sino Dourado', female: true, hair: 'bob', hairColor: '#8a4a2a', apron: '#f4efe6', top: '#5a7aa8', skirt: '#3a4a6a' };
     add(innDef, w.innSpot.pos.x, w.innSpot.pos.z, { role: 'inn', fixed: true, yaw: w.innSpot.yaw });

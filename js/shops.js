@@ -24,6 +24,8 @@ export const SHOPS = {
     npc: { id: 'gorm', name: 'Gorm', title: 'Taverneiro', hair: 'bald', top: '#8a6a4a', apron: '#f0e8d8', beard: true, big: true } },
   food: { sign: 'RESTAURANTE', title: 'Restaurante Sabor de Aincrad', color: '#2a7a4a', color2: '#fff6e0', w: 6.4,
     npc: { id: 'teo', name: 'Teo', title: 'Chef de Cozinha', hair: 'short', hairColor: '#2a1e16', top: '#f4f4f0', apron: '#f4f4f0', hat: '#ffffff', accent: '#2a7a4a' } },
+  smith: { sign: "LISBETH'S SMITH SHOP", title: "Lisbeth's Smith Shop", color: '#c0306a', color2: '#fff0f6', w: 6, cast: 'lisbeth', role: 'smith' },
+  agil: { sign: "AGIL'S STORE", title: "Agil's Store", color: '#2a5a3a', color2: '#f4ecd8', w: 6, cast: 'agil', role: 'shop' },
   guild: { sign: 'GUILDA DOS AVENTUREIROS', title: 'Guilda dos Aventureiros', color: '#a02a2a', color2: '#f4e8c8', w: 7.4,
     npc: { id: 'guild', name: 'Elena', title: 'Recepcionista da Guilda', female: true, hair: 'ponytail', hairColor: '#3a2a1a', top: '#f4f0e8', skirt: '#8a2a2a', accent: '#d8b050' } },
 };
@@ -169,7 +171,19 @@ function buildHallFront(world, root, key, spec, hs) {
     g.add(lamp);
     add(new THREE.BoxGeometry(0.06, 0.06, 0.5), T('#2e3036'), s * 1.5, 2.85, fz + 0.25);
   }
-  if (key === 'guild') {
+  if (key === 'smith' || key === 'agil') {
+    // barril com espadas (Lisbeth) ou caixotes e sacos (Agil) na calçada
+    for (const s of [-1, 1]) {
+      const bx = s * (hs.w / 2 - 1.1);
+      if (key === 'smith') {
+        add(new THREE.CylinderGeometry(0.42, 0.42, 0.85, 16), T('#6a4428'), bx, 0.43, fz + 0.75);
+        for (let i = 0; i < 3; i++) { const sw = add(new THREE.BoxGeometry(0.05, 1.1, 0.012), T('#d8dde4'), bx - 0.15 + i * 0.15, 1.2, fz + 0.75); sw.rotation.z = (i - 1) * 0.15; }
+      } else {
+        add(new THREE.BoxGeometry(0.8, 0.6, 0.6), T('#a0703a'), bx, 0.3, fz + 0.7);
+        add(new THREE.SphereGeometry(0.32, 10, 8), T('#d8c8a0'), bx + s * 0.1, 0.85, fz + 0.7);
+      }
+    }
+  } else if (key === 'guild') {
     // estandartes vermelhos com o brasão dourado dos dois lados da porta
     for (const s of [-1, 1]) {
       const ban = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 4.2), T(spec.color, { side: THREE.DoubleSide }));

@@ -871,7 +871,7 @@ export class UI {
       return `<label class="muted">Aparece: <select data-npcp="${id}">${o('always', 'Sempre')}${o('sometimes', 'Às vezes')}${o('never', 'Nunca')}</select></label>`;
     };
     // elenco do anime + lojistas da cidade (Grimm, Mira, Kiko, Gorm, Teo, Elena, Hana)
-    const shopkeepers = Object.values(SHOPS).map((s) => [s.npc.id, { name: s.npc.name, title: `${s.npc.title} · ${s.title}` }]).concat([['inn', { name: 'Hana', title: 'Pousada do Sino Dourado' }]]);
+    const shopkeepers = Object.values(SHOPS).filter((s) => s.npc).map((s) => [s.npc.id, { name: s.npc.name, title: `${s.npc.title} · ${s.title}` }]).concat([['inn', { name: 'Hana', title: 'Pousada do Sino Dourado' }]]);
     const cards = [...Object.entries(CAST), ...shopkeepers].map(([id, c]) => {
       const key = local.personagens[id], h = npcHeight(id), npc = g.npcs.byId(id), here = !!npc && !npc.hall;
       return `<div class="npccard">

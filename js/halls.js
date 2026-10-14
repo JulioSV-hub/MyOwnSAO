@@ -6,6 +6,9 @@ import { toonMat } from './toon.js';
 import { signTexture, SHOPS } from './shops.js';
 import { randomTownsfolk } from './characters.js';
 import { mulberry32 } from './rng.js';
+import { buildSword, buildShield, buildArmor, buildPiece, buildItem } from './gear3d.js';
+import { weaponDef, armorDef, pieceDef } from './data.js';
+import { CAST } from './characters.js';
 
 const mats = new Map();
 const T = (c, o) => { const k = c + JSON.stringify(o || {}); if (!mats.has(k)) mats.set(k, toonMat(c, o)); return mats.get(k); };
@@ -50,6 +53,8 @@ function stones(base = '#8a8072') {
 export const HALLS = {
   tavern: { base: new THREE.Vector3(0, 700, 0), w: 22, d: 16, h: 6.2 },
   guild: { base: new THREE.Vector3(0, 800, 0), w: 30, d: 24, h: 10 },
+  smith: { base: new THREE.Vector3(0, 900, 0), w: 15, d: 11, h: 5.2 },
+  agil: { base: new THREE.Vector3(0, 1000, 0), w: 15, d: 11, h: 5.2 },
 };
 
 const TAVERN_LINES = [
@@ -222,6 +227,82 @@ export class Halls {
       add(M(new THREE.SphereGeometry(0.5, 16, 12), T('#e0b040'), -3, h - 2, -d / 2 + 0.3)).scale.set(1.5, 1, 0.4);
       const sign = M(new THREE.PlaneGeometry(4.4, 1.1), new THREE.MeshBasicMaterial({ map: signTexture(SHOPS.tavern.sign, SHOPS.tavern.color2, SHOPS.tavern.color) }), -3, h - 0.9, -d / 2 + 0.05);
       add(sign);
+    } else if (kind === 'smith' || kind === 'agil') {
+      // Loja como no anime: parede amarela com madeira aparente, piso de tábuas, armas penduradas e vitrines de vidro
+      const plasterM = T('#f0d890');
+      for (const [x, z, ry, len] of [[0, -d / 2 + 0.02, 0, w], [-w / 2 + 0.02, 0, Math.PI / 2, d], [w / 2 - 0.02, 0, -Math.PI / 2, d]]) { const pl = M(new THREE.PlaneGeometry(len, h), plasterM, x, h / 2, z); pl.rotation.y = ry; add(pl); }
+      const bk = M(new THREE.PlaneGeometry(w, h), plasterM, 0, h / 2, d / 2 - 0.02); bk.rotation.y = Math.PI; add(bk);
+      for (let x = -w / 2 + 0.15; x <= w / 2; x += w / 4) add(M(new THREE.BoxGeometry(0.28, h, 0.22), beam, x, h / 2, -d / 2 + 0.12));
+      for (const sx of [-1, 1]) for (let z = -d / 2 + 0.15; z <= d / 2; z += d / 3) add(M(new THREE.BoxGeometry(0.22, h, 0.28), beam, sx * (w / 2 - 0.12), h / 2, z));
+      add(M(new THREE.BoxGeometry(w, 0.2, 0.2), beam, 0, 3.4, -d / 2 + 0.12));
+      add(M(new THREE.BoxGeometry(w, 0.5, 0.06), T('#8a5a36'), 0, 0.25, -d / 2 + 0.05));
+      // porta em arco no fundo (decoração) e janelas laterais
+      add(M(new THREE.ExtrudeGeometry((() => { const sh = new THREE.Shape(); sh.moveTo(-0.7, 0); sh.lineTo(0.7, 0); sh.lineTo(0.7, 1.7); sh.absarc(0, 1.7, 0.7, 0, Math.PI, false); sh.lineTo(-0.7, 0); return sh; })(), { depth: 0.08, bevelEnabled: false }), T('#8a3a24'), -w / 2 + 2.2, 0, -d / 2 + 0.06));
+      const dispW = (def, x, y, z, rz = Math.PI / 2, ry = 0, sc = 1) => { const o = buildSword(def).group; o.scale.setScalar(sc); o.position.set(x, y, z); o.rotation.set(0, ry, rz); add(o); return o; };
+      const glassMat = new THREE.MeshStandardMaterial({ color: '#dff4ff', transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.1, depthWrite: false });
+      const vitrine = (x, z, ry, items) => {
+        const v = new THREE.Group();
+        v.position.set(x, 0, z);
+        v.rotation.y = ry;
+        v.add(M(new THREE.BoxGeometry(2.6, 0.75, 1.0), wood, 0, 0.38, 0), M(new THREE.BoxGeometry(2.7, 0.06, 1.1), dark, 0, 0.78, 0));
+        v.add(M(new THREE.BoxGeometry(2.5, 0.42, 0.9), glassMat, 0, 1.02, 0));
+        items(v);
+        add(v);
+        R.colliders.push({ x: S.base.x + x, z: S.base.z + z, hw: ry ? 0.6 : 1.4, hd: ry ? 1.4 : 0.6 });
+      };
+      if (kind === 'smith') {
+        // armas na parede do fundo (como na loja da Lisbeth no anime)
+        const wall = ['rare_50', 'rare_55', 'lw_katana_8', 'cr_axe_12', 'rare_74', 'lw_rapier_10', 'cr_mace_9', 'cr_staff_15', 'rare_25', 'lw_broad_12'];
+        wall.forEach((id, i) => { const row = Math.floor(i / 5), col = i % 5; dispW(weaponDef(id), -w / 2 + 3.4 + col * 2.0, 1.9 + row * 1.0, -d / 2 + 0.22, Math.PI / 2 + (row ? 0.05 : -0.05), 0, 1.6); });
+        const sh = buildShield(weaponDef('cr_guard_20')).group; sh.scale.setScalar(2.6); sh.position.set(w / 2 - 1.6, 2.4, -d / 2 + 0.25); add(sh);
+        const hm = buildPiece(pieceDef('rp_head_30_2')).group; hm.scale.setScalar(2.0); hm.position.set(w / 2 - 1.6, 3.6, -d / 2 + 0.35); add(hm);
+        // armas em pé nas paredes laterais
+        ['gen_14', 'cr_dagger_18', 'lw_katana_20', 'cr_axe_25', 'gen_30'].forEach((id, i) => dispW(weaponDef(id), -w / 2 + 0.3, 0.6, -3 + i * 1.2, 0, Math.PI / 2, 1.1));
+        ['cr_rapier_22', 'gen_40', 'cr_mace_30', 'lw_broad_25'].forEach((id, i) => dispW(weaponDef(id), w / 2 - 0.3, 0.6, -2 + i * 1.2, 0, -Math.PI / 2, 1.1));
+        // vitrines com armas deitadas
+        const lay = (ids) => (v) => ids.forEach((id, i) => { const o = buildSword(weaponDef(id)).group; o.scale.setScalar(0.75); o.position.set(-0.75 + i * 0.75, 0.84, 0); o.rotation.set(-Math.PI / 2, 0, 0.2); v.add(o); });
+        vitrine(0, 0.6, 0, lay(['rare_40', 'lw_rapier_16', 'cr_dagger_30']));
+        vitrine(-w / 2 + 1.6, 1.8, Math.PI / 2, lay(['gen_22', 'lw_katana_14', 'cr_axe_18']));
+        vitrine(w / 2 - 1.6, 1.8, Math.PI / 2, lay(['cr_staff_20', 'gen_35', 'cr_rapier_12']));
+        // bigorna e forja num canto
+        add(M(new THREE.BoxGeometry(0.9, 0.3, 0.4), T('#4a4a52'), w / 2 - 2.0, 0.85, -d / 2 + 2.0), M(new THREE.CylinderGeometry(0.18, 0.25, 0.7, 10), T('#6a4a32'), w / 2 - 2.0, 0.35, -d / 2 + 2.0));
+        box(w / 2 - 2.0, -d / 2 + 2.0, 0.5, 0.3);
+        fireplace(w / 2 - 0.5, -1.6, -Math.PI / 2);
+        box(w / 2 - 0.5, -1.6, 0.6, 1.4);
+        R.vendor = { x: -w / 2 + 2.2, z: -d / 2 + 1.0, yaw: Math.PI };
+      } else {
+        // Agil: armaduras nos manequins, escudos e elmos na parede, poções nas prateleiras, anéis e amuletos na vitrine
+        ['harm_30', 'arm_25', 'larm_28', 'rarm_42'].forEach((id, i) => {
+          const a = buildArmor(armorDef(id)).group; a.scale.setScalar(1.25); a.position.set(-w / 2 + 2.0 + i * 2.2, 1.55, -d / 2 + 1.0); add(a);
+          add(M(new THREE.CylinderGeometry(0.05, 0.05, 1.1, 8), dark, -w / 2 + 2.0 + i * 2.2, 0.55, -d / 2 + 1.0), M(new THREE.CylinderGeometry(0.35, 0.4, 0.08, 16), dark, -w / 2 + 2.0 + i * 2.2, 0.04, -d / 2 + 1.0));
+          circ(-w / 2 + 2.0 + i * 2.2, -d / 2 + 1.0, 0.45);
+        });
+        ['cr_guard_15', 'cr_guard_30'].forEach((id, i) => { const sh = buildShield(weaponDef(id)).group; sh.scale.setScalar(2.4); sh.position.set(w / 2 - 1.8 - i * 2.0, 2.6, -d / 2 + 0.25); add(sh); });
+        ['rp_head_25_1', 'p_head_30_3', 'p_hands_30_0', 'p_feet_30_2'].forEach((id, i) => { const pc = buildPiece(pieceDef(id)).group; pc.scale.setScalar(1.3); pc.position.set(-w / 2 + 0.45, 1.5 + (i % 2) * 0.8, -2 + Math.floor(i / 2) * 1.6); pc.rotation.y = Math.PI / 2; add(pc); });
+        add(M(new THREE.BoxGeometry(0.4, 0.06, 4.2), wood, -w / 2 + 0.3, 1.18, -1.2), M(new THREE.BoxGeometry(0.4, 0.06, 4.2), wood, -w / 2 + 0.3, 1.98, -1.2));
+        // prateleiras de poções na parede direita
+        const potions = ['potion', 'hipotion', 'heal_crystal', 'teleport_crystal', 'hipotion', 'potion'];
+        for (let row = 0; row < 3; row++) {
+          add(M(new THREE.BoxGeometry(0.45, 0.06, 4.6), wood, w / 2 - 0.3, 1.0 + row * 0.75, 0.6));
+          for (let i = 0; i < 6; i++) { const it = buildItem(potions[(i + row) % potions.length]).group; it.scale.setScalar(0.85); it.position.set(w / 2 - 0.35, 1.05 + row * 0.75, -1.4 + i * 0.75); add(it); }
+        }
+        const gems = (v) => ['rp_ring_30_1', 'p_amulet_30_0', 'rp_amulet_40_2', 'p_ring_25_3'].forEach((id, i) => { const pc = buildPiece(pieceDef(id)).group; pc.scale.setScalar(0.9); pc.position.set(-0.9 + i * 0.6, 0.86, 0); v.add(pc); });
+        vitrine(0, 0.8, 0, gems);
+        vitrine(-3.2, 2.6, 0, (v) => ['gen_20', 'cr_dagger_12', 'cr_mace_15'].forEach((id, i) => { const o = buildSword(weaponDef(id)).group; o.scale.setScalar(0.7); o.position.set(-0.75 + i * 0.75, 0.84, 0); o.rotation.set(-Math.PI / 2, 0, 0.2); v.add(o); }));
+        // balcão com balança, caixotes e sacos
+        add(M(new THREE.BoxGeometry(3.6, 1.1, 0.9), wood, 2.8, 0.55, -d / 2 + 3.2), M(new THREE.BoxGeometry(3.8, 0.08, 1.0), dark, 2.8, 1.12, -d / 2 + 3.2));
+        box(2.8, -d / 2 + 3.2, 1.9, 0.5);
+        add(M(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6), T('#c8a050'), 2.2, 1.4, -d / 2 + 3.2), M(new THREE.BoxGeometry(0.6, 0.03, 0.03), T('#c8a050'), 2.2, 1.65, -d / 2 + 3.2));
+        for (const sx of [-0.28, 0.28]) add(M(new THREE.CylinderGeometry(0.12, 0.08, 0.03, 12), T('#c8a050'), 2.2 + sx, 1.5, -d / 2 + 3.2));
+        for (let i = 0; i < 3; i++) { add(M(new THREE.BoxGeometry(0.7, 0.6, 0.7), T(i % 2 ? '#a0703a' : '#8a5a30'), 4.4 + (i % 2) * 0.8, 0.3 + (i === 2 ? 0.6 : 0), -d / 2 + 1.0)); }
+        box(4.8, -d / 2 + 1.0, 0.8, 0.4);
+        barrel(w / 2 - 1.0, d / 2 - 1.2); barrel(w / 2 - 2.0, d / 2 - 1.2);
+        R.vendor = { x: 2.8, z: -d / 2 + 2.2, yaw: Math.PI };
+      }
+      R.seats = []; R.standers = [];
+      chandelier(0, 0, 1.0);
+      add(M(new THREE.CylinderGeometry(1.6, 1.6, 0.02, 32), T('#a8584a'), 0, 0.01, 2.6));
+      for (const [x, z] of [[-w / 2 + 0.8, d / 2 - 0.8], [w / 2 - 0.8, -d / 2 + 0.8]]) { add(M(new THREE.CylinderGeometry(0.25, 0.18, 0.4, 12), T('#b8603a'), x, 0.2, z)); add(M(new THREE.SphereGeometry(0.35, 10, 8), T('#4a9a3a'), x, 0.7, z)); circ(x, z, 0.3); }
     } else {
       // Guilda: mesas compridas dos dois lados do corredor central, balcão da recepção no fundo e mezanino
       for (const tx of [-9.5, -4, 4, 9.5]) {
@@ -296,11 +377,15 @@ export class Halls {
   populate(add) {
     const n = this.game.floor.n;
     for (const kind of Object.keys(HALLS)) {
+      if (!this.game.world.hallSlots?.[kind]) continue;
       const R = this.room(kind), S = HALLS[kind], rand = mulberry32(this.game.floor.seed * 7 + kind.length);
       const opts = (o) => ({ fixed: true, noTurn: true, hall: { y: S.base.y + (o.y || 0) }, pose: o.pose, phase: o.phase ?? rand() * 6, yaw: o.yaw });
       const spec = SHOPS[kind];
-      const vendor = { ...randomTownsfolk(mulberry32(this.game.floor.seed + kind.length * 31), false), ...spec.npc };
-      add(vendor, S.base.x + R.vendor.x, S.base.z + R.vendor.z, { role: kind, fixed: true, yaw: R.vendor.yaw, hall: { y: S.base.y } });
+      const vendor = spec.cast ? CAST[spec.cast] : { ...randomTownsfolk(mulberry32(this.game.floor.seed + kind.length * 31), false), ...spec.npc };
+      const vp = new THREE.Vector3(S.base.x + R.vendor.x, S.base.y, S.base.z + R.vendor.z);
+      add(vendor, vp.x, vp.z, { role: spec.role || kind, fixed: true, yaw: R.vendor.yaw, hall: { y: S.base.y } });
+      if (kind === 'smith') this.game.world.lisbethSpot = { pos: vp, yaw: R.vendor.yaw };
+      if (kind === 'agil') this.game.world.agilSpot = { pos: vp, yaw: R.vendor.yaw };
       const lines = kind === 'guild' ? GUILD_LINES : TAVERN_LINES;
       for (const s of [...R.seats, ...R.standers]) {
         // nem todo lugar está ocupado — e muda a cada andar
