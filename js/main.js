@@ -772,6 +772,7 @@ class Game {
     this.combat.reset();
     this.combat.setVisible(false);
     if (this.bossFight) this.endBossFight(false);
+    this.loot.endFieldBossFight();
     this.mode = 'dead';
     this.ui.hint(null);
     // Hardcore: como no anime, a morte é permanente — o mundo é apagado e você recomeça do zero
@@ -1231,6 +1232,7 @@ class Game {
     }
     this.ui.closeMenu(false);
     if (this.bossFight) { this.endBossFight(false); this.ui.toast('Você fugiu da arena — o chefe recupera toda a vida.', 'warn'); }
+    if (this.loot.fbFight) { this.loot.endFieldBossFight(); this.ui.toast('Você fugiu do Chefe de Campo — ele volta ao marco e recupera a vida.', 'warn'); }
     Sfx.teleport();
     this.effects.ring(this.player.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), '#6fd0ff', 1.6, 0.6, 2);
     this.ui.fade(() => {

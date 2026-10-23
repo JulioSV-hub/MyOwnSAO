@@ -6,6 +6,7 @@ import { mulberry32 } from './rng.js';
 import { GATHER, ITEMS, MONSTERS, RUNES, RUNE_TIER_FLOOR, weaponDef, armorDef, runeDef, pieceDef, randomPiece, classWeapon } from './data.js';
 import { Sfx } from './audio.js';
 import { checkCompletion } from './completion.js';
+import { FB_RING } from './world.js';
 
 const CHESTS = 12, NODES = 50, REFILL = 3;
 const TIERS = {
@@ -253,6 +254,28 @@ export class Loot {
   // ─────────── Chefe de Campo ───────────
   fieldBossReady() { const fb = this.game.world?.fieldBoss; return !!fb && this.st.fb !== this.day; }
 
+  // a barreira se ergue quando o Chefe de Campo luta com você dentro do território dele
+  updateFieldBossRing(e) {
+    const g = this.game, w = g.world, pl = g.player;
+    const alive = !!e && !e.dead && g.enemies.list.includes(e);
+    if (this.fbFight) {
+      if (!alive || pl.dead || this.fbFight !== e) this.endFieldBossFight();
+      return;
+    }
+    const engaged = e.state === 'chase' || e.state === 'windup' || e.state === 'recover';
+    if (alive && engaged && !pl.dead && !g.indoor && Math.hypot(pl.pos.x - e.home.x, pl.pos.z - e.home.z) < FB_RING - 1) {
+      this.fbFight = e;
+      if (w.fbBarrier) { w.fbBarrier.position.set(e.home.x, w.groundAt(e.home.x, e.home.z) + 5, e.home.z); w.fbBarrier.visible = true; }
+      Sfx.roar();
+      g.ui.toast(`Uma barreira se ergueu! Derrote ${e.def.name} ou fuja com um Cristal de Teletransporte.`, 'warn');
+    }
+  }
+
+  endFieldBossFight() {
+    this.fbFight = null;
+    if (this.game.world?.fbBarrier) this.game.world.fbBarrier.visible = false;
+  }
+
   onFieldBoss(e) {
     const g = this.game;
     this.st.fb = this.day;
@@ -341,6 +364,7 @@ export class Loot {
         }
       }
     }
+    if (this.fbRef || this.fbFight) this.updateFieldBossRing(this.fbRef);
     for (const c of this.chests) {
       if (c.open > 0 && c.open < 1) { c.open = Math.min(1, c.open + dt * 2.5); c.lid.rotation.x = -1.9 * (1 - (1 - c.open) ** 3); }
       if (c.glow.visible) c.glow.material.opacity = 0.14 + Math.sin(t * 3 + c.i) * 0.06;

@@ -12,6 +12,7 @@ import { buildShops } from './shops.js';
 export const FLOOR_R = 230;
 export const TOWN_R = 58;
 export const ARENA_R = 24;
+export const FB_RING = 32; // raio da barreira do Chefe de Campo
 const ARENA_DIST = 165;
 const TOWER_GAP = 54;
 
@@ -1783,6 +1784,10 @@ export class World {
       const base = monDef(this.floor, id);
       const titles = ['o Devorador', 'o Tirano', 'o Imortal', 'Rei da Planície', 'o Guardião Antigo', 'a Fera Lendária'];
       this.fieldBoss = { id, pos: lm.pos.clone(), where: lm.name, def: { ...base, name: `${base.name}, ${titles[Math.floor(r() * titles.length)]}`, hp: (base.hp || 1) * 7, atk: (base.atk || 1) * 1.45, scale: (base.scale || 1) * 1.9, aggro: 22, speed: base.speed * 0.9, eye: '#ff2a2a' } };
+      // barreira que prende você e o Chefe de Campo durante a luta (como na arena do chefe do andar)
+      this.fbBarrier = new THREE.Mesh(new THREE.CylinderGeometry(FB_RING + 0.3, FB_RING + 0.3, 14, 72, 1, true), this.barrierMat);
+      this.fbBarrier.visible = false;
+      this.group.add(this.fbBarrier);
     }
   }
 
@@ -1937,7 +1942,7 @@ export class World {
     }
     if (this.palaceGlass) this.palaceGlass.emissiveIntensity = 0.3 + night * 1.6;
     if (this.forgeMat) { const f = 0.8 + Math.sin(t * 7) * 0.12 + Math.sin(t * 13) * 0.08; this.forgeMat.color.setRGB(2.2 * f, 0.9 * f, 0.25 * f); this.forgeLight.intensity = 12 * f; }
-    if (this.barrier.visible) this.barrierMat.uniforms.uTime.value = t;
+    if (this.barrier.visible || this.fbBarrier?.visible) this.barrierMat.uniforms.uTime.value = t;
     this.runeMat.opacity = 0.35 + Math.sin(t * 1.5) * 0.15;
   }
 

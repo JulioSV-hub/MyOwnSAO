@@ -1,6 +1,6 @@
 // Movimento em primeira pessoa: andar, correr, pular, esquivar (com invencibilidade) e câmera.
 import * as THREE from 'three';
-import { FLOOR_R, ARENA_R } from './world.js';
+import { FLOOR_R, ARENA_R, FB_RING } from './world.js';
 import { Sfx } from './audio.js';
 
 export class Player {
@@ -116,6 +116,11 @@ export class Player {
     if (g.bossFight) {
       const ax = this.pos.x - w.arenaPos.x, az = this.pos.z - w.arenaPos.z, da = Math.hypot(ax, az);
       if (da > ARENA_R - 1) { const k = (ARENA_R - 1) / da; this.pos.x = w.arenaPos.x + ax * k; this.pos.z = w.arenaPos.z + az * k; }
+    }
+    const fbe = g.loot?.fbFight;
+    if (fbe) {
+      const fx = this.pos.x - fbe.home.x, fz = this.pos.z - fbe.home.z, fd = Math.hypot(fx, fz);
+      if (fd > FB_RING - 1) { const k = (FB_RING - 1) / fd; this.pos.x = fbe.home.x + fx * k; this.pos.z = fbe.home.z + fz * k; }
     }
     const gy = ind ? ind.y : w.groundAt(this.pos.x, this.pos.z);
     if (this.pos.y <= gy || (wasGround && this.vel.y <= 0 && this.pos.y - gy < 0.45)) {

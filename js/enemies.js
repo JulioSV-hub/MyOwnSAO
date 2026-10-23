@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { buildMonster, buildWeapon } from './monsters.js';
 import { MONSTERS, monDef } from './data.js';
-import { FLOOR_R, TOWN_R, ARENA_R } from './world.js';
+import { FLOOR_R, TOWN_R, ARENA_R, FB_RING } from './world.js';
 import { Sfx } from './audio.js';
 import { hdr } from './effects.js';
 
@@ -138,6 +138,11 @@ export class Enemy {
     } else if (da < ARENA_R + 2) {
       const k = (ARENA_R + 2) / Math.max(da, 0.01); this.pos.x = w.arenaPos.x + ax * k; this.pos.z = w.arenaPos.z + az * k;
     }
+    // o Chefe de Campo nunca sai do território dele (o círculo da barreira)
+    if (this.fieldBoss) {
+      const hx = this.pos.x - this.home.x, hz = this.pos.z - this.home.z, hd = Math.hypot(hx, hz);
+      if (hd > FB_RING - 2) { const k = (FB_RING - 2) / hd; this.pos.x = this.home.x + hx * k; this.pos.z = this.home.z + hz * k; }
+    }
     const gy = w.groundAt(this.pos.x, this.pos.z);
     this.pos.y = gy + this.flyH + (this.flyH ? Math.sin(g.time * 2 + this.walk * 0.3) * 0.25 : 0);
 
@@ -164,6 +169,8 @@ export class Enemy {
     }
     // alvo: o jogador ou um companheiro do time que chamou a atenção do monstro
     if (this.tgtC && !this.tgtC.alive) this.tgtC = null;
+    // Chefe de Campo: esquece o companheiro que ficou fora do território
+    if (this.fieldBoss && this.tgtC && Math.hypot(this.tgtC.pos.x - this.home.x, this.tgtC.pos.z - this.home.z) > FB_RING) this.tgtC = null;
     const tc = this.tgtC;
     const tp = tc ? tc.pos : g.player.pos;
     if (tc) { dx = tp.x - this.pos.x; dz = tp.z - this.pos.z; dist = Math.hypot(dx, dz); pSafe = false; }
@@ -185,7 +192,15 @@ export class Enemy {
         }
         break;
       case 'chase': {
-        if (pSafe || Math.hypot(this.pos.x - this.home.x, this.pos.z - this.home.z) > 70) {
+        // Chefe de Campo: só desiste se você morrer ou ficar fora do território por 4s (nunca durante a barreira)
+        let leave;
+        if (this.fieldBoss) {
+          const out = g.loot.fbFight !== this && Math.hypot(g.player.pos.x - this.home.x, g.player.pos.z - this.home.z) > FB_RING + 4;
+          this.outT = out ? (this.outT || 0) + dt : 0;
+          leave = g.player.dead || this.outT > 4;
+        } else leave = pSafe || Math.hypot(this.pos.x - this.home.x, this.pos.z - this.home.z) > 70;
+        if (leave) {
+          this.outT = 0;
           this.tgtC = null;
           this.state = 'return';
           this.aggro = false;
